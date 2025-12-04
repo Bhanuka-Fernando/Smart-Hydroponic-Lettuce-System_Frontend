@@ -12,16 +12,16 @@ import { STORAGE_KEYS } from "./storageKeys";
 import {
   login as backendLogin,
   getCurrentUser,
+  googleLogin,
   type LoginRequest,
-} from "./authApi";
+} from "../api/authApi";
 
 export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // start as true while restoring
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Map backend user → AuthUser
   const mapBackendUserToAuthUser = (backendUser: {
     id: number;
     email: string;
@@ -34,7 +34,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     role: backendUser.is_admin ? "admin" : "farmer",
   });
 
-  // Restore tokens & user on app start
+  // Restore tokens & user on startup
   useEffect(() => {
     const restoreAuthState = async () => {
       try {
@@ -47,14 +47,12 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
         );
 
         if (!storedAccess || !storedRefresh) {
-          // no stored auth
           setUser(null);
           setAccessToken(null);
           setRefreshToken(null);
           return;
         }
 
-        // Validate token by calling /auth/me
         const backendUser = await getCurrentUser(storedAccess);
         const authUser = mapBackendUserToAuthUser(backendUser);
 
@@ -63,7 +61,6 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
         setRefreshToken(storedRefresh);
       } catch (err) {
         console.warn("Failed to restore auth state:", err);
-        // clear invalid tokens
         await AsyncStorage.multiRemove([
           STORAGE_KEYS.ACCESS_TOKEN,
           STORAGE_KEYS.REFRESH_TOKEN,
@@ -79,7 +76,11 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     restoreAuthState();
   }, []);
 
-  // Sign in using email/password (real backend)
+  const persistTokens = async (access: string, refresh: string) => {
+    await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, access);
+    await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refresh);
+  };
+
   const signInWithEmailPassword = useCallback(
     async (credentials: LoginRequest) => {
       setIsLoading(true);
@@ -91,21 +92,29 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
         setUser(authUser);
         setAccessToken(loginRes.access_token);
         setRefreshToken(loginRes.refresh_token);
-
-        await AsyncStorage.setItem(
-          STORAGE_KEYS.ACCESS_TOKEN,
-          loginRes.access_token
-        );
-        await AsyncStorage.setItem(
-          STORAGE_KEYS.REFRESH_TOKEN,
-          loginRes.refresh_token
-        );
+        await persistTokens(loginRes.access_token, loginRes.refresh_token);
       } finally {
         setIsLoading(false);
       }
     },
     []
   );
+
+  const signInWithGoogle = useCallback(async (idToken: string) => {
+    setIsLoading(true);
+    try {
+      const loginRes = await googleLogin({ id_token: idToken });
+      const backendUser = await getCurrentUser(loginRes.access_token);
+      const authUser = mapBackendUserToAuthUser(backendUser);
+
+      setUser(authUser);
+      setAccessToken(loginRes.access_token);
+      setRefreshToken(loginRes.refresh_token);
+      await persistTokens(loginRes.access_token, loginRes.refresh_token);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   const signOut = useCallback(async () => {
     setUser(null);
@@ -122,20 +131,11 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     accessToken,
     refreshToken,
     isLoading,
-
-    signIn: (_: {
-      user: AuthUser;
-      accessToken: string;
-      refreshToken: string | null;
-    }) => {
-      console.warn(
-        "Deprecated signIn called directly. Use signInWithEmailPassword from LoginScreen."
-      );
-    },
+    signInWithEmailPassword,
+    signInWithGoogle,
     signOut,
     setLoading: setIsLoading,
-    signInWithEmailPassword,
-  } as any; 
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
