@@ -1,26 +1,32 @@
 // src/screens/auth/LoginScreen.tsx
 import React, { useState } from "react";
-import { View, Text, TextInput, Button, StyleSheet } from "react-native";
+import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { useAuth } from "../../auth/useAuth";
 
 const LoginScreen: React.FC = () => {
-  const { signIn } = useAuth();
+  const { signInWithEmailPassword, isLoading } = useAuth();
   const [email, setEmail] = useState("farmer@example.com");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleLogin = () => {
-    // TODO: replace with real backend call
-    signIn({
-      user: {
-        id: "1",
-        name: "Demo Farmer",
-        email,
-        role: "farmer",
-      },
-      accessToken: "dummy-access-token",
-      refreshToken: "dummy-refresh-token",
-    });
+  const handleLogin = async () => {
+    if(!email || !password){
+        Alert.alert("Error", "Please enter both email and password.");
+        return;
+    }
+    try {
+        setSubmitting(true);
+        await signInWithEmailPassword({email, password});
+    } catch(err: any) {
+        console.error("Login error:", err?.response?.data || err?.message);
+        const message = err?.response?.data?.detail || "Login failed. Please check your credentials.";
+        Alert.alert("Login failed", message);
+    } finally {
+        setSubmitting(false);
+    }
   };
+
+  const loading = isLoading || submitting;
 
   return (
     <View style={styles.container}>
@@ -31,6 +37,7 @@ const LoginScreen: React.FC = () => {
         placeholder="Email"
         value={email}
         autoCapitalize="none"
+        keyboardType="email-address"
         onChangeText={setEmail}
       />
 
@@ -42,7 +49,11 @@ const LoginScreen: React.FC = () => {
         onChangeText={setPassword}
       />
 
-      <Button title="Login (dummy)" onPress={handleLogin} />
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 12 }} />
+      ) : (
+        <Button title="Login" onPress={handleLogin} />
+      )}
     </View>
   );
 };
