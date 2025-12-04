@@ -30,6 +30,20 @@ export interface BackendUser {
     is_admin: boolean;
 }
 
+export interface RegisterRequest {
+    email: string;
+    full_name: string;
+    password: string;
+}
+
+export interface RegisterResponse{
+    id: number;
+    email: string;
+    full_name: string;
+    is_active: boolean;
+    is_admin: boolean;
+}
+
 const client = axios.create({
     baseURL: API_BASE_URL,
     timeout: 10000,
@@ -54,4 +68,9 @@ export async function getCurrentUser(accessToken:string): Promise<BackendUser> {
 export async function refreshToken(data:RefreshRequest): Promise<RefreshResponse> {
     const res = await client.post<RefreshResponse>("/auth/refresh", data);
     return res.data;  
+}
+
+export async function registerUser(data:RegisterRequest):Promise<RegisterResponse> {
+    const res = await client.post<RegisterResponse>("/auth/register", data);
+    return res.data;
 }
