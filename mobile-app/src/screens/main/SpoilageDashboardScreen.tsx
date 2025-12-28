@@ -8,9 +8,15 @@ import {
   Pressable,
   FlatList,
   Image,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
+
+import { classifySpoilage, SpoilageStage } from "../../api/spoilageApi";
+import { useAuth } from "../../auth/useAuth";
 
 type PlantStatus = "Fresh" | "Monitoring" | "Warning" | "Critical";
 
@@ -27,22 +33,64 @@ const STATUS_COLOR: Record<PlantStatus, string> = {
   Critical: "#EF4444",
 };
 
+function stageToStatus(stage: SpoilageStage): PlantStatus {
+  switch (stage) {
+    case "fresh":
+      return "Fresh";
+    case "slightly_aged":
+      return "Monitoring";
+    case "near_spoilage":
+      return "Warning";
+    case "spoiled":
+      return "Critical";
+    default:
+      return "Monitoring";
+  }
+}
+
+// placeholder until remaining-days model
+function stageToDays(stage: SpoilageStage): number {
+  switch (stage) {
+    case "fresh":
+      return 7;
+    case "slightly_aged":
+      return 5;
+    case "near_spoilage":
+      return 2;
+    case "spoiled":
+      return 0;
+    default:
+      return 0;
+  }
+}
+
 export default function SpoilageDashboardScreen() {
   const insets = useSafeAreaInsets();
+
+  // ✅ hook must be INSIDE component
+  const { accessToken, isLoading } = useAuth();
+
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<PlantStatus | "All">("All");
 
-  const data: PlantItem[] = useMemo(
-    () => [
-      { id: "P-001", status: "Fresh", daysLeft: 7 },
-      { id: "P-020", status: "Monitoring", daysLeft: 5 },
-      { id: "P-050", status: "Warning", daysLeft: 2 },
-      { id: "P-060", status: "Critical", daysLeft: 1 },
-      { id: "P-051", status: "Warning", daysLeft: 2 },
-      { id: "P-052", status: "Warning", daysLeft: 2 },
-    ],
-    []
-  );
+  const [tempC] = useState<number>(24);
+  const [humidityPct] = useState<number>(60);
+
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [lastPred, setLastPred] = useState<{
+    plantId: string;
+    stage: SpoilageStage;
+    confidence: number;
+  } | null>(null);
+
+  const [data, setData] = useState<PlantItem[]>([
+    { id: "P-001", status: "Fresh", daysLeft: 7 },
+    { id: "P-020", status: "Monitoring", daysLeft: 5 },
+    { id: "P-050", status: "Warning", daysLeft: 2 },
+    { id: "P-060", status: "Critical", daysLeft: 1 },
+    { id: "P-051", status: "Warning", daysLeft: 2 },
+    { id: "P-052", status: "Warning", daysLeft: 2 },
+  ]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -65,9 +113,69 @@ export default function SpoilageDashboardScreen() {
 
   const globalAlert = counts.Warning + counts.Critical;
 
+  const pickImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Permission required", "Allow gallery access to select an image.");
+      return null;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 1,
+    });
+
+    if (result.canceled) return null;
+    return result.assets[0].uri;
+  };
+
+  const handlePredictForPlant = async (plantId: string) => {
+    if (loadingId) return;
+
+    // ✅ block if auth still restoring
+    if (isLoading) {
+      Alert.alert("Please wait", "Auth is still loading. Try again in a second.");
+      return;
+    }
+
+    // ✅ must have token
+    if (!accessToken) {
+      Alert.alert("Prediction failed", "No access token found. Please login again.");
+      return;
+    }
+
+    try {
+      setLoadingId(plantId);
+
+      const uri = await pickImage();
+      if (!uri) return;
+
+      // ✅ pass accessToken into API call
+      const res = await classifySpoilage(accessToken, uri, tempC, humidityPct);
+
+      const newStatus = stageToStatus(res.stage);
+      const newDays = stageToDays(res.stage);
+
+      setData((prev) =>
+        prev.map((p) =>
+          p.id === plantId ? { ...p, status: newStatus, daysLeft: newDays } : p
+        )
+      );
+
+      setLastPred({
+        plantId,
+        stage: res.stage,
+        confidence: res.confidence,
+      });
+    } catch (e: any) {
+      Alert.alert("Prediction failed", e?.message ?? "Unknown error");
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* GLOBAL ALERT BAR */}
       {globalAlert > 0 ? (
         <View style={styles.globalAlert}>
           <Text style={styles.globalAlertText}>
@@ -76,7 +184,6 @@ export default function SpoilageDashboardScreen() {
         </View>
       ) : null}
 
-      {/* HEADER */}
       <View style={styles.headerRow}>
         <View style={styles.brandRow}>
           <View style={styles.logoCircle}>
@@ -86,21 +193,29 @@ export default function SpoilageDashboardScreen() {
         </View>
       </View>
 
-      {/* METRICS */}
       <View style={styles.metricsRow}>
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Temperature</Text>
-          <Text style={styles.metricValue}>24°C</Text>
+          <Text style={styles.metricValue}>{tempC}°C</Text>
           <Text style={styles.metricSub}>Safe</Text>
         </View>
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Humidity</Text>
-          <Text style={styles.metricValue}>60%</Text>
+          <Text style={styles.metricValue}>{humidityPct}%</Text>
           <Text style={styles.metricSub}>Safe</Text>
         </View>
       </View>
 
-      {/* SEARCH */}
+      {lastPred ? (
+        <View style={styles.lastPredRow}>
+          <Ionicons name="analytics-outline" size={16} color="#111" />
+          <Text style={styles.lastPredText}>
+            Last: {lastPred.plantId} → {lastPred.stage} (
+            {(lastPred.confidence * 100).toFixed(2)}%)
+          </Text>
+        </View>
+      ) : null}
+
       <View style={styles.searchRow}>
         <Ionicons name="search" size={18} color="#6B7280" />
         <TextInput
@@ -115,31 +230,13 @@ export default function SpoilageDashboardScreen() {
         </Pressable>
       </View>
 
-      {/* FILTER CHIPS */}
       <View style={styles.chipsRow}>
-        <Chip
-          label={`All (${counts.All})`}
-          active={filter === "All"}
-          onPress={() => setFilter("All")}
-        />
-        <Chip
-          label={`Monitoring (${counts.Monitoring})`}
-          active={filter === "Monitoring"}
-          onPress={() => setFilter("Monitoring")}
-        />
-        <Chip
-          label={`Warning (${counts.Warning})`}
-          active={filter === "Warning"}
-          onPress={() => setFilter("Warning")}
-        />
-        <Chip
-          label={`Critical (${counts.Critical})`}
-          active={filter === "Critical"}
-          onPress={() => setFilter("Critical")}
-        />
+        <Chip label={`All (${counts.All})`} active={filter === "All"} onPress={() => setFilter("All")} />
+        <Chip label={`Monitoring (${counts.Monitoring})`} active={filter === "Monitoring"} onPress={() => setFilter("Monitoring")} />
+        <Chip label={`Warning (${counts.Warning})`} active={filter === "Warning"} onPress={() => setFilter("Warning")} />
+        <Chip label={`Critical (${counts.Critical})`} active={filter === "Critical"} onPress={() => setFilter("Critical")} />
       </View>
 
-      {/* GRID LIST */}
       <FlatList
         data={filtered}
         keyExtractor={(i) => i.id}
@@ -147,11 +244,20 @@ export default function SpoilageDashboardScreen() {
         columnWrapperStyle={{ gap: 12 }}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 18, gap: 12 }}
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.plantId}>{item.id}</Text>
+          <Pressable
+            onPress={() => handlePredictForPlant(item.id)}
+            style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}
+          >
+            <View style={styles.cardTopRow}>
+              <Text style={styles.plantId}>{item.id}</Text>
+              {loadingId === item.id ? (
+                <ActivityIndicator size="small" />
+              ) : (
+                <Ionicons name="camera-outline" size={18} color="#111" />
+              )}
+            </View>
 
             <View style={styles.thumbWrap}>
-              {/* replace with real plant image later */}
               <Image
                 source={{
                   uri: "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=200&q=60",
@@ -161,12 +267,7 @@ export default function SpoilageDashboardScreen() {
             </View>
 
             <View style={styles.statusRow}>
-              <View
-                style={[
-                  styles.statusPill,
-                  { backgroundColor: STATUS_COLOR[item.status] },
-                ]}
-              >
+              <View style={[styles.statusPill, { backgroundColor: STATUS_COLOR[item.status] }]}>
                 <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
               </View>
 
@@ -175,7 +276,9 @@ export default function SpoilageDashboardScreen() {
                 <Text style={styles.daysText}>{item.daysLeft} DAYS</Text>
               </View>
             </View>
-          </View>
+
+            <Text style={styles.tapHint}>Tap to select image & predict</Text>
+          </Pressable>
         )}
       />
     </View>
@@ -194,10 +297,7 @@ function Chip({
   return (
     <Pressable
       onPress={onPress}
-      style={[
-        styles.chip,
-        active ? styles.chipActive : styles.chipInactive,
-      ]}
+      style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}
     >
       <Text style={[styles.chipText, active && { color: "#fff" }]}>{label}</Text>
     </Pressable>
@@ -208,6 +308,7 @@ const BG = "#E8F7F1";
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
+
   globalAlert: {
     marginHorizontal: 16,
     marginTop: 10,
@@ -231,12 +332,7 @@ const styles = StyleSheet.create({
   },
   brand: { fontSize: 20, fontWeight: "900", color: "#0B0B0B" },
 
-  metricsRow: {
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
+  metricsRow: { flexDirection: "row", gap: 12, paddingHorizontal: 16, marginBottom: 10 },
   metricCard: {
     flex: 1,
     backgroundColor: "#FFFFFF",
@@ -248,6 +344,21 @@ const styles = StyleSheet.create({
   metricLabel: { color: "#6B7280", fontWeight: "700", fontSize: 12 },
   metricValue: { color: "#111", fontWeight: "900", fontSize: 18, marginTop: 4 },
   metricSub: { color: "#22C55E", fontWeight: "800", fontSize: 12, marginTop: 2 },
+
+  lastPredRow: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#D7EFE4",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  lastPredText: { color: "#111", fontWeight: "800", fontSize: 12 },
 
   searchRow: {
     marginHorizontal: 16,
@@ -284,23 +395,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#D7EFE4",
   },
-  plantId: { fontWeight: "900", color: "#111", marginBottom: 8 },
-  thumbWrap: {
-    borderRadius: 12,
-    overflow: "hidden",
-    height: 90,
-    backgroundColor: "#F3F4F6",
-  },
+  cardTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  plantId: { fontWeight: "900", color: "#111" },
+
+  thumbWrap: { borderRadius: 12, overflow: "hidden", height: 90, backgroundColor: "#F3F4F6" },
   thumb: { width: "100%", height: "100%" },
 
   statusRow: { marginTop: 10, gap: 8 },
-  statusPill: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
+  statusPill: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
   statusText: { color: "#fff", fontWeight: "900", fontSize: 11 },
   daysWrap: { flexDirection: "row", alignItems: "center", gap: 6 },
   daysText: { fontWeight: "900", color: "#111" },
+
+  tapHint: { marginTop: 10, color: "#6B7280", fontWeight: "700", fontSize: 11 },
 });
