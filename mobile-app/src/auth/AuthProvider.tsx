@@ -1,10 +1,4 @@
-// src/auth/AuthProvider.tsx
-import React, {
-  useState,
-  useCallback,
-  PropsWithChildren,
-  useEffect,
-} from "react";
+import React, { useState, useCallback, PropsWithChildren, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthContext } from "./AuthContext";
 import type { AuthUser } from "./types";
@@ -13,6 +7,7 @@ import {
   login as backendLogin,
   getCurrentUser,
   googleLogin,
+  refreshTokens,
   type LoginRequest,
 } from "../api/authApi";
 
@@ -34,46 +29,14 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     role: backendUser.is_admin ? "admin" : "farmer",
   });
 
-  // Restore tokens & user on startup
-  useEffect(() => {
-    const restoreAuthState = async () => {
-      try {
-        setIsLoading(true);
-        const storedAccess = await AsyncStorage.getItem(
-          STORAGE_KEYS.ACCESS_TOKEN
-        );
-        const storedRefresh = await AsyncStorage.getItem(
-          STORAGE_KEYS.REFRESH_TOKEN
-        );
-
-        if (!storedAccess || !storedRefresh) {
-          setUser(null);
-          setAccessToken(null);
-          setRefreshToken(null);
-          return;
-        }
-
-        const backendUser = await getCurrentUser(storedAccess);
-        const authUser = mapBackendUserToAuthUser(backendUser);
-
-        setUser(authUser);
-        setAccessToken(storedAccess);
-        setRefreshToken(storedRefresh);
-      } catch (err) {
-        console.warn("Failed to restore auth state:", err);
-        await AsyncStorage.multiRemove([
-          STORAGE_KEYS.ACCESS_TOKEN,
-          STORAGE_KEYS.REFRESH_TOKEN,
-        ]);
-        setUser(null);
-        setAccessToken(null);
-        setRefreshToken(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    restoreAuthState();
+  const clearAuthState = useCallback(async () => {
+    setUser(null);
+    setAccessToken(null);
+    setRefreshToken(null);
+    await AsyncStorage.multiRemove([
+      STORAGE_KEYS.ACCESS_TOKEN,
+      STORAGE_KEYS.REFRESH_TOKEN,
+    ]);
   }, []);
 
   const persistTokens = async (access: string, refresh: string) => {
@@ -81,24 +44,74 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refresh);
   };
 
-  const signInWithEmailPassword = useCallback(
-    async (credentials: LoginRequest) => {
-      setIsLoading(true);
+  // ✅ Restore tokens & user on startup, with refresh fallback
+  useEffect(() => {
+    const restoreAuthState = async () => {
       try {
-        const loginRes = await backendLogin(credentials);
-        const backendUser = await getCurrentUser(loginRes.access_token);
-        const authUser = mapBackendUserToAuthUser(backendUser);
+        setIsLoading(true);
 
-        setUser(authUser);
-        setAccessToken(loginRes.access_token);
-        setRefreshToken(loginRes.refresh_token);
-        await persistTokens(loginRes.access_token, loginRes.refresh_token);
+        const storedAccess = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+        const storedRefresh = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+
+        // ✅ No tokens -> logged out
+        if (!storedAccess || !storedRefresh) {
+          await clearAuthState();
+          return;
+        }
+
+        // Try /me with current access token
+        try {
+          const backendUser = await getCurrentUser(storedAccess);
+          const authUser = mapBackendUserToAuthUser(backendUser);
+
+          setUser(authUser);
+          setAccessToken(storedAccess);
+          setRefreshToken(storedRefresh);
+          return;
+        } catch {
+          // Access token might be expired. Try refresh.
+        }
+
+        // Refresh flow
+        try {
+          const refreshed = await refreshTokens({ refresh_token: storedRefresh });
+
+          const backendUser = await getCurrentUser(refreshed.access_token);
+          const authUser = mapBackendUserToAuthUser(backendUser);
+
+          setUser(authUser);
+          setAccessToken(refreshed.access_token);
+          setRefreshToken(refreshed.refresh_token);
+
+          await persistTokens(refreshed.access_token, refreshed.refresh_token);
+        } catch (err) {
+          // Refresh failed -> force logout
+          await clearAuthState();
+        }
       } finally {
         setIsLoading(false);
       }
-    },
-    []
-  );
+    };
+
+    restoreAuthState();
+  }, [clearAuthState]);
+
+  const signInWithEmailPassword = useCallback(async (credentials: LoginRequest) => {
+    setIsLoading(true);
+    try {
+      const loginRes = await backendLogin(credentials);
+      const backendUser = await getCurrentUser(loginRes.access_token);
+      const authUser = mapBackendUserToAuthUser(backendUser);
+
+      setUser(authUser);
+      setAccessToken(loginRes.access_token);
+      setRefreshToken(loginRes.refresh_token);
+
+      await persistTokens(loginRes.access_token, loginRes.refresh_token);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   const signInWithGoogle = useCallback(async (idToken: string) => {
     setIsLoading(true);
@@ -110,6 +123,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       setUser(authUser);
       setAccessToken(loginRes.access_token);
       setRefreshToken(loginRes.refresh_token);
+
       await persistTokens(loginRes.access_token, loginRes.refresh_token);
     } finally {
       setIsLoading(false);
@@ -117,14 +131,8 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
   }, []);
 
   const signOut = useCallback(async () => {
-    setUser(null);
-    setAccessToken(null);
-    setRefreshToken(null);
-    await AsyncStorage.multiRemove([
-      STORAGE_KEYS.ACCESS_TOKEN,
-      STORAGE_KEYS.REFRESH_TOKEN,
-    ]);
-  }, []);
+    await clearAuthState();
+  }, [clearAuthState]);
 
   const value = {
     user,

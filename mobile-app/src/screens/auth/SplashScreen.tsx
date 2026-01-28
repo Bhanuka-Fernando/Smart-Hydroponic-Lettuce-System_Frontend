@@ -1,12 +1,6 @@
-// src/screens/auth/SplashScreen.tsx
 import React, { useEffect } from "react";
-import {
-  SafeAreaView,
-  View,
-  Text,
-  StyleSheet,
-  Image,
-} from "react-native";
+import { View, Text, Image } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/AuthNavigator";
@@ -18,7 +12,6 @@ const SplashScreen: React.FC = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      // go to onboarding after short delay
       navigation.replace("Onboarding");
     }, 2000);
 
@@ -26,49 +19,22 @@ const SplashScreen: React.FC = () => {
   }, [navigation]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Logo centered */}
-        <View style={styles.logoWrapper}>
+    <SafeAreaView className="flex-1 bg-white">
+      <View className="flex-1 justify-between items-center py-12">
+        <View className="flex-1 justify-center">
           <Image
-            source={require("../../../assets/logo.png")} // keep your path
-            style={styles.logo}
+            source={require("../../../assets/logo.png")}
+            className="w-[180px] h-[180px]"
             resizeMode="contain"
           />
         </View>
 
-        {/* Tagline at bottom */}
-        <Text style={styles.tagline}>Cultivating Smarter Growth</Text>
+        <Text className="text-[13px] tracking-[0.3px] text-gray-900 mb-2">
+          Cultivating Smarter Growth
+        </Text>
       </View>
     </SafeAreaView>
   );
 };
 
 export default SplashScreen;
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  container: {
-    flex: 1,
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 48,
-  },
-  logoWrapper: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  logo: {
-    width: 180,
-    height: 180,
-  },
-  tagline: {
-    fontSize: 13,
-    letterSpacing: 0.3,
-    color: "#111827",
-    marginBottom: 8,
-  },
-});
