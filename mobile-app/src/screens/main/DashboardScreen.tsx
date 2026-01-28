@@ -79,7 +79,7 @@ export default function DashboardScreen() {
                     color="#0046AD"
                   />
                 }
-                onPress={() => go("Scan")}
+                onPress={() => go("WeightGrowth")}
               />
               <FeatureCard
                 title="Disease Detection"

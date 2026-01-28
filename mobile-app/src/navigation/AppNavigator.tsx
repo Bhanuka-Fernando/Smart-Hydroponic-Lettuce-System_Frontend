@@ -1,21 +1,42 @@
 import React from "react";
+import { View, Text } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import {View, Text} from "react-native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { NavigatorScreenParams } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
 import DashboardScreen from "../screens/main/DashboardScreen";
+import WeightGrowthScreen from "../screens/main/WeightGrowthScreen";
 import ScanScreen from "../screens/main/ScanScreen";
 import HistoryScreen from "../screens/main/HistoryScreen";
 import SettingsScreen from "../screens/main/SettingsScreen";
 
-export type AppTabParamList = {
-  Dashboard: undefined;
+
+export type DashboardStackParamList = {
+  DashboardHome: undefined;
+  WeightGrowth: undefined;
+};
+
+const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
+
+function DashboardStackNavigator() {
+  return (
+    <DashboardStack.Navigator screenOptions={{ headerShown: false }}>
+      <DashboardStack.Screen name="DashboardHome" component={DashboardScreen} />
+      <DashboardStack.Screen name="WeightGrowth" component={WeightGrowthScreen} />
+    </DashboardStack.Navigator>
+  );
+}
+
+/** 2) Bottom Tabs */
+export type TabParamList = {
+  Dashboard: NavigatorScreenParams<DashboardStackParamList>;
   Scan: undefined;
   History: undefined;
   Settings: undefined;
 };
 
-const Tab = createBottomTabNavigator<AppTabParamList>();
+const Tab = createBottomTabNavigator<TabParamList>();
 
 function TabIcon({
   focused,
@@ -25,8 +46,16 @@ function TabIcon({
   iconName: keyof typeof Ionicons.glyphMap;
 }) {
   return (
-    <View className={`w-12 h-12 rounded-2xl items-center justify-center ${focused ? "bg-[#DCEEFF]" : "bg-[#EEF2F7]"}`}>
-      <Ionicons name={iconName} size={22} color={focused ? "#0046AD" : "#64748B"} />
+    <View
+      className={`w-12 h-12 rounded-2xl items-center justify-center ${
+        focused ? "bg-[#DCEEFF]" : "bg-[#EEF2F7]"
+      }`}
+    >
+      <Ionicons
+        name={iconName}
+        size={22}
+        color={focused ? "#0046AD" : "#64748B"}
+      />
     </View>
   );
 }
@@ -35,10 +64,7 @@ export default function AppNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerShown: false, // only show "Dashboard" header if you want
-        headerTitleAlign: "center",
-        headerStyle: { backgroundColor: "white" },
-        headerShadowVisible: true,
+        headerShown: false,
 
         tabBarShowLabel: true,
         tabBarLabel: ({ focused }) => (
@@ -54,12 +80,11 @@ export default function AppNavigator() {
           </Text>
         ),
 
-        // Make the bar look like Figma (rounded container, elevated)
         tabBarStyle: {
           height: 100,
           paddingTop: 10,
-          paddingRight:14,
-          paddingLeft:14,
+          paddingRight: 14,
+          paddingLeft: 14,
           paddingBottom: 18,
           backgroundColor: "white",
           borderTopWidth: 0,
@@ -78,7 +103,11 @@ export default function AppNavigator() {
         },
       })}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: "Dashboard" }} />
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardStackNavigator}
+        options={{ title: "Dashboard" }}
+      />
       <Tab.Screen name="Scan" component={ScanScreen} options={{ title: "Scan" }} />
       <Tab.Screen name="History" component={HistoryScreen} options={{ title: "History" }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
