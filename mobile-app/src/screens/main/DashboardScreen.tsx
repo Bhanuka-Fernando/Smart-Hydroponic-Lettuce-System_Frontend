@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,10 +6,13 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  Modal,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { useAuth } from "../../auth/useAuth";
 
 function formatHeaderDate(d: Date) {
   const month = d.toLocaleString("en-US", { month: "short" });
@@ -21,6 +24,9 @@ export default function DashboardScreen() {
   const navigation = useNavigation<any>();
   const headerDate = useMemo(() => formatHeaderDate(new Date()), []);
 
+  const { user, signOut } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
+
   const go = (routeName: string) => {
     try {
       navigation.navigate(routeName);
@@ -29,30 +35,53 @@ export default function DashboardScreen() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      setProfileOpen(false);
+      await signOut();
+      // RootNavigator will automatically switch back to Auth screens
+    } catch {
+      Alert.alert("Logout failed", "Please try again.");
+    }
+  };
+
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
-    <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 }}>
-      <Text className="text-[13px] text-gray-500">{headerDate}</Text>
+      {/* HEADER (fixed) */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 }}>
+        <Text className="text-[13px] text-gray-500">{headerDate}</Text>
 
-      <View className="flex-row items-start justify-between mt-2">
-        <View>
-          <Text className="text-[28px] font-extrabold text-gray-900 leading-[34px]">
-            Good Morning,
-          </Text>
-          <Text className="text-[28px] font-extrabold text-[#0046AD] leading-[34px]">
-            Farmer
-          </Text>
-        </View>
+        <View className="flex-row items-start justify-between mt-2">
+          <View>
+            <Text className="text-[28px] font-extrabold text-gray-900 leading-[34px]">
+              Good Morning,
+            </Text>
+            <Text className="text-[28px] font-extrabold text-[#0046AD] leading-[34px]">
+              {user?.name ?? "Farmer"}
+            </Text>
+          </View>
 
-        <View className="relative mt-1">
-          <Image
-            source={{ uri: "https://i.pravatar.cc/100?img=12" }}
-            className="w-12 h-12 rounded-full"
-          />
-          <View className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-white" />
+          {/* Profile avatar (tap to open logout sheet) */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setProfileOpen(true)}
+            className="relative mt-1"
+          >
+            <Image
+              source={{ uri: "https://i.pravatar.cc/100?img=12" }}
+              className="w-12 h-12 rounded-full"
+            />
+            <View className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-white" />
+
+            {/* small gear badge */}
+            <View className="absolute -top-1 -left-1 w-6 h-6 rounded-full bg-white items-center justify-center shadow-sm">
+              <Ionicons name="person-outline" size={14} color="#0F172A" />
+            </View>
+          </TouchableOpacity>
         </View>
       </View>
-    </View>
+
+      {/* BODY */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
@@ -62,52 +91,42 @@ export default function DashboardScreen() {
           paddingBottom: 16,
         }}
       >
-        {/* Greeting Big Card */}
-          
-
-          {/* Feature 2x2 grid */}
-          <View className="mt-4 ">
-            <View className="flex-row justify-between ">
-              <FeatureCard
-                title="Weight & Growth"
-                subtitle="Forecasting & Estimation"
-                iconBg="bg-[#EAF4FF]"
-                icon={
-                  <MaterialCommunityIcons
-                    name="sprout"
-                    size={22}
-                    color="#0046AD"
-                  />
-                }
-                onPress={() => go("WeightGrowth")}
-              />
-              <FeatureCard
-                title="Disease Detection"
-                subtitle="Analyze Plant Health"
-                iconBg="bg-[#FFEAF2]"
-                icon={<Ionicons name="medkit-outline" size={22} color="#DB2777" />}
-                onPress={() => go("Scan")}
-              />
-            </View>
-
-            <View className="flex-row justify-between mt-3">
-              <FeatureCard
-                title="Spoilage Detection"
-                subtitle="Identify Crop Issues"
-                iconBg="bg-[#FFF6E5]"
-                icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
-                onPress={() => go("Scan")}
-              />
-              <FeatureCard
-                title="Water Quality"
-                subtitle="Monitor Sensor data"
-                iconBg="bg-[#E8F7FF]"
-                icon={<Ionicons name="water-outline" size={22} color="#0284C7" />}
-                onPress={() => go("Scan")}
-              />
-            </View>
+        {/* Feature 2x2 grid */}
+        <View className="mt-4">
+          <View className="flex-row justify-between">
+            <FeatureCard
+              title="Weight & Growth"
+              subtitle="Forecasting & Estimation"
+              iconBg="bg-[#EAF4FF]"
+              icon={<MaterialCommunityIcons name="sprout" size={22} color="#0046AD" />}
+              onPress={() => go("WeightGrowth")}
+            />
+            <FeatureCard
+              title="Disease Detection"
+              subtitle="Analyze Plant Health"
+              iconBg="bg-[#FFEAF2]"
+              icon={<Ionicons name="medkit-outline" size={22} color="#DB2777" />}
+              onPress={() => go("Scan")}
+            />
           </View>
-        
+
+          <View className="flex-row justify-between mt-3">
+            <FeatureCard
+              title="Spoilage Detection"
+              subtitle="Identify Crop Issues"
+              iconBg="bg-[#FFF6E5]"
+              icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
+              onPress={() => go("Scan")}
+            />
+            <FeatureCard
+              title="Water Quality"
+              subtitle="Monitor Sensor data"
+              iconBg="bg-[#E8F7FF]"
+              icon={<Ionicons name="water-outline" size={22} color="#0284C7" />}
+              onPress={() => go("Scan")}
+            />
+          </View>
+        </View>
 
         {/* Quick Actions */}
         <Text className="text-[20px] font-extrabold text-gray-900 mt-7 mb-4">
@@ -119,13 +138,7 @@ export default function DashboardScreen() {
             top="Estimate"
             bottom="Weight"
             iconBg="bg-[#EAF4FF]"
-            icon={
-              <MaterialCommunityIcons
-                name="scale-bathroom"
-                size={20}
-                color="#0046AD"
-              />
-            }
+            icon={<MaterialCommunityIcons name="scale-bathroom" size={20} color="#0046AD" />}
             onPress={() => go("Scan")}
           />
           <QuickAction
@@ -227,9 +240,61 @@ export default function DashboardScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-
-        
       </ScrollView>
+
+      {/* ✅ Profile Bottom Sheet Modal */}
+      <Modal
+        visible={profileOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setProfileOpen(false)}
+      >
+        {/* Backdrop */}
+        <Pressable className="flex-1 bg-black/40" onPress={() => setProfileOpen(false)} />
+
+        {/* Sheet */}
+        <View className="bg-white rounded-t-3xl px-5 pt-4 pb-6">
+          {/* Grab handle */}
+          <View className="w-12 h-1.5 bg-gray-200 rounded-full self-center mb-4" />
+
+          <View className="flex-row items-center">
+            <Image
+              source={{ uri: "https://i.pravatar.cc/100?img=12" }}
+              className="w-12 h-12 rounded-full"
+            />
+            <View className="ml-3 flex-1">
+              <Text className="text-[16px] font-extrabold text-gray-900">
+                {user?.name ?? "Farmer"}
+              </Text>
+              <Text className="text-[12px] text-gray-500 mt-0.5">
+                {user?.email ?? "farmer@example.com"}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setProfileOpen(false)}
+              className="w-9 h-9 rounded-full bg-[#F3F4F6] items-center justify-center"
+              activeOpacity={0.85}
+            >
+              <Ionicons name="close" size={18} color="#0F172A" />
+            </TouchableOpacity>
+          </View>
+
+          <View className="h-px bg-gray-100 my-4" />
+
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={handleLogout}
+            className="h-[52px] rounded-2xl bg-[#EF4444] items-center justify-center"
+          >
+            <View className="flex-row items-center">
+              <Ionicons name="log-out-outline" size={18} color="white" />
+              <Text className="text-white text-[14px] font-extrabold ml-2">
+                Log out
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -253,11 +318,9 @@ function FeatureCard({
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.85}
-      className="bg-[white] rounded-[18px] p-4 w-[48%]"
+      className="bg-white rounded-[18px] p-4 w-[48%]"
     >
-      <View
-        className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}
-      >
+      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
         {icon}
       </View>
 
@@ -288,9 +351,7 @@ function QuickAction({
       activeOpacity={0.85}
       className="bg-white rounded-[18px] w-[23%] pt-4 pb-3 items-center shadow-sm"
     >
-      <View
-        className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}
-      >
+      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
         {icon}
       </View>
 
@@ -329,9 +390,7 @@ function NotificationCard({
         <View className={`w-1.5 ${leftBar}`} />
         <View className="flex-1 px-4 py-4">
           <View className="flex-row items-center">
-            <View
-              className={`w-10 h-10 rounded-[14px] ${iconBg} items-center justify-center mr-3`}
-            >
+            <View className={`w-10 h-10 rounded-[14px] ${iconBg} items-center justify-center mr-3`}>
               <Feather name={iconName} size={18} color={iconColor} />
             </View>
 
@@ -367,9 +426,7 @@ function ActivityRow({
 }) {
   return (
     <View className="flex-row items-center px-4 py-4">
-      <View
-        className={`w-10 h-10 rounded-full ${iconBg} items-center justify-center mr-3`}
-      >
+      <View className={`w-10 h-10 rounded-full ${iconBg} items-center justify-center mr-3`}>
         {icon}
       </View>
 
