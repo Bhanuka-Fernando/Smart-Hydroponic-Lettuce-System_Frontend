@@ -4,23 +4,18 @@ import {
   View,
   Text,
   TextInput,
-  StyleSheet,
   ActivityIndicator,
   Alert,
   TouchableOpacity,
-  SafeAreaView,
   Image,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AuthStackParamList } from "../../navigation/AuthNavigator";
 import { registerUser } from "../../api/authApi";
 import { useAuth } from "../../auth/useAuth";
-import { Ionicons } from "@expo/vector-icons";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
-
-const PRIMARY_BLUE = "#0046AD";
-const LIGHT_GRAY = "#F3F5FA";
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const { signInWithEmailPassword } = useAuth();
@@ -50,7 +45,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       setSubmitting(true);
 
       // Backend currently expects: email, full_name, password
-      // Add phone here later if your API supports it.
+      // Add phone later if your API supports it.
       await registerUser({
         email,
         full_name: fullName,
@@ -58,12 +53,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       });
 
       await signInWithEmailPassword({ email, password });
-      // RootNavigator will switch to AppNavigator
     } catch (err: any) {
       console.error("Register error:", err?.response?.data || err?.message);
-      const message =
-        err?.response?.data?.detail ||
-        "Registration failed. Please try again.";
+      const message = err?.response?.data?.detail || "Registration failed. Please try again.";
       Alert.alert("Registration failed", message);
     } finally {
       setSubmitting(false);
@@ -71,26 +63,29 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+    <SafeAreaView className="flex-1 bg-white">
+      <View className="flex-1 px-6 pt-4">
         {/* Logo */}
-        <View style={styles.logoWrapper}>
-          {/* change to your actual logo path if different */}
+        <View className="items-center mt-2 mb-4">
           <Image
             source={require("../../../assets/logo.png")}
-            style={styles.logo}
+            className="w-20 h-20"
             resizeMode="contain"
           />
         </View>
 
         {/* Title + subtitle */}
-        <Text style={styles.title}>Create Your Account</Text>
-        <Text style={styles.subtitle}>Start your journey with us !</Text>
+        <Text className="text-[24px] font-bold text-center mb-1 text-gray-900">
+          Create Your Account
+        </Text>
+        <Text className="text-[13px] text-center text-gray-500 mb-6">
+          Start your journey with us !
+        </Text>
 
         {/* Inputs */}
-        <View style={styles.inputWrapper}>
+        <View className="bg-lightgray rounded-[10px] h-[52px] px-4 justify-center mb-3">
           <TextInput
-            style={styles.input}
+            className="text-[14px] text-gray-900"
             placeholder="Full Name"
             placeholderTextColor="#9FA6B2"
             value={fullName}
@@ -98,9 +93,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           />
         </View>
 
-        <View style={styles.inputWrapper}>
+        <View className="bg-lightgray rounded-[10px] h-[52px] px-4 justify-center mb-3">
           <TextInput
-            style={styles.input}
+            className="text-[14px] text-gray-900"
             placeholder="Email Address"
             placeholderTextColor="#9FA6B2"
             value={email}
@@ -110,9 +105,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           />
         </View>
 
-        <View style={styles.inputWrapper}>
+        <View className="bg-lightgray rounded-[10px] h-[52px] px-4 justify-center mb-3">
           <TextInput
-            style={styles.input}
+            className="text-[14px] text-gray-900"
             placeholder="Phone Number"
             placeholderTextColor="#9FA6B2"
             value={phone}
@@ -121,9 +116,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           />
         </View>
 
-        <View style={styles.inputWrapper}>
+        <View className="bg-lightgray rounded-[10px] h-[52px] px-4 justify-center mb-3">
           <TextInput
-            style={styles.input}
+            className="text-[14px] text-gray-900"
             placeholder="Password"
             placeholderTextColor="#9FA6B2"
             value={password}
@@ -132,9 +127,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           />
         </View>
 
-        <View style={styles.inputWrapper}>
+        <View className="bg-lightgray rounded-[10px] h-[52px] px-4 justify-center mb-3">
           <TextInput
-            style={styles.input}
+            className="text-[14px] text-gray-900"
             placeholder="Re-enter Password"
             placeholderTextColor="#9FA6B2"
             value={confirmPassword}
@@ -145,25 +140,26 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Create account button */}
         <TouchableOpacity
-          style={[
-            styles.primaryButton,
-            submitting && styles.primaryButtonDisabled,
-          ]}
+          className={`h-[52px] rounded-[10px] bg-primary items-center justify-center mt-4 ${
+            submitting ? "opacity-70" : ""
+          }`}
           onPress={handleRegister}
           disabled={submitting}
         >
           {submitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.primaryButtonText}>Create Account</Text>
+            <Text className="text-white text-[16px] font-semibold">
+              Create Account
+            </Text>
           )}
         </TouchableOpacity>
 
         {/* Bottom link */}
-        <View style={styles.bottomRow}>
-          <Text style={styles.bottomText}>Already have an account? </Text>
+        <View className="flex-row justify-center mt-6">
+          <Text className="text-[13px] text-gray-500">Already have an account? </Text>
           <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-            <Text style={styles.bottomLink}>Sign In</Text>
+            <Text className="text-[13px] text-primary font-semibold">Sign In</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -172,84 +168,3 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 export default RegisterScreen;
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 16,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  logoWrapper: {
-    alignItems: "center",
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  logo: {
-    width: 80,
-    height: 80,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 4,
-    color: "#111827",
-  },
-  subtitle: {
-    fontSize: 13,
-    textAlign: "center",
-    color: "#6B7280",
-    marginBottom: 24,
-  },
-  inputWrapper: {
-    backgroundColor: LIGHT_GRAY,
-    borderRadius: 10,
-    height: 52,
-    paddingHorizontal: 16,
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  input: {
-    fontSize: 14,
-    color: "#111827",
-  },
-  primaryButton: {
-    height: 52,
-    borderRadius: 10,
-    backgroundColor: PRIMARY_BLUE,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 16,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.7,
-  },
-  primaryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  bottomRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 24,
-  },
-  bottomText: {
-    fontSize: 13,
-    color: "#6B7280",
-  },
-  bottomLink: {
-    fontSize: 13,
-    color: PRIMARY_BLUE,
-    fontWeight: "600",
-  },
-});

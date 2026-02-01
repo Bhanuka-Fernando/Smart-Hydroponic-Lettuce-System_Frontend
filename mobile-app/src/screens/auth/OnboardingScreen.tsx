@@ -1,58 +1,48 @@
-// src/screens/auth/OnboardingScreen.tsx
 import React from "react";
-import {
-  SafeAreaView,
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-} from "react-native";
+import { View, Text, Image, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AuthStackParamList } from "../../navigation/AuthNavigator";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Onboarding">;
 
-const PRIMARY_BLUE = "#0046AD";
-const LIGHT_GRAY = "#F3F5FA";
-
 const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+    <SafeAreaView className="flex-1 bg-white">
+      <View className="flex-1 px-6 pt-4">
         {/* Logo */}
-        <View style={styles.logoWrapper}>
+        <View className="items-center mt-2 mb-3">
           <Image
-            source={require("../../../assets/logo.png")} // update path if needed
-            style={styles.logo}
+            source={require("../../../assets/logo.png")}
+            className="w-16 h-16"
             resizeMode="contain"
           />
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Welcome to</Text>
-        <Text style={styles.titleAccent}>Asia Plantation</Text>
+        <Text className="text-[22px] font-bold text-center text-gray-900">
+          Welcome to
+        </Text>
+        <Text className="text-[22px] font-bold text-center text-gray-900 mb-3">
+          Asia Plantation
+        </Text>
 
         {/* Subtitle */}
-        <Text style={styles.subtitle}>
+        <Text className="text-[13px] text-center text-gray-500 mb-5 leading-[18px]">
           Your smart solution for Hydroponic farm management. Monitor Growth,
           Detect issues and ensure quality with ease
         </Text>
 
         {/* Feature cards */}
-        <View style={styles.featuresContainer}>
+        <View className="mb-6">
           <FeatureCard
-            icon={
-              <Ionicons name="analytics-outline" size={22} color={PRIMARY_BLUE} />
-            }
+            icon={<Ionicons name="analytics-outline" size={22} color="#0046AD" />}
             title="Monitor Growth"
             subtitle="Track key metrics in real-time."
           />
           <FeatureCard
-            icon={
-              <Ionicons name="alert-circle-outline" size={22} color={PRIMARY_BLUE} />
-            }
+            icon={<Ionicons name="alert-circle-outline" size={22} color="#0046AD" />}
             title="Detect Deficiencies"
             subtitle="Get early alerts for plant health."
           />
@@ -61,39 +51,35 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
               <MaterialCommunityIcons
                 name="check-decagram-outline"
                 size={22}
-                color={PRIMARY_BLUE}
+                color="#0046AD"
               />
             }
             title="Assess Quality"
             subtitle="Ensure your harvest meets standards."
           />
           <FeatureCard
-            icon={
-              <MaterialCommunityIcons
-                name="scale-bathroom"
-                size={22}
-                color={PRIMARY_BLUE}
-              />
-            }
+            icon={<MaterialCommunityIcons name="scale-bathroom" size={22} color="#0046AD" />}
             title="Weight Estimation"
             subtitle="Ensure weights of the plants at harvest."
           />
         </View>
 
         {/* Buttons */}
-        <View style={styles.buttonGroup}>
+        <View className="mt-2">
           <TouchableOpacity
-            style={styles.primaryButton}
+            className="h-[52px] rounded-[10px] bg-primary items-center justify-center mb-3"
             onPress={() => navigation.navigate("Register")}
           >
-            <Text style={styles.primaryButtonText}>Create an Account</Text>
+            <Text className="text-white text-[15px] font-semibold">
+              Create an Account
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.secondaryButton}
+            className="h-[52px] rounded-[10px] bg-gray-200 items-center justify-center"
             onPress={() => navigation.navigate("Login")}
           >
-            <Text style={styles.secondaryButtonText}>Log In</Text>
+            <Text className="text-gray-900 text-[15px] font-semibold">Log In</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -109,117 +95,18 @@ type FeatureCardProps = {
 
 const FeatureCard: React.FC<FeatureCardProps> = ({ icon, title, subtitle }) => {
   return (
-    <View style={styles.featureCard}>
-      <View style={styles.featureIconWrapper}>{icon}</View>
-      <View style={styles.featureTextWrapper}>
-        <Text style={styles.featureTitle}>{title}</Text>
-        <Text style={styles.featureSubtitle}>{subtitle}</Text>
+    <View className="flex-row items-center bg-lightgray rounded-xl px-4 py-3 mb-3">
+      <View className="w-9 h-9 rounded-full bg-[#E5EDF8] items-center justify-center mr-3">
+        {icon}
+      </View>
+      <View className="flex-1">
+        <Text className="text-[14px] font-semibold text-gray-900 mb-0.5">
+          {title}
+        </Text>
+        <Text className="text-[11px] text-gray-500">{subtitle}</Text>
       </View>
     </View>
   );
 };
 
 export default OnboardingScreen;
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 16,
-  },
-  logoWrapper: {
-    alignItems: "center",
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  logo: {
-    width: 64,
-    height: 64,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "700",
-    textAlign: "center",
-    color: "#111827",
-  },
-  titleAccent: {
-    fontSize: 22,
-    fontWeight: "700",
-    textAlign: "center",
-    color: "#111827",
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 13,
-    textAlign: "center",
-    color: "#6B7280",
-    marginBottom: 20,
-    lineHeight: 18,
-  },
-  featuresContainer: {
-    marginBottom: 24,
-  },
-  featureCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: LIGHT_GRAY,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 10,
-  },
-  featureIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#E5EDF8",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  featureTextWrapper: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-    marginBottom: 2,
-  },
-  featureSubtitle: {
-    fontSize: 11,
-    color: "#6B7280",
-  },
-  buttonGroup: {
-    marginTop: 10,
-  },
-  primaryButton: {
-    height: 52,
-    borderRadius: 10,
-    backgroundColor: PRIMARY_BLUE,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  primaryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  secondaryButton: {
-    height: 52,
-    borderRadius: 10,
-    backgroundColor: "#E5E7EB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  secondaryButtonText: {
-    color: "#111827",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-});

@@ -16,9 +16,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const RootNavigator: React.FC = () => {
   const { user, isLoading } = useAuth();
 
-  if (isLoading) {
-    return <SplashScreen />;
-  }
+  if (isLoading) return <SplashScreen />;
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>

@@ -1,30 +1,25 @@
-// src/screens/auth/LoginScreen.tsx
 import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
-  StyleSheet,
   ActivityIndicator,
   Alert,
   TouchableOpacity,
-  SafeAreaView,
   Image,
 } from "react-native";
 import { useAuth } from "../../auth/useAuth";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { AuthStackParamList } from "../../navigation/AuthNavigator";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
 import { Ionicons } from "@expo/vector-icons";
 import { AntDesign } from "@expo/vector-icons";
 
-import {
-  GOOGLE_WEB_CLIENT_ID,
-  GOOGLE_REDIRECT_URI,
-} from "../../config/googleAuth";
+import { GOOGLE_WEB_CLIENT_ID, GOOGLE_REDIRECT_URI } from "../../config/googleAuth";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -39,7 +34,6 @@ const LoginScreen: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // ---------- GOOGLE AUTH (Web client + Expo proxy) ----------
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest(
     {
       clientId: GOOGLE_WEB_CLIENT_ID,
@@ -54,8 +48,7 @@ const LoginScreen: React.FC = () => {
 
       if (response.type === "success") {
         try {
-          const idToken =
-            (response.params as any)?.id_token as string | undefined;
+          const idToken = (response.params as any)?.id_token as string | undefined;
 
           if (!idToken) {
             Alert.alert("Google login failed", "No ID token received.");
@@ -64,13 +57,8 @@ const LoginScreen: React.FC = () => {
 
           await signInWithGoogle(idToken);
         } catch (err: any) {
-          console.error(
-            "Google login error:",
-            err?.response?.data || err?.message
-          );
-          const message =
-            err?.response?.data?.detail ||
-            "Google login failed. Please try again.";
+          console.error("Google login error:", err?.response?.data || err?.message);
+          const message = err?.response?.data?.detail || "Google login failed. Please try again.";
           Alert.alert("Google login failed", message);
         }
       } else if (response.type === "error") {
@@ -81,7 +69,6 @@ const LoginScreen: React.FC = () => {
     handleGoogleResponse();
   }, [response, signInWithGoogle]);
 
-  // ---------- EMAIL/PASSWORD LOGIN ----------
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("Error", "Please enter both email and password.");
@@ -106,30 +93,29 @@ const LoginScreen: React.FC = () => {
   const loading = isLoading || submitting;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        
-
+    <SafeAreaView className="flex-1 bg-white">
+      <View className="flex-1 px-6 pt-4">
         {/* Logo */}
-        <View style={styles.logoWrapper}>
-          {/* change source to your real logo */}
+        <View className="items-center mt-2 mb-4">
           <Image
             source={require("../../../assets/logo.png")}
-            style={styles.logo}
+            className="w-20 h-20"
             resizeMode="contain"
           />
         </View>
 
         {/* Title + subtitle */}
-        <Text style={styles.title}>Login</Text>
-        <Text style={styles.subtitle}>
+        <Text className="text-[26px] font-bold text-center mb-1 text-gray-900">
+          Login
+        </Text>
+        <Text className="text-[13px] text-center text-gray-500 mb-6">
           Welcome back! Please enter your details
         </Text>
 
         {/* Email input */}
-        <View style={styles.inputWrapper}>
+        <View className="flex-row items-center bg-lightgray rounded-[10px] px-4 h-[52px] mb-3">
           <TextInput
-            style={styles.input}
+            className="flex-1 text-[14px] text-gray-900"
             placeholder="Email Address"
             placeholderTextColor="#9FA6B2"
             value={email}
@@ -139,10 +125,10 @@ const LoginScreen: React.FC = () => {
           />
         </View>
 
-        {/* Password input with eye icon */}
-        <View style={styles.inputWrapper}>
+        {/* Password input */}
+        <View className="flex-row items-center bg-lightgray rounded-[10px] px-4 h-[52px] mb-3">
           <TextInput
-            style={styles.input}
+            className="flex-1 text-[14px] text-gray-900"
             placeholder="Password"
             placeholderTextColor="#9FA6B2"
             value={password}
@@ -151,7 +137,7 @@ const LoginScreen: React.FC = () => {
           />
           <TouchableOpacity
             onPress={() => setShowPassword((prev) => !prev)}
-            style={styles.eyeButton}
+            className="ml-2"
           >
             <Ionicons
               name={showPassword ? "eye-off-outline" : "eye-outline"}
@@ -163,47 +149,53 @@ const LoginScreen: React.FC = () => {
 
         {/* Forgot password */}
         <TouchableOpacity
-          style={styles.forgotWrapper}
+          className="items-end mb-5"
           onPress={() => Alert.alert("Forgot Password", "Not implemented yet.")}
         >
-          <Text style={styles.forgotText}>Forgot Password ?</Text>
+          <Text className="text-[13px] text-primary font-semibold">
+            Forgot Password ?
+          </Text>
         </TouchableOpacity>
 
         {/* Login button */}
         <TouchableOpacity
-          style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
+          className={`h-[52px] rounded-[10px] bg-primary items-center justify-center mb-6 ${
+            loading ? "opacity-70" : ""
+          }`}
           onPress={handleLogin}
           disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.primaryButtonText}>Login</Text>
+            <Text className="text-white text-[16px] font-semibold">Login</Text>
           )}
         </TouchableOpacity>
 
         {/* Divider */}
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>Or Continue with</Text>
-          <View style={styles.dividerLine} />
+        <View className="flex-row items-center mb-4">
+          <View className="flex-1 h-px bg-gray-200" />
+          <Text className="mx-2 text-[12px] text-gray-400">Or Continue with</Text>
+          <View className="flex-1 h-px bg-gray-200" />
         </View>
 
         {/* Google button */}
         <TouchableOpacity
-          style={styles.googleButton}
+          className="flex-row items-center justify-center bg-gray-200 rounded-[10px] h-[52px] mb-6"
           onPress={() => promptAsync({ useProxy: true } as any)}
           disabled={!request}
         >
           <AntDesign name="google" size={20} color="#DB4437" />
-          <Text style={styles.googleButtonText}>Google</Text>
+          <Text className="ml-2 text-[15px] font-medium text-gray-900">
+            Google
+          </Text>
         </TouchableOpacity>
 
         {/* Bottom sign up text */}
-        <View style={styles.bottomRow}>
-          <Text style={styles.bottomText}>Don&apos;t have an account? </Text>
+        <View className="flex-row justify-center mt-auto mb-3">
+          <Text className="text-[13px] text-gray-500">Don&apos;t have an account? </Text>
           <TouchableOpacity onPress={() => navigation.navigate("Register")}>
-            <Text style={styles.bottomLink}>Sign up</Text>
+            <Text className="text-[13px] text-primary font-semibold">Sign up</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -212,132 +204,3 @@ const LoginScreen: React.FC = () => {
 };
 
 export default LoginScreen;
-
-const PRIMARY_BLUE = "#0046AD";
-const LIGHT_GRAY = "#F3F5FA";
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 16,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  logoWrapper: {
-    alignItems: "center",
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  logo: {
-    width: 80,
-    height: 80,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 4,
-    color: "#111827",
-  },
-  subtitle: {
-    fontSize: 13,
-    textAlign: "center",
-    color: "#6B7280",
-    marginBottom: 24,
-  },
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: LIGHT_GRAY,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    height: 52,
-    marginBottom: 12,
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    color: "#111827",
-  },
-  eyeButton: {
-    marginLeft: 8,
-  },
-  forgotWrapper: {
-    alignItems: "flex-end",
-    marginBottom: 20,
-  },
-  forgotText: {
-    fontSize: 13,
-    color: PRIMARY_BLUE,
-    fontWeight: "600",
-  },
-  primaryButton: {
-    height: 52,
-    borderRadius: 10,
-    backgroundColor: PRIMARY_BLUE,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.7,
-  },
-  primaryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#E5E7EB",
-  },
-  dividerText: {
-    marginHorizontal: 8,
-    fontSize: 12,
-    color: "#9CA3AF",
-  },
-  googleButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#E5E7EB",
-    borderRadius: 10,
-    height: 52,
-    marginBottom: 24,
-  },
-  googleButtonText: {
-    marginLeft: 8,
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#111827",
-  },
-  bottomRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: "auto",
-    marginBottom: 12,
-  },
-  bottomText: {
-    fontSize: 13,
-    color: "#6B7280",
-  },
-  bottomLink: {
-    fontSize: 13,
-    color: PRIMARY_BLUE,
-    fontWeight: "600",
-  },
-});
