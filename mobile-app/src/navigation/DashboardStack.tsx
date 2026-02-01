@@ -1,9 +1,8 @@
-// src/navigation/DashboardStack.tsx
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import DashboardScreen from "../screens/main/DashboardScreen";
-import SpoilageDashboardScreen from "../screens/main/SpoilageDashboardScreen";
+import SpoilageDetailsScreen from "../screens/spoilage/SpoilageDetailsScreen";
 
 export type DashboardStackParamList = {
   DashboardHome: undefined;
@@ -16,7 +15,7 @@ export default function DashboardStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="DashboardHome" component={DashboardScreen} />
-      <Stack.Screen name="SpoilageDashboard" component={SpoilageDashboardScreen} />
+      <Stack.Screen name="SpoilageDashboard" component={SpoilageDetailsScreen} />
     </Stack.Navigator>
   );
 }
