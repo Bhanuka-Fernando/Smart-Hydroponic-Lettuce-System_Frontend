@@ -9,6 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DashboardScreen from "../screens/main/DashboardScreen";
 import WeightGrowthScreen from "../screens/componentGrowth&Weight/WeightGrowthScreen";
 import ScheduleTimeSlotsScreen from "../screens/componentGrowth&Weight/ScheduleTimeSlotScreen";
+import EstimateWeightScanScreen from "../screens/componentGrowth&Weight/EstimateWeightScanScreen";
 
 import ScanScreen from "../screens/main/ScanScreen";
 import HistoryScreen from "../screens/main/HistoryScreen";
@@ -19,6 +20,7 @@ export type DashboardStackParamList = {
   DashboardHome: undefined;
   WeightGrowth: undefined;
   ScheduleTimeSlots: undefined;
+  EstimateWeightScan: undefined;
 };
 
 const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
@@ -29,6 +31,7 @@ function DashboardStackNavigator() {
       <DashboardStack.Screen name="DashboardHome" component={DashboardScreen} />
       <DashboardStack.Screen name="WeightGrowth" component={WeightGrowthScreen} />
       <DashboardStack.Screen name="ScheduleTimeSlots" component={ScheduleTimeSlotsScreen} />
+      <DashboardStack.Screen name="EstimateWeightScan" component={EstimateWeightScanScreen} />
     </DashboardStack.Navigator>
   );
 }

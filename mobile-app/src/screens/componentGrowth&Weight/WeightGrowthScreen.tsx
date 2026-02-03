@@ -339,7 +339,7 @@ export default function WeightGrowthScreen() {
             icon={<MaterialCommunityIcons name="scale-bathroom" size={20} color="#0046AD" />}
             labelTop="Estimate"
             labelBottom="Weight"
-            onPress={() => go("Scan")}
+            onPress={() => navigation.navigate("EstimateWeightScan")}
           />
           <ActionTile
             iconBg="bg-[#E9FBEF]"
