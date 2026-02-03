@@ -216,8 +216,8 @@ export default function WeightGrowthScreen() {
       >
 
         {/* Environment */}
-        <View className="flex-row items-center justify-between mt-5">
-          <Text className="text-[14px] font-extrabold text-gray-900">
+        <View className="flex-row items-center justify-between mt-1">
+          <Text className="text-[20px] font-extrabold text-gray-900 ">
             Environment
           </Text>
 
@@ -228,7 +228,7 @@ export default function WeightGrowthScreen() {
         </View>
 
         {/* Metrics 2x2 */}
-        <View className="mt-4">
+        <View className="mt-6">
           <View className="flex-row justify-between">
             <MetricCard
               iconBg="bg-[#FFEAF2]"
@@ -268,7 +268,7 @@ export default function WeightGrowthScreen() {
         </View>
 
         {/* Small actions row */}
-        <View className="flex-row items-center justify-between mt-4">
+        <View className="flex-row items-center justify-between mt-6">
           <SmallActionButton
             icon={<Ionicons name="sync-outline" size={16} color="#1D4ED8" />}
             label="Check for Updates"
@@ -281,12 +281,17 @@ export default function WeightGrowthScreen() {
           />
         </View>
 
-        {/* Scheduled time slots */}
-        <View className="bg-white rounded-[18px]  mt-5 p-4">
+        {/* Scheduled time slots (CLICKABLE) */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate("ScheduleTimeSlots")}
+          className="bg-white rounded-[18px] shadow-sm mt-5 p-4"
+        >
           <View className="flex-row items-center mb-3">
             <View className="w-10 h-10 rounded-[14px] bg-[#EEF2FF] items-center justify-center mr-3">
               <Ionicons name="calendar-outline" size={18} color="#1D4ED8" />
             </View>
+
             <View className="flex-1">
               <Text className="text-[14px] font-extrabold text-gray-900">
                 Scheduled Time Slots
@@ -295,6 +300,9 @@ export default function WeightGrowthScreen() {
                 Daily sensor logging
               </Text>
             </View>
+
+            {/* optional right arrow */}
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
           </View>
 
           <SlotRow
@@ -317,7 +325,8 @@ export default function WeightGrowthScreen() {
             value={evening}
             onChange={setEvening}
           />
-        </View>
+        </TouchableOpacity>
+
 
         {/* Actions */}
         <Text className="text-[14px] font-extrabold text-gray-900 mt-6 mb-3">

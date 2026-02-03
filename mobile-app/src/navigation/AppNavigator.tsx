@@ -1,3 +1,4 @@
+// src/navigation/AppNavigator.tsx
 import React from "react";
 import { View, Text } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -6,15 +7,18 @@ import { NavigatorScreenParams } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
 import DashboardScreen from "../screens/main/DashboardScreen";
-import WeightGrowthScreen from "../screens/main/WeightGrowthScreen";
+import WeightGrowthScreen from "../screens/componentGrowth&Weight/WeightGrowthScreen";
+import ScheduleTimeSlotsScreen from "../screens/componentGrowth&Weight/ScheduleTimeSlotScreen";
+
 import ScanScreen from "../screens/main/ScanScreen";
 import HistoryScreen from "../screens/main/HistoryScreen";
 import SettingsScreen from "../screens/main/SettingsScreen";
 
-
+/** 1) Dashboard stack (Dashboard -> WeightGrowth) */
 export type DashboardStackParamList = {
   DashboardHome: undefined;
   WeightGrowth: undefined;
+  ScheduleTimeSlots: undefined;
 };
 
 const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
@@ -24,11 +28,12 @@ function DashboardStackNavigator() {
     <DashboardStack.Navigator screenOptions={{ headerShown: false }}>
       <DashboardStack.Screen name="DashboardHome" component={DashboardScreen} />
       <DashboardStack.Screen name="WeightGrowth" component={WeightGrowthScreen} />
+      <DashboardStack.Screen name="ScheduleTimeSlots" component={ScheduleTimeSlotsScreen} />
     </DashboardStack.Navigator>
   );
 }
 
-/** 2) Bottom Tabs */
+/** 2) Tabs */
 export type TabParamList = {
   Dashboard: NavigatorScreenParams<DashboardStackParamList>;
   Scan: undefined;
@@ -60,7 +65,7 @@ function TabIcon({
   );
 }
 
-export default function AppNavigator() {
+function TabsNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -98,7 +103,6 @@ export default function AppNavigator() {
             History: "time-outline",
             Settings: "settings-outline",
           };
-
           return <TabIcon focused={focused} iconName={iconMap[route.name]} />;
         },
       })}
@@ -112,5 +116,28 @@ export default function AppNavigator() {
       <Tab.Screen name="History" component={HistoryScreen} options={{ title: "History" }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
     </Tab.Navigator>
+  );
+}
+
+/** 3) Root App stack (Tabs + full-screen pages above tabs) */
+export type AppStackParamList = {
+  Tabs: undefined;
+  ScheduleTimeSlots: undefined;
+};
+
+const AppStack = createNativeStackNavigator<AppStackParamList>();
+
+export default function AppNavigator() {
+  return (
+    <AppStack.Navigator screenOptions={{ headerShown: false }}>
+      {/* Tabs always here */}
+      <AppStack.Screen name="Tabs" component={TabsNavigator} />
+
+      {/* Opens ABOVE tabs (tabs hidden automatically) */}
+      <AppStack.Screen
+        name="ScheduleTimeSlots"
+        component={ScheduleTimeSlotsScreen}
+      />
+    </AppStack.Navigator>
   );
 }
