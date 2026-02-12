@@ -39,6 +39,7 @@ function TipCard({
   );
 }
 
+
 export default function EstimateWeightScanScreen() {
   const navigation = useNavigation<any>();
 
@@ -46,6 +47,25 @@ export default function EstimateWeightScanScreen() {
   const [analyzing, setAnalyzing] = useState(false);
 
   const canAnalyze = useMemo(() => !!image && !analyzing, [image, analyzing]);
+
+  const goToResults = () => {
+  if (!image?.uri) {
+    Alert.alert("No image", "Please upload or capture an image first.");
+    return;
+  }
+
+  navigation.navigate("EstimateWeightResults", {
+    imageUri: image.uri,
+    accuracy: 87,
+    biomassG: 345,
+    leafAreaCm2: 64,
+    leafDiameterCm: 12,
+    plantId: "Plant #01",
+    plantAgeDays: 24,
+    capturedAtISO: new Date().toISOString(),
+  });
+};
+
 
   const pickFromGallery = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -245,15 +265,19 @@ export default function EstimateWeightScanScreen() {
         {/* Bottom button */}
         <View className="px-4 pb-4 bg-[#F4F6FA]">
             <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => Alert.alert("Results", "Create a Results screen next.")}
-            className="bg-[#003B8F] rounded-[16px] py-4 items-center justify-center flex-row"
+              activeOpacity={0.9}
+              onPress={goToResults}
+              disabled={!image?.uri}
+              className={`rounded-[16px] py-4 items-center justify-center flex-row ${
+                image?.uri ? "bg-[#003B8F]" : "bg-[#C7D2E5]"
+              }`}
             >
-            <Ionicons name="bar-chart-outline" size={18} color="#FFFFFF" />
-            <Text className="ml-2 text-[12px] font-extrabold text-white">
+              <Ionicons name="bar-chart-outline" size={18} color="#FFFFFF" />
+              <Text className="ml-2 text-[12px] font-extrabold text-white">
                 Check for Results
-            </Text>
+              </Text>
             </TouchableOpacity>
+
         </View>
 
       </ScrollView>

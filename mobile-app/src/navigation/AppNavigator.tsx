@@ -10,17 +10,60 @@ import DashboardScreen from "../screens/main/DashboardScreen";
 import WeightGrowthScreen from "../screens/componentGrowth&Weight/WeightGrowthScreen";
 import ScheduleTimeSlotsScreen from "../screens/componentGrowth&Weight/ScheduleTimeSlotScreen";
 import EstimateWeightScanScreen from "../screens/componentGrowth&Weight/EstimateWeightScanScreen";
+import EstimateWeightResultsScreen from "../screens/componentGrowth&Weight/EstimateWeightResultsScreen";
+import GrowthForecastingScreen from "../screens/componentGrowth&Weight/GrowthForecastingScreen";
+import GrowthPredictionResultsScreen from "../screens/componentGrowth&Weight/GrowthPredictionResultsScreen";
+import PlantListsScreen from "../screens/componentGrowth&Weight/PlantListsScreen";
+import PlantDetailsScreen from "../screens/componentGrowth&Weight/PlantDetailsScreen";
+
+
 
 import ScanScreen from "../screens/main/ScanScreen";
 import HistoryScreen from "../screens/main/HistoryScreen";
 import SettingsScreen from "../screens/main/SettingsScreen";
 
-/** 1) Dashboard stack (Dashboard -> WeightGrowth) */
+/** 1) Dashboard stack (keeps bottom tabs visible while pushing screens) */
 export type DashboardStackParamList = {
   DashboardHome: undefined;
   WeightGrowth: undefined;
   ScheduleTimeSlots: undefined;
   EstimateWeightScan: undefined;
+  GrowthForecasting: undefined;
+  PlantLists: undefined;
+
+
+  // ✅ ADD THIS
+  EstimateWeightResults: {
+    imageUri: string;
+    accuracy?: number;
+    biomassG?: number;
+    leafAreaCm2?: number;
+    leafDiameterCm?: number;
+    plantId?: string;
+    plantAgeDays?: number;
+    capturedAtISO?: string;
+  };
+
+  GrowthPredictionResults: {
+    dateLabel?: string;
+    predictedWeight?: number;
+    predictedArea?: number;
+    predictedDiameter?: number;
+    changePct?: number;
+  };
+
+  PlantDetails: {
+  plant: {
+    id: string;
+    name: string;
+    plantedOn?: string;
+    ageDays: number;
+    startWeightG: number;
+    currentWeightG: number;
+  };
+};
+
+
 };
 
 const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
@@ -32,6 +75,19 @@ function DashboardStackNavigator() {
       <DashboardStack.Screen name="WeightGrowth" component={WeightGrowthScreen} />
       <DashboardStack.Screen name="ScheduleTimeSlots" component={ScheduleTimeSlotsScreen} />
       <DashboardStack.Screen name="EstimateWeightScan" component={EstimateWeightScanScreen} />
+      <DashboardStack.Screen name="GrowthForecasting" component={GrowthForecastingScreen} />
+      <DashboardStack.Screen name="GrowthPredictionResults" component={GrowthPredictionResultsScreen} />
+      <DashboardStack.Screen name="PlantLists" component={PlantListsScreen} />
+      <DashboardStack.Screen name="PlantDetails" component={PlantDetailsScreen} />
+
+
+
+
+      {/* ✅ ADD THIS */}
+      <DashboardStack.Screen
+        name="EstimateWeightResults"
+        component={EstimateWeightResultsScreen}
+      />
     </DashboardStack.Navigator>
   );
 }
@@ -110,37 +166,15 @@ function TabsNavigator() {
         },
       })}
     >
-      <Tab.Screen
-        name="Dashboard"
-        component={DashboardStackNavigator}
-        options={{ title: "Dashboard" }}
-      />
-      <Tab.Screen name="Scan" component={ScanScreen} options={{ title: "Scan" }} />
-      <Tab.Screen name="History" component={HistoryScreen} options={{ title: "History" }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
+      <Tab.Screen name="Dashboard" component={DashboardStackNavigator} />
+      <Tab.Screen name="Scan" component={ScanScreen} />
+      <Tab.Screen name="History" component={HistoryScreen} />
+      <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
 }
 
-/** 3) Root App stack (Tabs + full-screen pages above tabs) */
-export type AppStackParamList = {
-  Tabs: undefined;
-  ScheduleTimeSlots: undefined;
-};
-
-const AppStack = createNativeStackNavigator<AppStackParamList>();
-
+/** ✅ 3) AppNavigator should be Tabs only (no duplicate AppStack) */
 export default function AppNavigator() {
-  return (
-    <AppStack.Navigator screenOptions={{ headerShown: false }}>
-      {/* Tabs always here */}
-      <AppStack.Screen name="Tabs" component={TabsNavigator} />
-
-      {/* Opens ABOVE tabs (tabs hidden automatically) */}
-      <AppStack.Screen
-        name="ScheduleTimeSlots"
-        component={ScheduleTimeSlotsScreen}
-      />
-    </AppStack.Navigator>
-  );
+  return <TabsNavigator />;
 }

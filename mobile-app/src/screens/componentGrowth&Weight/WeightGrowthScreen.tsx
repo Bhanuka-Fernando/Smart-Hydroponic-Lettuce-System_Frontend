@@ -12,6 +12,8 @@ import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
+import { H1, H2, Body, Label } from "../../components/ui/AppText";
+
 function formatHeaderDate(d: Date) {
   const month = d.toLocaleString("en-US", { month: "short" });
   const day = String(d.getDate()).padStart(2, "0");
@@ -190,7 +192,7 @@ export default function WeightGrowthScreen() {
         <Text className="text-[13px] text-gray-500">{headerDate}</Text>
         <View className="flex-row items-start justify-between mt-2">
           <View className="flex-1 pr-3">
-            <Text className="text-[25px] font-extrabold text-[#000000] leading-[34px]">
+            <Text className="H1 text-gray-900">
               WEIGHT ESTIMATION & GROWTH FORECAST
             </Text>
           </View>
@@ -346,14 +348,14 @@ export default function WeightGrowthScreen() {
             icon={<Ionicons name="analytics-outline" size={20} color="#16A34A" />}
             labelTop="Monitor"
             labelBottom="Growth"
-            onPress={() => {}}
+            onPress={() => navigation.navigate("GrowthForecasting")}
           />
           <ActionTile
             iconBg="bg-[#FFEAF2]"
             icon={<Ionicons name="leaf-outline" size={20} color="#DB2777" />}
             labelTop="Plant"
             labelBottom="Lists"
-            onPress={() => {}}
+            onPress={() => navigation.navigate("PlantLists")}
           />
         </View>
       </ScrollView>
