@@ -1,8 +1,11 @@
-import React, { useMemo } from "react";
-import { View, Text, TouchableOpacity, Image, ScrollView, Alert } from "react-native";
+import React, { useMemo, useState } from "react";
+import { View, Text, TouchableOpacity, Image, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
+
+import { useAuth } from "../../auth/useAuth";
+import { saveWeightResult } from "../../api/weightApi";
 
 type RouteParams = {
   imageUri: string;
@@ -13,6 +16,7 @@ type RouteParams = {
   plantId?: string;
   plantAgeDays?: number;
   capturedAtISO?: string;
+  rawPayload?: any; // ✅ added
 };
 
 function formatCapturedLabel(iso?: string) {
@@ -54,16 +58,18 @@ function MiniStatCard({
 export default function EstimateWeightResultsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const { accessToken } = useAuth();
 
   const params: RouteParams = route.params || {};
+  const [saving, setSaving] = useState(false);
 
   const computed = useMemo(() => {
-    const accuracy = params.accuracy ?? 87;
-    const biomassG = params.biomassG ?? 345;
-    const leafAreaCm2 = params.leafAreaCm2 ?? 64;
-    const leafDiameterCm = params.leafDiameterCm ?? 12;
-    const plantId = params.plantId ?? "Plant #01";
-    const plantAgeDays = params.plantAgeDays ?? 24;
+    const accuracy = params.accuracy ?? 0;
+    const biomassG = params.biomassG ?? 0;
+    const leafAreaCm2 = params.leafAreaCm2 ?? 0;
+    const leafDiameterCm = params.leafDiameterCm ?? 0;
+    const plantId = params.plantId ?? "Plant";
+    const plantAgeDays = params.plantAgeDays ?? 0;
     const capturedAtISO = params.capturedAtISO ?? new Date().toISOString();
     const capturedLabel = formatCapturedLabel(capturedAtISO);
 
@@ -75,13 +81,39 @@ export default function EstimateWeightResultsScreen() {
       plantId,
       plantAgeDays,
       capturedLabel,
+      capturedAtISO,
     };
   }, [params]);
 
-  const onSave = () => {
-    // TODO: connect backend + store in Growth Log/History
-    Alert.alert("Saved", "Saved to Growth Log (demo).");
-    navigation.goBack();
+  const onSave = async () => {
+    if (!params.rawPayload) {
+      Alert.alert("Missing data", "No backend payload found to save.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const payload = {
+        plant_id: params.rawPayload.plant_id ?? params.plantId,
+        captured_at: params.rawPayload.captured_at ?? computed.capturedAtISO,
+        accuracy: params.rawPayload.accuracy,
+        biomass_g: params.rawPayload.biomass_g,
+        leaf_area_cm2: params.rawPayload.leaf_area_cm2,
+        leaf_diameter_cm: params.rawPayload.leaf_diameter_cm,
+        mask_url: params.rawPayload.mask_url,
+        image_url: params.rawPayload.image_url,
+      };
+
+      await saveWeightResult({ token: accessToken, payload });
+
+      Alert.alert("Saved", "Saved to Growth Log.");
+      navigation.goBack();
+    } catch (e: any) {
+      Alert.alert("Save failed", e?.message || "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const onNewScan = () => {
@@ -180,12 +212,21 @@ export default function EstimateWeightResultsScreen() {
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={onSave}
-          className="mt-5 bg-[#003B8F] rounded-[16px] py-4 items-center justify-center flex-row"
+          disabled={saving}
+          className={`mt-5 rounded-[16px] py-4 items-center justify-center flex-row ${
+            saving ? "bg-[#C7D2E5]" : "bg-[#003B8F]"
+          }`}
         >
-          <Ionicons name="save-outline" size={18} color="#FFFFFF" />
-          <Text className="ml-2 text-[12px] font-extrabold text-white">
-            Save to Growth Log
-          </Text>
+          {saving ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="save-outline" size={18} color="#FFFFFF" />
+              <Text className="ml-2 text-[12px] font-extrabold text-white">
+                Save to Growth Log
+              </Text>
+            </>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
