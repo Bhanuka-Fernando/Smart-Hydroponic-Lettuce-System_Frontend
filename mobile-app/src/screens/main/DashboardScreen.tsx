@@ -96,7 +96,7 @@ export default function DashboardScreen() {
                 subtitle="Identify Crop Issues"
                 iconBg="bg-[#FFF6E5]"
                 icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
-                onPress={() => go("SpoilageDashboard")}
+                onPress={() => navigation.navigate("SpoilageDetails")}
               />
               <FeatureCard
                 title="Water Quality"
@@ -147,7 +147,7 @@ export default function DashboardScreen() {
             bottom="Check"
             iconBg="bg-[#FFF6E5]"
             icon={<Ionicons name="warning-outline" size={20} color="#F59E0B" />}
-            onPress={() => go("SpoilageDashboard")}
+            onPress={() => navigation.navigate("SpoilageDetails")}
           />
         </View>
 

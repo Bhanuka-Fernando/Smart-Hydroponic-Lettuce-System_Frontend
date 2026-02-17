@@ -10,6 +10,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../../navigation/RootNavigator";
 
 type StatusFilter = "All Status" | "Monitoring" | "Warning" | "Critical";
 
@@ -17,7 +19,7 @@ type PredictionItem = {
   id: string;
   plantId: string;
   shelfLifeDays: number;
-  stageLabel: string; // Fresh / Slightly Aged / Near Spoilage / Spoiled
+  stageLabel: string;
   actionText?: string;
   severity: "monitoring" | "warning" | "critical";
 };
@@ -26,9 +28,10 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-export default function SpoilageDetailsScreen() {
-  const navigation = useNavigation<any>();
+type Nav = NativeStackNavigationProp<RootStackParamList, "SpoilageDetails">;
 
+export default function SpoilageDetailsScreen() {
+  const navigation = useNavigation<Nav>();
   const [filter, setFilter] = useState<StatusFilter>("All Status");
 
   const currentLocation = "Farm A - Chiller 3";
@@ -96,12 +99,15 @@ export default function SpoilageDetailsScreen() {
     return predictions.filter((p) => p.severity === "critical");
   }, [filter, predictions]);
 
+  // ✅ Standalone module navigation
+  const openSpoilageScan = () => {
+    navigation.navigate("SpoilageScan");
+  };
+
+  // ✅ These routes don’t exist in your SpoilageNavigator.
+  // Keep as alerts until you add those screens to SpoilageNavigator.
   const go = (routeName: string) => {
-    try {
-      navigation.navigate(routeName);
-    } catch {
-      Alert.alert("Navigation", `Route not found: ${routeName}`);
-    }
+    Alert.alert("Todo", `Add "${routeName}" screen to SpoilageNavigator first.`);
   };
 
   return (
@@ -124,7 +130,7 @@ export default function SpoilageDetailsScreen() {
           <View className="w-10 h-10" />
         </View>
 
-        {/* Location + dropdown */}
+        {/* Location */}
         <View className="mt-2">
           <Text className="text-[11px] text-gray-500 font-semibold">
             CURRENT LOCATION
@@ -176,7 +182,11 @@ export default function SpoilageDetailsScreen() {
         </View>
 
         {/* Scan Spoilage card */}
-        <View className="mt-4 bg-[#0B1220] rounded-[18px] px-4 py-4 shadow-sm">
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={openSpoilageScan}
+          className="mt-4 bg-[#0B1220] rounded-[18px] px-4 py-4 shadow-sm"
+        >
           <View className="flex-row items-center justify-between">
             <View className="flex-1 pr-3">
               <Text className="text-white text-[16px] font-extrabold">
@@ -187,26 +197,24 @@ export default function SpoilageDetailsScreen() {
               </Text>
             </View>
 
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => go("Scan")}
-              className="w-12 h-12 rounded-full bg-[#16A34A] items-center justify-center"
-            >
+            <View className="w-12 h-12 rounded-full bg-[#16A34A] items-center justify-center">
               <Ionicons name="scan" size={22} color="#fff" />
-            </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Two action buttons */}
         <View className="flex-row justify-between mt-3">
           <SmallActionCard
             title="Batch Scan"
             icon={<Ionicons name="grid-outline" size={18} color="#2563EB" />}
-            onPress={() => go("Scan")}
+            onPress={openSpoilageScan}
           />
           <SmallActionCard
             title="Today's Alerts"
-            icon={<Ionicons name="warning-outline" size={18} color="#F59E0B" />}
+            icon={
+              <Ionicons name="warning-outline" size={18} color="#F59E0B" />
+            }
             onPress={() => go("Alerts")}
           />
         </View>
@@ -245,11 +253,7 @@ export default function SpoilageDetailsScreen() {
             <PredictionRow
               key={item.id}
               item={item}
-              onPress={() => {
-                // later you can navigate to detail page with params
-                // navigation.navigate("SpoilageResult", { plantId: item.plantId })
-                Alert.alert("Open", `Open details for ${item.plantId}`);
-              }}
+              onPress={() => Alert.alert("Open", `Open details for ${item.plantId}`)}
             />
           ))}
         </View>
@@ -338,10 +342,7 @@ function Chip({
       className={`mr-2 px-3 py-2 rounded-full ${
         active ? "bg-[#111827]" : "bg-white"
       }`}
-      style={{
-        borderWidth: active ? 0 : 1,
-        borderColor: "#E5E7EB",
-      }}
+      style={{ borderWidth: active ? 0 : 1, borderColor: "#E5E7EB" }}
     >
       <Text
         className={`text-[12px] font-semibold ${
@@ -391,7 +392,6 @@ function PredictionRow({
       ? "Near Spoilage"
       : "Critical";
 
-  // Quick placeholder images (replace with your own asset later)
   const imgUrl =
     "https://images.unsplash.com/photo-1557844352-761f2565b576?auto=format&fit=crop&w=200&q=60";
 

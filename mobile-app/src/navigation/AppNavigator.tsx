@@ -7,7 +7,6 @@ import DashboardScreen from "../screens/main/DashboardScreen";
 import ScanScreen from "../screens/main/ScanScreen";
 import HistoryScreen from "../screens/main/HistoryScreen";
 import SettingsScreen from "../screens/main/SettingsScreen";
-import DashboardStack from "./DashboardStack"; // add this import at top
 
 export type AppTabParamList = {
   Dashboard: undefined;
@@ -79,7 +78,7 @@ export default function AppNavigator() {
         },
       })}
     >
-     <Tab.Screen name="Dashboard" component={DashboardStack} options={{ title: "Dashboard" }} />
+      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: "Dashboard" }} />
       <Tab.Screen name="Scan" component={ScanScreen} options={{ title: "Scan" }} />
       <Tab.Screen name="History" component={HistoryScreen} options={{ title: "History" }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
