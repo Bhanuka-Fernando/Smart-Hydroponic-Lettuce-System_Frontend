@@ -9,8 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Feather } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 
 type StatusFilter = "All Status" | "Monitoring" | "Warning" | "Critical";
@@ -28,86 +27,40 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-type Nav = NativeStackNavigationProp<RootStackParamList, "SpoilageDetails">;
+type Props = NativeStackScreenProps<RootStackParamList, "SpoilageDetails">;
 
-export default function SpoilageDetailsScreen() {
-  const navigation = useNavigation<Nav>();
+export default function SpoilageDetailsScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<StatusFilter>("All Status");
 
   const currentLocation = "Farm A - Chiller 3";
 
   const batchStats = useMemo(
-    () => ({
-      fresh: 42,
-      aged: 15,
-      risk: 5,
-      spoiled: 2,
-    }),
+    () => ({ fresh: 42, aged: 15, risk: 5, spoiled: 2 }),
     []
   );
 
   const predictions: PredictionItem[] = useMemo(
     () => [
-      {
-        id: "1",
-        plantId: "P-001",
-        shelfLifeDays: 7,
-        stageLabel: "Fresh",
-        severity: "monitoring",
-      },
-      {
-        id: "2",
-        plantId: "P-020",
-        shelfLifeDays: 5,
-        stageLabel: "Slightly Aged",
-        severity: "monitoring",
-      },
-      {
-        id: "3",
-        plantId: "P-050",
-        shelfLifeDays: 2,
-        stageLabel: "Near Spoilage",
-        actionText: "Action: Inspect Now",
-        severity: "warning",
-      },
-      {
-        id: "4",
-        plantId: "P-060",
-        shelfLifeDays: 0,
-        stageLabel: "Spoiled",
-        actionText: "Action: Discard",
-        severity: "critical",
-      },
-      {
-        id: "5",
-        plantId: "P-061",
-        shelfLifeDays: 0,
-        stageLabel: "Spoiled",
-        actionText: "Action: Discard",
-        severity: "critical",
-      },
+      { id: "1", plantId: "P-001", shelfLifeDays: 7, stageLabel: "Fresh", severity: "monitoring" },
+      { id: "2", plantId: "P-020", shelfLifeDays: 5, stageLabel: "Slightly Aged", severity: "monitoring" },
+      { id: "3", plantId: "P-050", shelfLifeDays: 2, stageLabel: "Near Spoilage", actionText: "Action: Inspect Now", severity: "warning" },
+      { id: "4", plantId: "P-060", shelfLifeDays: 0, stageLabel: "Spoiled", actionText: "Action: Discard", severity: "critical" },
+      { id: "5", plantId: "P-061", shelfLifeDays: 0, stageLabel: "Spoiled", actionText: "Action: Discard", severity: "critical" },
     ],
     []
   );
 
   const filtered = useMemo(() => {
     if (filter === "All Status") return predictions;
-    if (filter === "Monitoring")
-      return predictions.filter((p) => p.severity === "monitoring");
-    if (filter === "Warning")
-      return predictions.filter((p) => p.severity === "warning");
+    if (filter === "Monitoring") return predictions.filter((p) => p.severity === "monitoring");
+    if (filter === "Warning") return predictions.filter((p) => p.severity === "warning");
     return predictions.filter((p) => p.severity === "critical");
   }, [filter, predictions]);
 
-  // ✅ Standalone module navigation
-  const openSpoilageScan = () => {
-    navigation.navigate("SpoilageScan");
-  };
+  const openSpoilageScan = () => navigation.navigate("SpoilageScan");
 
-  // ✅ These routes don’t exist in your SpoilageNavigator.
-  // Keep as alerts until you add those screens to SpoilageNavigator.
   const go = (routeName: string) => {
-    Alert.alert("Todo", `Add "${routeName}" screen to SpoilageNavigator first.`);
+    Alert.alert("Todo", `Add "${routeName}" screen first.`);
   };
 
   return (
@@ -139,12 +92,7 @@ export default function SpoilageDetailsScreen() {
             <Text className="text-[14px] font-extrabold text-gray-900">
               {currentLocation}
             </Text>
-            <Ionicons
-              name="chevron-down"
-              size={16}
-              color="#6B7280"
-              style={{ marginLeft: 6 }}
-            />
+            <Ionicons name="chevron-down" size={16} color="#6B7280" style={{ marginLeft: 6 }} />
           </View>
         </View>
 
@@ -212,9 +160,7 @@ export default function SpoilageDetailsScreen() {
           />
           <SmallActionCard
             title="Today's Alerts"
-            icon={
-              <Ionicons name="warning-outline" size={18} color="#F59E0B" />
-            }
+            icon={<Ionicons name="warning-outline" size={18} color="#F59E0B" />}
             onPress={() => go("Alerts")}
           />
         </View>
@@ -226,26 +172,10 @@ export default function SpoilageDetailsScreen() {
 
         {/* Filter chips */}
         <View className="flex-row mb-3">
-          <Chip
-            label="All Status"
-            active={filter === "All Status"}
-            onPress={() => setFilter("All Status")}
-          />
-          <Chip
-            label="Monitoring"
-            active={filter === "Monitoring"}
-            onPress={() => setFilter("Monitoring")}
-          />
-          <Chip
-            label="Warning"
-            active={filter === "Warning"}
-            onPress={() => setFilter("Warning")}
-          />
-          <Chip
-            label="Critical"
-            active={filter === "Critical"}
-            onPress={() => setFilter("Critical")}
-          />
+          <Chip label="All Status" active={filter === "All Status"} onPress={() => setFilter("All Status")} />
+          <Chip label="Monitoring" active={filter === "Monitoring"} onPress={() => setFilter("Monitoring")} />
+          <Chip label="Warning" active={filter === "Warning"} onPress={() => setFilter("Warning")} />
+          <Chip label="Critical" active={filter === "Critical"} onPress={() => setFilter("Critical")} />
         </View>
 
         <View className="space-y-3">
@@ -339,16 +269,10 @@ function Chip({
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={onPress}
-      className={`mr-2 px-3 py-2 rounded-full ${
-        active ? "bg-[#111827]" : "bg-white"
-      }`}
+      className={`mr-2 px-3 py-2 rounded-full ${active ? "bg-[#111827]" : "bg-white"}`}
       style={{ borderWidth: active ? 0 : 1, borderColor: "#E5E7EB" }}
     >
-      <Text
-        className={`text-[12px] font-semibold ${
-          active ? "text-white" : "text-gray-700"
-        }`}
-      >
+      <Text className={`text-[12px] font-semibold ${active ? "text-white" : "text-gray-700"}`}>
         {label}
       </Text>
     </TouchableOpacity>

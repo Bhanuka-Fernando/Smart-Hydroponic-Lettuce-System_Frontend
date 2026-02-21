@@ -20,6 +20,7 @@
     "babel-preset-expo": "~54.0.10",
     "expo": "~54.0.33",
     "expo-auth-session": "~7.0.10",
+    "expo-camera": "~17.0.10",
     "expo-image-picker": "~17.0.10",
     "expo-status-bar": "~3.0.9",
     "expo-web-browser": "~15.0.10",
