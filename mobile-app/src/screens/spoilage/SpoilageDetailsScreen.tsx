@@ -161,7 +161,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           <SmallActionCard
             title="Today's Alerts"
             icon={<Ionicons name="warning-outline" size={18} color="#F59E0B" />}
-            onPress={() => go("Alerts")}
+            onPress={() => navigation.navigate("SpoilageAlerts")}
           />
         </View>
 

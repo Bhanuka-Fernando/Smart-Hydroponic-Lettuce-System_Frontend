@@ -22,6 +22,15 @@ export default function SpoilageShelfLifeResultScreen({ navigation, route }: Pro
 
   const [showSaved, setShowSaved] = useState(false);
 
+  const goToDetails = () => {
+    setShowSaved(false);
+
+    // ensure modal closes first, then navigate
+    requestAnimationFrame(() => {
+      navigation.navigate("SpoilageDetails");
+    });
+  };
+
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       <ScrollView
@@ -178,7 +187,7 @@ export default function SpoilageShelfLifeResultScreen({ navigation, route }: Pro
           </View>
         </TouchableOpacity>
 
-        {/* ✅ Popup Modal */}
+        {/* Popup Modal */}
         <Modal
           visible={showSaved}
           transparent
@@ -204,6 +213,7 @@ export default function SpoilageShelfLifeResultScreen({ navigation, route }: Pro
                 alignItems: "center",
               }}
             >
+              {/* X close (closes only) */}
               <TouchableOpacity
                 onPress={() => setShowSaved(false)}
                 activeOpacity={0.8}
@@ -221,6 +231,7 @@ export default function SpoilageShelfLifeResultScreen({ navigation, route }: Pro
                 <Ionicons name="close" size={18} color="#111827" />
               </TouchableOpacity>
 
+              {/* green check */}
               <View
                 style={{
                   width: 56,
@@ -253,8 +264,9 @@ export default function SpoilageShelfLifeResultScreen({ navigation, route }: Pro
                 Successfully
               </Text>
 
+              {/* OK (closes + redirects) */}
               <TouchableOpacity
-                onPress={() => setShowSaved(false)}
+                onPress={goToDetails}
                 activeOpacity={0.9}
                 style={{
                   marginTop: 14,
