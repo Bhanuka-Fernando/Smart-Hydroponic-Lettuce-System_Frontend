@@ -1,3 +1,4 @@
+// src/screens/spoilage/SpoilageScanScreen.tsx
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -13,7 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../../navigation/RootNavigator";
+import type { SpoilageStackParamList } from "../../navigation/SpoilageNavigator";
 
 import { CameraView, type CameraViewRef, useCameraPermissions } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
@@ -21,7 +22,7 @@ import * as ImagePicker from "expo-image-picker";
 const PRIMARY = "#0046AD";
 
 type Mode = "Camera" | "Gallery";
-type Props = NativeStackScreenProps<RootStackParamList, "SpoilageScan">;
+type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageScan">;
 
 export default function SpoilageScanScreen({ navigation }: Props) {
   const [mode, setMode] = useState<Mode>("Camera");
@@ -87,13 +88,13 @@ export default function SpoilageScanScreen({ navigation }: Props) {
 
   const retake = () => setCapturedUri(null);
 
-  const startAnalysis = async () => {
-    if (!capturedUri) {
-      Alert.alert("Missing", "Upload an image first.");
-      return;
-    }
-    Alert.alert("Start Analysis", "Next: send image to backend + show results.");
-  };
+ const startAnalysis = async () => {
+  if (!capturedUri) {
+    Alert.alert("Missing", "Upload an image first.");
+    return;
+  }
+  navigation.navigate("SpoilageConfirm", { imageUri: capturedUri });
+};
 
   const canStart = !!capturedUri;
 
@@ -103,55 +104,45 @@ export default function SpoilageScanScreen({ navigation }: Props) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 18 }}
       >
-        {/* Header (matches your target for Gallery) */}
+        {/* Header */}
         <View className="pt-3 pb-2 flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             activeOpacity={0.85}
             className="w-10 h-10 items-center justify-center"
           >
-            <Ionicons name="chevron-back" size={22} color="#111827" />
+            {/* ✅ close like reference */}
+            <Ionicons name="close" size={22} color="#111827" />
           </TouchableOpacity>
 
-          <Text className="text-[16px] font-extrabold text-gray-900">
-            {mode === "Gallery" ? "Gallery" : "Scan Spoilage"}
-          </Text>
-
           <View className="flex-row items-center">
-            {mode !== "Gallery" ? (
-              <TouchableOpacity
-                activeOpacity={0.85}
-                className="w-7 h-7 rounded-full bg-white items-center justify-center"
-                style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
-                onPress={() => {}}
-              >
-                <Ionicons name="help" size={16} color="#64748B" />
-              </TouchableOpacity>
-            ) : (
-              <View className="w-10 h-10" />
-            )}
+            <Text className="text-[16px] font-extrabold text-gray-900">
+              Scan Spoilage
+            </Text>
           </View>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            className="w-7 h-7 rounded-full bg-white items-center justify-center"
+            style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
+            onPress={() => {}}
+          >
+            <Ionicons name="help" size={16} color="#64748B" />
+          </TouchableOpacity>
         </View>
 
         {/* Segmented Tabs */}
         <View className="mt-2 bg-white rounded-full p-1 flex-row">
-          <Segment
-            label="Camera"
-            active={mode === "Camera"}
-            onPress={() => setMode("Camera")}
-          />
-          <Segment
-            label="Gallery"
-            active={mode === "Gallery"}
-            onPress={() => setMode("Gallery")}
-          />
+          <Segment label="Camera" active={mode === "Camera"} onPress={() => setMode("Camera")} />
+          <Segment label="Gallery" active={mode === "Gallery"} onPress={() => setMode("Gallery")} />
         </View>
 
-        {/* CAMERA MODE (unchanged) */}
+        {/* CAMERA MODE */}
         {mode === "Camera" ? (
           <>
+            {/* Camera preview card (shorter like reference) */}
             <View className="mt-4 rounded-[22px] overflow-hidden bg-white shadow-sm">
-              <View style={{ height: 520 }} className="bg-black">
+              <View style={{ height: 470 }} className="bg-black">
                 {capturedUri ? (
                   <View className="flex-1">
                     <Image
@@ -159,6 +150,7 @@ export default function SpoilageScanScreen({ navigation }: Props) {
                       style={{ width: "100%", height: "100%" }}
                       resizeMode="cover"
                     />
+
                     <View className="absolute top-3 right-3">
                       <TouchableOpacity
                         onPress={retake}
@@ -188,6 +180,7 @@ export default function SpoilageScanScreen({ navigation }: Props) {
                     <Text className="text-white/70 text-center mt-2">
                       Tap below to allow camera access.
                     </Text>
+
                     <TouchableOpacity
                       className="mt-4 bg-white px-4 py-2 rounded-full"
                       onPress={requestPermission}
@@ -207,6 +200,7 @@ export default function SpoilageScanScreen({ navigation }: Props) {
                       enableTorch={torchOn}
                     />
 
+                    {/* top overlays */}
                     <View className="absolute top-0 left-0 right-0 p-4 flex-row items-center justify-between">
                       <View className="px-3 py-1 rounded-full bg-[#111827]/80">
                         <Text className="text-[11px] font-bold text-white">
@@ -221,6 +215,7 @@ export default function SpoilageScanScreen({ navigation }: Props) {
                       </View>
                     </View>
 
+                    {/* capture guidance bubble */}
                     <View className="absolute bottom-3 left-0 right-0 px-4">
                       <View className="bg-[#0B1220]/70 rounded-[18px] px-4 py-3">
                         <Text className="text-[12px] font-extrabold text-white">
@@ -236,27 +231,91 @@ export default function SpoilageScanScreen({ navigation }: Props) {
               </View>
             </View>
 
-            <View className="mt-4 flex-row items-center justify-between px-6">
-              <CircleIcon
-                icon={torchOn ? "flash-outline" : "flash-off-outline"}
+            {/* Control strip like reference */}
+            <View className="mt-4 bg-white rounded-[22px] px-6 py-4 shadow-sm flex-row items-center justify-between">
+              <TouchableOpacity
+                activeOpacity={0.85}
                 onPress={() => setTorchOn((p) => !p)}
-              />
-              <CaptureButton onPress={takePhoto} disabled={busy || !camGranted} />
-              <CircleIcon
-                icon="camera-reverse-outline"
+                className="w-12 h-12 rounded-full bg-[#F3F4F6] items-center justify-center"
+              >
+                <Ionicons
+                  name={torchOn ? "flash-outline" : "flash-off-outline"}
+                  size={18}
+                  color="#111827"
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={takePhoto}
+                disabled={busy || !camGranted}
+              >
+                <View
+                  className="w-[74px] h-[74px] rounded-full bg-white items-center justify-center"
+                  style={{
+                    opacity: busy || !camGranted ? 0.5 : 1,
+                    borderWidth: 2,
+                    borderColor: "#CBD5E1",
+                  }}
+                >
+                  <View
+                    className="w-[62px] h-[62px] rounded-full"
+                    style={{ borderWidth: 4, borderColor: "#0B1220" }}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
                 onPress={() => setFacing((p) => (p === "back" ? "front" : "back"))}
-              />
+                className="w-12 h-12 rounded-full bg-[#F3F4F6] items-center justify-center"
+              >
+                <Ionicons name="camera-reverse-outline" size={18} color="#111827" />
+              </TouchableOpacity>
             </View>
 
+            {/* Use Last Sensor + Gallery pills */}
+            <View className="mt-3 flex-row justify-between">
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => {}}
+                className="bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
+                style={{ borderWidth: 1, borderColor: "#E5E7EB", width: "48%" }}
+              >
+                <Ionicons name="pulse-outline" size={16} color={PRIMARY} />
+                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
+                  Use Last Sensor
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => setMode("Gallery")}
+                className="bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
+                style={{ borderWidth: 1, borderColor: "#E5E7EB", width: "48%" }}
+              >
+                <Ionicons name="images-outline" size={16} color="#111827" />
+                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
+                  Gallery
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Start Analysis bottom button */}
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={startAnalysis}
               disabled={!canStart}
-              className="mt-4 rounded-[12px] items-center justify-center"
+              className="mt-4 rounded-[14px] items-center justify-center"
               style={{
                 backgroundColor: PRIMARY,
-                height: 52,
-                opacity: canStart ? 1 : 0.5,
+                height: 56,
+                opacity: canStart ? 1 : 0.45,
+                shadowColor: "#000",
+                shadowOpacity: Platform.OS === "android" ? 0.14 : 0.12,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 6 },
+                elevation: 3,
               }}
             >
               <View className="flex-row items-center">
@@ -268,7 +327,7 @@ export default function SpoilageScanScreen({ navigation }: Props) {
             </TouchableOpacity>
           </>
         ) : (
-          /* ✅ GALLERY UI (matches your target) */
+          /* GALLERY MODE */
           <>
             <View className="mt-4 bg-white rounded-[20px] p-4 shadow-sm">
               <Text className="text-[24px] font-extrabold text-gray-900">
@@ -309,7 +368,6 @@ export default function SpoilageScanScreen({ navigation }: Props) {
                 )}
               </View>
 
-              {/* Buttons Row */}
               <View className="mt-4 flex-row justify-between">
                 <TouchableOpacity
                   activeOpacity={0.9}
@@ -338,7 +396,6 @@ export default function SpoilageScanScreen({ navigation }: Props) {
                 </TouchableOpacity>
               </View>
 
-              {/* Start Analysis */}
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={startAnalysis}
@@ -359,7 +416,6 @@ export default function SpoilageScanScreen({ navigation }: Props) {
               </TouchableOpacity>
             </View>
 
-            {/* QUICK TIPS */}
             <View className="mt-4 bg-white rounded-[18px] p-4 shadow-sm">
               <View className="flex-row items-center">
                 <View className="w-8 h-8 rounded-full bg-[#EAF4FF] items-center justify-center">
@@ -449,53 +505,6 @@ function OverlayChip({
     </View>
   );
 }
-
-function CircleIcon({
-  icon,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={onPress}
-      className="w-12 h-12 rounded-full bg-white items-center justify-center"
-      style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
-    >
-      <Ionicons name={icon} size={18} color="#111827" />
-    </TouchableOpacity>
-  );
-}
-
-function CaptureButton({
-  onPress,
-  disabled,
-}: {
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <TouchableOpacity activeOpacity={0.9} onPress={onPress} disabled={disabled}>
-      <View
-        className="w-[72px] h-[72px] rounded-full items-center justify-center bg-white"
-        style={{ opacity: disabled ? 0.5 : 1 }}
-      >
-        <View
-          className="w-[64px] h-[64px] rounded-full items-center justify-center"
-          style={{ borderWidth: 3, borderColor: "#0B1220" }}
-        >
-          <View
-            className="w-[52px] h-[52px] rounded-full"
-            style={{ borderWidth: 2, borderColor: "#CBD5E1" }}
-          />
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
 function TipRow({
   icon,
   iconBg,

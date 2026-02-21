@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../../navigation/RootNavigator";
+import type { SpoilageStackParamList } from "../../navigation/SpoilageNavigator";
 
 type StatusFilter = "All Status" | "Monitoring" | "Warning" | "Critical";
 
@@ -27,7 +27,7 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-type Props = NativeStackScreenProps<RootStackParamList, "SpoilageDetails">;
+type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageDetails">;
 
 export default function SpoilageDetailsScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<StatusFilter>("All Status");

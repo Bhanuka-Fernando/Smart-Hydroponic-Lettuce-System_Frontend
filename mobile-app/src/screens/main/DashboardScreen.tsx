@@ -96,7 +96,7 @@ export default function DashboardScreen() {
                 subtitle="Identify Crop Issues"
                 iconBg="bg-[#FFF6E5]"
                 icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
-                onPress={() => navigation.navigate("SpoilageDetails")}
+                onPress={() => (navigation.getParent() as any)?.navigate("Spoilage")}
               />
               <FeatureCard
                 title="Water Quality"
