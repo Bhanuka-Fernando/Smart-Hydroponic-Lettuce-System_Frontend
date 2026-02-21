@@ -143,7 +143,9 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
         {/* Predict Shelf Life */}
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => {}}
+          onPress={() =>
+  navigation.navigate("SpoilageShelfLifeResult", { imageUri: imageUri })
+}
           className="mt-4 rounded-[12px] items-center justify-center"
           style={{ backgroundColor: "#0046AD", height: 54 }}
         >

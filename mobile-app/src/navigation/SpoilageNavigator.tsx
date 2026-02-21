@@ -4,11 +4,13 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import SpoilageDetailsScreen from "../screens/spoilage/SpoilageDetailsScreen";
 import SpoilageScanScreen from "../screens/spoilage/SpoilageScanScreen";
 import SpoilageConfirmScreen from "../screens/spoilage/SpoilageConfirmScreen";
+import SpoilageShelfLifeResultScreen from "../screens/spoilage/SpoilageShelfLifeResultScreen";
 
 export type SpoilageStackParamList = {
   SpoilageDetails: undefined;
   SpoilageScan: undefined;
   SpoilageConfirm: { imageUri: string };
+  SpoilageShelfLifeResult: { imageUri: string };
 };
 
 const Stack = createNativeStackNavigator<SpoilageStackParamList>();
@@ -19,6 +21,7 @@ export default function SpoilageNavigator() {
       <Stack.Screen name="SpoilageDetails" component={SpoilageDetailsScreen} />
       <Stack.Screen name="SpoilageScan" component={SpoilageScanScreen} />
       <Stack.Screen name="SpoilageConfirm" component={SpoilageConfirmScreen} />
+      <Stack.Screen name="SpoilageShelfLifeResult" component={SpoilageShelfLifeResultScreen} />
     </Stack.Navigator>
   );
 }
