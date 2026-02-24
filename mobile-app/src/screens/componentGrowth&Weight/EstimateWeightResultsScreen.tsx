@@ -170,15 +170,15 @@ export default function EstimateWeightResultsScreen() {
               </Text>
             </View>
 
-            <Text className="text-[10px] font-extrabold text-gray-500 mt-3">
+            <Text className="text-[12px] font-extrabold text-gray-500 mt-3">
               ESTIMATED BIOMASS
             </Text>
 
             <View className="flex-row items-end mt-1">
-              <Text className="text-[44px] font-extrabold text-gray-900 leading-[48px]">
+              <Text className="text-[25px] font-extrabold text-gray-900 leading-[48px]">
                 {computed.biomassG}
               </Text>
-              <Text className="text-[14px] font-extrabold text-gray-700 mb-2 ml-2">
+              <Text className="text-[20px] font-extrabold text-gray-700 mb-4 ml-2">
                 g
               </Text>
             </View>

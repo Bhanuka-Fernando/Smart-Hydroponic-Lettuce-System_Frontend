@@ -4,6 +4,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { AuthProvider } from "./src/auth/AuthProvider";
 import RootNavigator from "./src/navigation/RootNavigator";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SensorReadingsProvider } from "./src/context/SensorReadingsContext";
 
 import { useFonts } from "expo-font";
 import {
@@ -33,12 +34,15 @@ export default function App() {
   ];
 
   return (
+    
     <SafeAreaProvider>
-      <AuthProvider>
-        <NavigationContainer>
-          <RootNavigator />
-        </NavigationContainer>
-      </AuthProvider>
+      <SensorReadingsProvider>
+        <AuthProvider>
+          <NavigationContainer>
+            <RootNavigator />
+          </NavigationContainer>
+        </AuthProvider>
+      </SensorReadingsProvider>
     </SafeAreaProvider>
   );
 }

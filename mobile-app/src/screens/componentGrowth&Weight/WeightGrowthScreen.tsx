@@ -1,18 +1,12 @@
 import React, { useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  Switch,
-} from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Image, Switch } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
-import { H1, H2, Body, Label } from "../../components/ui/AppText";
+import SensorReadingsModal from "../../components/Sensors/SensorReadingsModal";
+import { useSensorReadings } from "../../context/SensorReadingsContext";
 
 function formatHeaderDate(d: Date) {
   const month = d.toLocaleString("en-US", { month: "short" });
@@ -31,9 +25,7 @@ function StatusPill({ status }: { status: Status }) {
 
   return (
     <View className={`px-2.5 py-1 rounded-full ${map[status].bg}`}>
-      <Text className={`text-[11px] font-extrabold ${map[status].text}`}>
-        {status}
-      </Text>
+      <Text className={`text-[11px] font-extrabold ${map[status].text}`}>{status}</Text>
     </View>
   );
 }
@@ -45,6 +37,7 @@ function MetricCard({
   value,
   unit,
   status,
+  onRetryPress,
 }: {
   iconBg: string;
   icon: React.ReactNode;
@@ -52,6 +45,7 @@ function MetricCard({
   value: string;
   unit?: string;
   status: Status;
+  onRetryPress: () => void;
 }) {
   return (
     <View className="bg-white rounded-[18px] p-4 w-[48%]">
@@ -67,13 +61,13 @@ function MetricCard({
       <View className="flex-row items-end justify-between mt-1">
         <View className="flex-row items-end">
           <Text className="text-[20px] font-extrabold text-gray-900">{value}</Text>
-          {unit ? (
-            <Text className="text-[12px] text-gray-400 ml-1 mb-[2px]">{unit}</Text>
-          ) : null}
+          {unit ? <Text className="text-[12px] text-gray-400 ml-1 mb-[2px]">{unit}</Text> : null}
         </View>
 
-        {/* right mini icon like the design */}
-        <Ionicons name="sync-circle-outline" size={24} color="#1D4ED8" />
+        {/* retry / edit */}
+        <TouchableOpacity onPress={onRetryPress} activeOpacity={0.85}>
+          <Ionicons name="sync-circle-outline" size={24} color="#1D4ED8" />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -114,9 +108,7 @@ function SlotRow({
   return (
     <View className="flex-row items-center justify-between py-3">
       <View>
-        <Text className="text-[11px] font-extrabold text-gray-700 tracking-[0.6px]">
-          {label}
-        </Text>
+        <Text className="text-[11px] font-extrabold text-gray-700 tracking-[0.6px]">{label}</Text>
       </View>
 
       <View className="flex-row items-center">
@@ -151,21 +143,24 @@ function ActionTile({
       onPress={onPress}
       className="bg-white rounded-[18px] w-[31%] pt-4 pb-3 items-center shadow-sm"
     >
-      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
-        {icon}
-      </View>
+      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>{icon}</View>
 
       <View className="mt-3 items-center">
-        <Text className="text-[12px] text-gray-800 font-extrabold leading-[15px]">
-          {labelTop}
-        </Text>
-        <Text className="text-[12px] text-gray-800 font-extrabold leading-[15px]">
-          {labelBottom}
-        </Text>
+        <Text className="text-[12px] text-gray-800 font-extrabold leading-[15px]">{labelTop}</Text>
+        <Text className="text-[12px] text-gray-800 font-extrabold leading-[15px]">{labelBottom}</Text>
       </View>
     </TouchableOpacity>
   );
 }
+
+const statusFor = (key: "airT" | "RH" | "EC" | "pH", v: number | null): Status => {
+  if (v == null) return "Low";
+  // simple demo rules (keep it light)
+  if (key === "EC") return v >= 1.2 && v <= 1.8 ? "Optimal" : "Low";
+  if (key === "pH") return v >= 5.8 && v <= 6.5 ? "Good" : "Low";
+  if (key === "RH") return v >= 50 ? "Good" : "Low";
+  return "Good";
+};
 
 export default function WeightGrowthScreen() {
   const navigation = useNavigation<any>();
@@ -177,11 +172,28 @@ export default function WeightGrowthScreen() {
   const [afternoon, setAfternoon] = useState(false);
   const [evening, setEvening] = useState(true);
 
+  const { readings, setAll, setOne } = useSensorReadings();
+
+  const [sensorModalOpen, setSensorModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"all" | "single">("all");
+  const [singleKey, setSingleKey] = useState<"airT" | "RH" | "EC" | "pH">("airT");
+
+  const openAll = () => {
+    setModalMode("all");
+    setSensorModalOpen(true);
+  };
+
+  const openOne = (k: "airT" | "RH" | "EC" | "pH") => {
+    setSingleKey(k);
+    setModalMode("single");
+    setSensorModalOpen(true);
+  };
+
   const go = (routeName: string) => {
     try {
       navigation.navigate(routeName);
     } catch {
-      // ignore for now
+      // ignore
     }
   };
 
@@ -192,16 +204,11 @@ export default function WeightGrowthScreen() {
         <Text className="text-[13px] text-gray-500">{headerDate}</Text>
         <View className="flex-row items-start justify-between mt-2">
           <View className="flex-1 pr-3">
-            <Text className="H1 text-gray-900">
-              WEIGHT ESTIMATION & GROWTH FORECAST
-            </Text>
+            <Text className="H1 text-gray-900">WEIGHT ESTIMATION & GROWTH FORECAST</Text>
           </View>
 
           <View className="relative mt-1">
-            <Image
-              source={{ uri: "https://i.pravatar.cc/100?img=12" }}
-              className="w-12 h-12 rounded-full"
-            />
+            <Image source={{ uri: "https://i.pravatar.cc/100?img=12" }} className="w-12 h-12 rounded-full" />
             <View className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-white" />
           </View>
         </View>
@@ -210,18 +217,11 @@ export default function WeightGrowthScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          paddingBottom: 16, // keep small like DashboardScreen
-        }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 }}
       >
-
         {/* Environment */}
         <View className="flex-row items-center justify-between mt-1">
-          <Text className="text-[20px] font-extrabold text-gray-900 ">
-            Environment
-          </Text>
+          <Text className="text-[20px] font-extrabold text-gray-900">Environment</Text>
 
           <View className="flex-row items-center">
             <View className="w-2 h-2 rounded-full bg-green-500 mr-2" />
@@ -236,17 +236,20 @@ export default function WeightGrowthScreen() {
               iconBg="bg-[#FFEAF2]"
               icon={<Feather name="thermometer" size={20} color="#DB2777" />}
               label="Temperature"
-              value="24.5°C"
-              status="Good"
+              value={readings.airT != null ? `${readings.airT}` : "--"}
+              unit="°C"
+              status={statusFor("airT", readings.airT)}
+              onRetryPress={() => openOne("airT")}
             />
 
             <MetricCard
               iconBg="bg-[#F3E8FF]"
               icon={<Ionicons name="flash-outline" size={20} color="#7C3AED" />}
               label="EC Level"
-              value="1.4"
+              value={readings.EC != null ? `${readings.EC}` : "--"}
               unit="ms/cm"
-              status="Optimal"
+              status={statusFor("EC", readings.EC)}
+              onRetryPress={() => openOne("EC")}
             />
           </View>
 
@@ -255,16 +258,19 @@ export default function WeightGrowthScreen() {
               iconBg="bg-[#E8F7FF]"
               icon={<Ionicons name="water-outline" size={20} color="#0284C7" />}
               label="Humidity"
-              value="45%"
-              status="Low"
+              value={readings.RH != null ? `${readings.RH}` : "--"}
+              unit="%"
+              status={statusFor("RH", readings.RH)}
+              onRetryPress={() => openOne("RH")}
             />
 
             <MetricCard
               iconBg="bg-[#EAF4FF]"
               icon={<MaterialCommunityIcons name="water-check-outline" size={20} color="#0046AD" />}
               label="Water pH"
-              value="6.2"
-              status="Good"
+              value={readings.pH != null ? `${readings.pH}` : "--"}
+              status={statusFor("pH", readings.pH)}
+              onRetryPress={() => openOne("pH")}
             />
           </View>
         </View>
@@ -274,7 +280,7 @@ export default function WeightGrowthScreen() {
           <SmallActionButton
             icon={<Ionicons name="sync-outline" size={16} color="#1D4ED8" />}
             label="Check for Updates"
-            onPress={() => {}}
+            onPress={openAll}
           />
           <SmallActionButton
             icon={<Ionicons name="time-outline" size={16} color="#1D4ED8" />}
@@ -295,45 +301,22 @@ export default function WeightGrowthScreen() {
             </View>
 
             <View className="flex-1">
-              <Text className="text-[14px] font-extrabold text-gray-900">
-                Scheduled Time Slots
-              </Text>
-              <Text className="text-[11px] text-gray-500 mt-0.5">
-                Daily sensor logging
-              </Text>
+              <Text className="text-[14px] font-extrabold text-gray-900">Scheduled Time Slots</Text>
+              <Text className="text-[11px] text-gray-500 mt-0.5">Daily sensor logging</Text>
             </View>
 
-            {/* optional right arrow */}
             <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
           </View>
 
-          <SlotRow
-            label="MORNING"
-            time="09:00 AM"
-            value={morning}
-            onChange={setMorning}
-          />
+          <SlotRow label="MORNING" time="09:00 AM" value={morning} onChange={setMorning} />
           <View className="h-px bg-gray-100" />
-          <SlotRow
-            label="AFTERNOON"
-            time="01:00 PM"
-            value={afternoon}
-            onChange={setAfternoon}
-          />
+          <SlotRow label="AFTERNOON" time="01:00 PM" value={afternoon} onChange={setAfternoon} />
           <View className="h-px bg-gray-100" />
-          <SlotRow
-            label="EVENING"
-            time="05:00 PM"
-            value={evening}
-            onChange={setEvening}
-          />
+          <SlotRow label="EVENING" time="05:00 PM" value={evening} onChange={setEvening} />
         </TouchableOpacity>
 
-
         {/* Actions */}
-        <Text className="text-[14px] font-extrabold text-gray-900 mt-6 mb-3">
-          Actions
-        </Text>
+        <Text className="text-[14px] font-extrabold text-gray-900 mt-6 mb-3">Actions</Text>
 
         <View className="flex-row justify-between">
           <ActionTile
@@ -359,6 +342,19 @@ export default function WeightGrowthScreen() {
           />
         </View>
       </ScrollView>
+
+      {/* Manual sensor input modal */}
+      <SensorReadingsModal
+        visible={sensorModalOpen}
+        mode={modalMode}
+        singleKey={singleKey}
+        initial={{ airT: readings.airT, RH: readings.RH, EC: readings.EC, pH: readings.pH }}
+        onClose={() => setSensorModalOpen(false)}
+        onSubmit={(vals) => {
+          if (modalMode === "all") setAll(vals);
+          else setOne(singleKey, (vals as any)[singleKey] ?? null);
+        }}
+      />
     </SafeAreaView>
   );
 }

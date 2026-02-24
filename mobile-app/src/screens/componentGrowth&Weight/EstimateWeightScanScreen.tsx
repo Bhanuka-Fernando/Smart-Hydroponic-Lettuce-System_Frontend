@@ -131,11 +131,13 @@ export default function EstimateWeightScanScreen() {
         depthUri: depthImage.uri,
         token: accessToken,
         plant_id: "p04",
+        zone_id: "z01",
         captured_at: capturedAtISO,
         dap: 25,
         A_prev_cm2: null,
         sensors: null,
       });
+
 
       // ✅ map backend keys -> UI keys
       const merged = {
@@ -218,62 +220,110 @@ export default function EstimateWeightScanScreen() {
         </Text>
 
         {/* RGB Upload */}
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={pickRgbFromGallery}
-          className="bg-white rounded-[18px] shadow-sm mt-4 p-4"
-        >
-          <View className="rounded-[16px] border border-dashed border-[#B6C8F0] items-center justify-center py-5">
-            <View className="w-12 h-12 rounded-full bg-[#EAF4FF] items-center justify-center mb-3">
-              <Ionicons name="image-outline" size={22} color="#0046AD" />
-            </View>
+        <View className="bg-white rounded-[18px] shadow-sm mt-4 p-4">
+          {!rgbImage?.uri ? (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={pickRgbFromGallery}
+              className="rounded-[16px] border border-dashed border-[#B6C8F0] items-center justify-center py-5"
+            >
+              <View className="w-12 h-12 rounded-full bg-[#EAF4FF] items-center justify-center mb-3">
+                <Ionicons name="image-outline" size={22} color="#0046AD" />
+              </View>
 
-            <Text className="text-[12px] font-extrabold text-gray-900">
-              Upload RGB Image (Top-view)
-            </Text>
-            <Text className="text-[10px] text-gray-500 mt-1">from gallery</Text>
-          </View>
-
-          {rgbImage?.uri ? (
-            <View className="mt-4">
+              <Text className="text-[12px] font-extrabold text-gray-900">
+                Upload RGB Image (Top-view)
+              </Text>
+              <Text className="text-[10px] text-gray-500 mt-1">from gallery</Text>
+            </TouchableOpacity>
+          ) : (
+            <View className="relative">
               <Image
                 source={{ uri: rgbImage.uri }}
                 style={{ width: "100%", height: 180, borderRadius: 14 }}
                 resizeMode="cover"
               />
+
+              {/* Change button */}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={pickRgbFromGallery}
+                className="absolute top-3 right-3 bg-black/50 px-3 py-2 rounded-full flex-row items-center"
+              >
+                <Ionicons name="swap-horizontal" size={14} color="#fff" />
+                <Text className="ml-2 text-[10px] font-extrabold text-white">Change</Text>
+              </TouchableOpacity>
+
+              {/* Remove button (optional) */}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => {
+                  setRgbImage(null);
+                  setResult(null);
+                  setMaskPreview(null);
+                }}
+                className="absolute top-3 left-3 bg-black/50 w-9 h-9 rounded-full items-center justify-center"
+              >
+                <Ionicons name="close" size={16} color="#fff" />
+              </TouchableOpacity>
             </View>
-          ) : null}
-        </TouchableOpacity>
+          )}
+        </View>
+
 
         {/* Depth Upload */}
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={pickDepthFromGallery}
-          className="bg-white rounded-[18px] shadow-sm mt-3 p-4"
-        >
-          <View className="rounded-[16px] border border-dashed border-[#B6C8F0] items-center justify-center py-5">
-            <View className="w-12 h-12 rounded-full bg-[#EAF4FF] items-center justify-center mb-3">
-              <Ionicons name="layers-outline" size={22} color="#0046AD" />
-            </View>
+        <View className="bg-white rounded-[18px] shadow-sm mt-3 p-4">
+          {!depthImage?.uri ? (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={pickDepthFromGallery}
+              className="rounded-[16px] border border-dashed border-[#B6C8F0] items-center justify-center py-5"
+            >
+              <View className="w-12 h-12 rounded-full bg-[#EAF4FF] items-center justify-center mb-3">
+                <Ionicons name="layers-outline" size={22} color="#0046AD" />
+              </View>
 
-            <Text className="text-[12px] font-extrabold text-gray-900">
-              Upload Depth Image
-            </Text>
-            <Text className="text-[10px] text-gray-500 mt-1">
-              (must match RGB size)
-            </Text>
-          </View>
-
-          {depthImage?.uri ? (
-            <View className="mt-4">
+              <Text className="text-[12px] font-extrabold text-gray-900">
+                Upload Depth Image
+              </Text>
+              <Text className="text-[10px] text-gray-500 mt-1">
+                (must match RGB size)
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View className="relative">
               <Image
                 source={{ uri: depthImage.uri }}
                 style={{ width: "100%", height: 180, borderRadius: 14 }}
                 resizeMode="cover"
               />
+
+              {/* Change button */}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={pickDepthFromGallery}
+                className="absolute top-3 right-3 bg-black/50 px-3 py-2 rounded-full flex-row items-center"
+              >
+                <Ionicons name="swap-horizontal" size={14} color="#fff" />
+                <Text className="ml-2 text-[10px] font-extrabold text-white">Change</Text>
+              </TouchableOpacity>
+
+              {/* Remove button (optional) */}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => {
+                  setDepthImage(null);
+                  setResult(null);
+                  setMaskPreview(null);
+                }}
+                className="absolute top-3 left-3 bg-black/50 w-9 h-9 rounded-full items-center justify-center"
+              >
+                <Ionicons name="close" size={16} color="#fff" />
+              </TouchableOpacity>
             </View>
-          ) : null}
-        </TouchableOpacity>
+          )}
+        </View>
+
 
         {/* Start Analysis */}
         <TouchableOpacity

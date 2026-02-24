@@ -7,11 +7,16 @@ import Svg, { Path, Circle, Line, Text as SvgText } from "react-native-svg";
 
 type RouteParams = {
   dateLabel?: string;
-  predictedWeight?: number; // g
-  predictedArea?: number; // cm2
-  predictedDiameter?: number; // cm
-  changePct?: number; // +3
+  predictedWeight?: number;
+  predictedArea?: number;
+  predictedDiameter?: number;
+  changePct?: number;
+
+  labels?: string[];
+  actual?: number[];
+  predicted?: number[];
 };
+
 
 function StatCard({
   title,
@@ -91,6 +96,8 @@ function GrowthTrendChart({
 
   // last point highlight (tomorrow)
   const lastIdx = labels.length - 1;
+
+
 
   return (
     <View className="bg-white rounded-[16px] border border-[#003B8F] px-4 py-4">
@@ -201,29 +208,55 @@ export default function GrowthPredictionResultsScreen() {
   const route = useRoute<any>();
   const params: RouteParams = route.params || {};
 
-  const model = useMemo(() => {
-    const dateLabel = params.dateLabel ?? "Tuesday, January 6";
-    const predictedWeight = params.predictedWeight ?? 142.5;
-    const predictedArea = params.predictedArea ?? 142.5;
-    const predictedDiameter = params.predictedDiameter ?? 142.5;
-    const changePct = params.changePct ?? 3;
+  const fmt = (n: number) => (Number.isFinite(n) ? n.toFixed(1) : "0.0");
 
-    // dummy series (matches screenshot trend)
-    const labels = ["Oct 19", "Oct 21", "Oct 23", "Today", "Tmrw"];
-    const actual = [90, 100, 116, 135, 142];
-    const predicted = [92, 104, 120, 138, 150];
 
-    return {
-      dateLabel,
-      predictedWeight,
-      predictedArea,
-      predictedDiameter,
-      changePct,
-      labels,
-      actual,
-      predicted,
-    };
-  }, [params]);
+const toNum = (v: any, fallback = 0) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const toNumArray = (arr: any, fallbackLen = 2) => {
+  if (!Array.isArray(arr)) return new Array(fallbackLen).fill(0);
+  return arr.map((x) => toNum(x, 0));
+};
+
+const model = useMemo(() => {
+  const dateLabel = params.dateLabel ?? "Tomorrow";
+
+  const predictedWeight = toNum(params.predictedWeight, 0);
+  const predictedArea = toNum(params.predictedArea, 0);
+  const predictedDiameter = toNum(params.predictedDiameter, 0);
+
+  const labels = Array.isArray(params.labels) ? params.labels : ["Today", "D+1"];
+  const actual = toNumArray(params.actual, labels.length);
+  const predicted = toNumArray(params.predicted, labels.length);
+
+  // ✅ make lengths consistent
+  const L = labels.length;
+  const actualFixed = actual.slice(0, L).concat(new Array(Math.max(0, L - actual.length)).fill(actual[0] ?? 0));
+  const predFixed = predicted.slice(0, L).concat(new Array(Math.max(0, L - predicted.length)).fill(predicted[0] ?? 0));
+
+  const changePct =
+    params.changePct != null
+      ? toNum(params.changePct, 0)
+      : predFixed[0] > 0
+      ? ((predFixed[1] - predFixed[0]) / predFixed[0]) * 100
+      : 0;
+
+  return {
+    dateLabel,
+    predictedWeight,
+    predictedArea,
+    predictedDiameter,
+    changePct,
+    labels,
+    actual: actualFixed,
+    predicted: predFixed,
+  };
+}, [params]);
+
+
 
   const onSave = () => {
     // TODO: persist to DB / history
@@ -268,7 +301,7 @@ export default function GrowthPredictionResultsScreen() {
         <View className="mt-5">
           <StatCard
             title="PREDICTED WEIGHT"
-            value={model.predictedWeight.toFixed(1)}
+            value={fmt(model.predictedWeight)}
             unit="g"
             changePct={model.changePct}
             rightIcon={<Ionicons name="leaf-outline" size={18} color="#16A34A" />}
@@ -280,7 +313,7 @@ export default function GrowthPredictionResultsScreen() {
           <View className="flex-1">
             <StatCard
               title="PREDICTED AREA"
-              value={model.predictedArea.toFixed(1)}
+              value={fmt(model.predictedArea)}
               unit="cm²"
               changePct={model.changePct}
               rightIcon={<Ionicons name="resize-outline" size={18} color="#16A34A" />}
@@ -289,7 +322,7 @@ export default function GrowthPredictionResultsScreen() {
           <View className="flex-1">
             <StatCard
               title="DIAMETER"
-              value={model.predictedDiameter.toFixed(1)}
+              value={fmt(model.predictedDiameter)}
               unit="cm"
               changePct={model.changePct}
               rightIcon={
