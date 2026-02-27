@@ -94,15 +94,18 @@ export default function EstimateWeightResultsScreen() {
     try {
       setSaving(true);
 
+      // ✅ normalize fields from rawPayload (your merged object)
       const payload = {
-        plant_id: params.rawPayload.plant_id ?? params.plantId,
+        plant_id: params.rawPayload.plant_id ?? params.plantId ?? "p04",
+        zone_id: params.rawPayload.zone_id ?? "z01",
         captured_at: params.rawPayload.captured_at ?? computed.capturedAtISO,
-        accuracy: params.rawPayload.accuracy,
-        biomass_g: params.rawPayload.biomass_g,
-        leaf_area_cm2: params.rawPayload.leaf_area_cm2,
-        leaf_diameter_cm: params.rawPayload.leaf_diameter_cm,
-        mask_url: params.rawPayload.mask_url,
-        image_url: params.rawPayload.image_url,
+
+        A_proj_cm2: Number(params.rawPayload.A_proj_cm2 ?? 0),
+        D_proj_cm: Number(params.rawPayload.D_proj_cm ?? 0),
+        A_des_cm2: Number(params.rawPayload.A_des_cm2 ?? 0),
+        W_today_g: Number(params.rawPayload.W_today_g ?? params.rawPayload.biomass_g ?? 0),
+
+        image_url: params.rawPayload.image_url ?? null,
       };
 
       await saveWeightResult({ token: accessToken, payload });

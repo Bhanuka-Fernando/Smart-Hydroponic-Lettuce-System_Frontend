@@ -16,13 +16,10 @@ import GrowthPredictionResultsScreen from "../screens/componentGrowth&Weight/Gro
 import PlantListsScreen from "../screens/componentGrowth&Weight/PlantListsScreen";
 import PlantDetailsScreen from "../screens/componentGrowth&Weight/PlantDetailsScreen";
 
-
-
 import ScanScreen from "../screens/main/ScanScreen";
 import HistoryScreen from "../screens/main/HistoryScreen";
 import SettingsScreen from "../screens/main/SettingsScreen";
 
-/** 1) Dashboard stack (keeps bottom tabs visible while pushing screens) */
 export type DashboardStackParamList = {
   DashboardHome: undefined;
   WeightGrowth: undefined;
@@ -31,8 +28,6 @@ export type DashboardStackParamList = {
   GrowthForecasting: undefined;
   PlantLists: undefined;
 
-
-  // ✅ ADD THIS
   EstimateWeightResults: {
     imageUri: string;
     accuracy?: number;
@@ -50,20 +45,13 @@ export type DashboardStackParamList = {
     predictedArea?: number;
     predictedDiameter?: number;
     changePct?: number;
+    labels?: string[];
+    actual?: number[];
+    predicted?: number[];
   };
 
-  PlantDetails: {
-  plant: {
-    id: string;
-    name: string;
-    plantedOn?: string;
-    ageDays: number;
-    startWeightG: number;
-    currentWeightG: number;
-  };
-};
-
-
+  // ✅ FIX: pass ONLY plant_id
+  PlantDetails: { plant_id: string };
 };
 
 const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
@@ -79,20 +67,11 @@ function DashboardStackNavigator() {
       <DashboardStack.Screen name="GrowthPredictionResults" component={GrowthPredictionResultsScreen} />
       <DashboardStack.Screen name="PlantLists" component={PlantListsScreen} />
       <DashboardStack.Screen name="PlantDetails" component={PlantDetailsScreen} />
-
-
-
-
-      {/* ✅ ADD THIS */}
-      <DashboardStack.Screen
-        name="EstimateWeightResults"
-        component={EstimateWeightResultsScreen}
-      />
+      <DashboardStack.Screen name="EstimateWeightResults" component={EstimateWeightResultsScreen} />
     </DashboardStack.Navigator>
   );
 }
 
-/** 2) Tabs */
 export type TabParamList = {
   Dashboard: NavigatorScreenParams<DashboardStackParamList>;
   Scan: undefined;
@@ -129,7 +108,6 @@ function TabsNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-
         tabBarShowLabel: true,
         tabBarLabel: ({ focused }) => (
           <Text
@@ -143,7 +121,6 @@ function TabsNavigator() {
             {route.name}
           </Text>
         ),
-
         tabBarStyle: {
           height: 100,
           paddingTop: 10,
@@ -154,7 +131,6 @@ function TabsNavigator() {
           borderTopWidth: 0,
           elevation: 112,
         },
-
         tabBarIcon: ({ focused }) => {
           const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
             Dashboard: "home-outline",
@@ -174,7 +150,6 @@ function TabsNavigator() {
   );
 }
 
-/** ✅ 3) AppNavigator should be Tabs only (no duplicate AppStack) */
 export default function AppNavigator() {
   return <TabsNavigator />;
 }

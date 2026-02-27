@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../utils/constants";
+// src/api/weightApi.ts
 import { ML_BASE_URL } from "../utils/constants";
 import { authHeaders } from "./http";
 
@@ -10,28 +10,55 @@ export type InferTodayResponse = {
   W_today_g: number;
   A_proj_tmr_cm2: number;
   D_proj_tmr_cm: number;
-  A_des_tmr_cm2?: number; 
   W_tmr_g: number;
 
   mask_overlay_b64?: string;
-  mask_url?: string;
   image_url?: string;
-  plant_id?: string;
   captured_at?: string;
+  plant_id?: string;
+  zone_id?: string;
 };
+
+export type WeightSavePayload = {
+  plant_id: string;
+  zone_id: string;
+  captured_at: string;
+
+  A_proj_cm2: number;
+  D_proj_cm: number;
+  A_des_cm2: number;
+  W_today_g: number;
+
+  image_url?: string | null;
+};
+
+export type WeightSaveResponse = {
+  ok: boolean;
+};
+
+async function readError(res: Response) {
+  const text = await res.text();
+  try {
+    const j = JSON.parse(text);
+    return j?.detail ? JSON.stringify(j.detail) : text;
+  } catch {
+    return text || `HTTP ${res.status}`;
+  }
+}
 
 export async function estimateWeight(params: {
   rgbUri: string;
   depthUri: string;
   token?: string | null;
-  plant_id: string;     // make required (or default it)
-  zone_id: string;      // add this
+
+  plant_id: string;
+  zone_id: string;
+
   captured_at?: string;
   dap?: number;
   A_prev_cm2?: number | null;
   sensors?: any;
 }): Promise<InferTodayResponse> {
-
   if (!params.plant_id || !params.zone_id) {
     throw new Error(`Missing plant_id or zone_id. plant_id=${params.plant_id} zone_id=${params.zone_id}`);
   }
@@ -50,16 +77,16 @@ export async function estimateWeight(params: {
     type: "image/png",
   } as any);
 
-  // ✅ MUST match InferRequest
-  const payload = {
-    plant_id: params.plant_id,
-    zone_id: params.zone_id,
-    dap: params.dap ?? 25,
-    A_prev_cm2: params.A_prev_cm2 ?? null,
-    sensors: params.sensors ?? null,
-  };
-
-  fd.append("payload_json", JSON.stringify(payload));
+  fd.append(
+    "payload_json",
+    JSON.stringify({
+      plant_id: params.plant_id,
+      zone_id: params.zone_id,
+      dap: params.dap ?? 25,
+      A_prev_cm2: params.A_prev_cm2 ?? null,
+      sensors: params.sensors ?? null,
+    })
+  );
 
   const res = await fetch(`${ML_BASE_URL}/infer/today`, {
     method: "POST",
@@ -67,28 +94,31 @@ export async function estimateWeight(params: {
     body: fd as any,
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || "infer/today failed");
-  }
+  if (!res.ok) throw new Error(await readError(res));
 
   const data = (await res.json()) as InferTodayResponse;
-    console.log("estimateWeight payload", {
-    plant_id: params.plant_id,
-    zone_id: params.zone_id,
-    dap: params.dap ?? 25,
-    A_prev_cm2: params.A_prev_cm2 ?? null,
-    sensors: params.sensors ?? null,
-  });
-
 
   return {
     ...data,
     plant_id: params.plant_id,
-    captured_at: params.captured_at,
+    zone_id: params.zone_id,
+    captured_at: params.captured_at ?? data.captured_at ?? new Date().toISOString(),
   };
-
-
 }
 
+export async function saveWeightResult(params: {
+  token?: string | null;
+  payload: WeightSavePayload;
+}): Promise<WeightSaveResponse> {
+  const res = await fetch(`${ML_BASE_URL}/infer/weights/save`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(params.token),
+    } as any,
+    body: JSON.stringify(params.payload),
+  });
 
+  if (!res.ok) throw new Error(await readError(res));
+  return (await res.json()) as WeightSaveResponse;
+}

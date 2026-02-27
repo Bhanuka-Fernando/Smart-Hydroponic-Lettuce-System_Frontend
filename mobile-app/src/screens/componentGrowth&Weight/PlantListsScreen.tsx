@@ -1,8 +1,11 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Image } from "react-native";
+import React, { useMemo, useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+
+import { useAuth } from "../../auth/useAuth";
+import { getPlants } from "../../api/plantsApi";
 
 type Filter = "All" | "Growing" | "Harvest Ready";
 
@@ -17,15 +20,7 @@ type Plant = {
   imageUri: string;
 };
 
-function Chip({
-  label,
-  active,
-  onPress,
-}: {
-  label: Filter;
-  active: boolean;
-  onPress: () => void;
-}) {
+function Chip({ label, active, onPress }: { label: Filter; active: boolean; onPress: () => void }) {
   return (
     <TouchableOpacity
       activeOpacity={0.9}
@@ -34,11 +29,7 @@ function Chip({
         active ? "bg-[#EAF4FF] border-[#B6C8F0]" : "bg-white border-gray-200"
       }`}
     >
-      <Text
-        className={`text-[11px] font-extrabold ${
-          active ? "text-[#003B8F]" : "text-gray-600"
-        }`}
-      >
+      <Text className={`text-[11px] font-extrabold ${active ? "text-[#003B8F]" : "text-gray-600"}`}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -48,16 +39,8 @@ function Chip({
 function StatusPill({ status }: { status: Plant["status"] }) {
   const isReady = status === "HARVEST READY";
   return (
-    <View
-      className={`px-3 py-1 rounded-full ${
-        isReady ? "bg-[#E9FBEF]" : "bg-[#EEF2F7]"
-      }`}
-    >
-      <Text
-        className={`text-[9px] font-extrabold ${
-          isReady ? "text-[#16A34A]" : "text-gray-600"
-        }`}
-      >
+    <View className={`px-3 py-1 rounded-full ${isReady ? "bg-[#E9FBEF]" : "bg-[#EEF2F7]"}`}>
+      <Text className={`text-[9px] font-extrabold ${isReady ? "text-[#16A34A]" : "text-gray-600"}`}>
         {status}
       </Text>
     </View>
@@ -68,40 +51,22 @@ function MiniField({ label, value }: { label: string; value: string }) {
   return (
     <View className="bg-[#F6F8FC] rounded-[12px] px-3 py-2">
       <Text className="text-[9px] font-extrabold text-gray-500">{label}</Text>
-      <Text className="text-[11px] font-extrabold text-gray-900 mt-1">
-        {value}
-      </Text>
+      <Text className="text-[11px] font-extrabold text-gray-900 mt-1">{value}</Text>
     </View>
   );
 }
 
-function PlantCard({
-  plant,
-  onPress,
-}: {
-  plant: Plant;
-  onPress: () => void;
-}) {
+function PlantCard({ plant, onPress }: { plant: Plant; onPress: () => void }) {
   return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={onPress}
-      className="bg-white rounded-[18px] shadow-sm p-4 mb-3"
-    >
+    <TouchableOpacity activeOpacity={0.9} onPress={onPress} className="bg-white rounded-[18px] shadow-sm p-4 mb-3">
       <View className="flex-row">
         <View className="w-[64px] h-[64px] rounded-[16px] overflow-hidden bg-[#E5E7EB]">
-          <Image
-            source={{ uri: plant.imageUri }}
-            style={{ width: "100%", height: "100%" }}
-            resizeMode="cover"
-          />
+          <Image source={{ uri: plant.imageUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
         </View>
 
         <View className="flex-1 ml-3">
           <View className="flex-row items-start justify-between">
-            <Text className="text-[13px] font-extrabold text-gray-900">
-              {plant.name}
-            </Text>
+            <Text className="text-[13px] font-extrabold text-gray-900">{plant.name}</Text>
             <StatusPill status={plant.status} />
           </View>
 
@@ -122,69 +87,45 @@ function PlantCard({
 
 export default function PlantListsScreen() {
   const navigation = useNavigation<any>();
+  const { accessToken } = useAuth();
+
   const [filter, setFilter] = useState<Filter>("All");
+  const [loading, setLoading] = useState(false);
+  const [plants, setPlants] = useState<Plant[]>([]);
 
-  const plants: Plant[] = useMemo(
-    () => [
-      {
-        id: "p04",
-        name: "Plant #04",
-        day: 24,
-        area: 142,
-        diameter: 12.5,
-        estWeight: 320,
-        status: "NOT READY",
-        imageUri:
-          "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=60",
-      },
-      {
-        id: "p043",
-        name: "Plant #043",
-        day: 18,
-        area: 85,
-        diameter: 9.2,
-        estWeight: 110,
-        status: "NOT READY",
-        imageUri:
-          "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=600&q=60",
-      },
-      {
-        id: "p044",
-        name: "Plant #044",
-        day: 42,
-        area: 310,
-        diameter: 18.4,
-        estWeight: 450,
-        status: "HARVEST READY",
-        imageUri:
-          "https://images.unsplash.com/photo-1518843875459-f738682238a6?auto=format&fit=crop&w=600&q=60",
-      },
-      {
-        id: "p045",
-        name: "Plant #045",
-        day: 45,
-        area: 325,
-        diameter: 19.1,
-        estWeight: 510,
-        status: "HARVEST READY",
-        imageUri:
-          "https://images.unsplash.com/photo-1524594227084-8bbf5f2b2f35?auto=format&fit=crop&w=600&q=60",
-      },
-    ],
-    []
-  );
+  const apiFilter = useMemo(() => {
+    if (filter === "All") return "all";
+    if (filter === "Growing") return "growing";
+    return "harvest_ready";
+  }, [filter]);
 
-  const filtered = useMemo(() => {
-    if (filter === "All") return plants;
-    if (filter === "Growing") return plants.filter((p) => p.status === "NOT READY");
-    return plants.filter((p) => p.status === "HARVEST READY");
-  }, [filter, plants]);
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const data = await getPlants({ token: accessToken, filter: apiFilter as any });
 
-  // helper: convert "Plant #044" -> "#044"
-  const toShortName = (full: string) => {
-    const match = full.match(/#\d+/);
-    return match ? match[0] : full;
-  };
+        const mapped: Plant[] = data.map((p: any) => ({
+          id: p.plant_id,
+          name: p.name ?? `Plant ${p.plant_id}`,
+          day: Number(p.age_days ?? 0),
+          area: Number(p.area_cm2 ?? 0).toFixed ? Number(Number(p.area_cm2 ?? 0).toFixed(1)) : Number(p.area_cm2 ?? 0),
+          diameter: Number(p.diameter_cm ?? 0).toFixed ? Number(Number(p.diameter_cm ?? 0).toFixed(1)) : Number(p.diameter_cm ?? 0),
+          estWeight: Number(p.estimated_weight_g ?? 0).toFixed ? Number(Number(p.estimated_weight_g ?? 0).toFixed(1)) : Number(p.estimated_weight_g ?? 0),
+          status: p.status === "HARVEST_READY" ? "HARVEST READY" : "NOT READY",
+          imageUri:
+            p.image_url ||
+            "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=60",
+        }));
+
+        setPlants(mapped);
+      } catch (e: any) {
+        Alert.alert("Error", e?.message || "Failed to load plants");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [apiFilter, accessToken]);
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
@@ -199,10 +140,7 @@ export default function PlantListsScreen() {
             <Ionicons name="chevron-back" size={22} color="#111827" />
           </TouchableOpacity>
 
-          <Text className="text-[13px] font-extrabold text-gray-900">
-            Plant Lists
-          </Text>
-
+          <Text className="text-[13px] font-extrabold text-gray-900">Plant Lists</Text>
           <View className="w-10 h-10" />
         </View>
       </View>
@@ -216,34 +154,26 @@ export default function PlantListsScreen() {
         <View className="flex-row mt-1" style={{ gap: 10 }}>
           <Chip label="All" active={filter === "All"} onPress={() => setFilter("All")} />
           <Chip label="Growing" active={filter === "Growing"} onPress={() => setFilter("Growing")} />
-          <Chip
-            label="Harvest Ready"
-            active={filter === "Harvest Ready"}
-            onPress={() => setFilter("Harvest Ready")}
-          />
+          <Chip label="Harvest Ready" active={filter === "Harvest Ready"} onPress={() => setFilter("Harvest Ready")} />
         </View>
 
-        {/* List */}
-        <View className="mt-4">
-          {filtered.map((p) => (
-            <PlantCard
-              key={p.id}
-              plant={p}
-              onPress={() =>
-                navigation.navigate("PlantDetails", {
-                  plant: {
-                    id: p.id,
-                    name: toShortName(p.name),      // "#04" style header
-                    plantedOn: "Planted Dec 10",    // you can replace with real value later
-                    ageDays: p.day,
-                    startWeightG: 12,               // demo value
-                    currentWeightG: p.estWeight,
-                  },
-                })
-              }
-            />
-          ))}
-        </View>
+        {/* Loading */}
+        {loading ? (
+          <View className="mt-6 items-center">
+            <ActivityIndicator />
+            <Text className="mt-2 text-[11px] text-gray-500 font-semibold">Loading plants...</Text>
+          </View>
+        ) : (
+          <View className="mt-4">
+            {plants.map((p) => (
+              <PlantCard
+                key={p.id}
+                plant={p}
+                onPress={() => navigation.navigate("PlantDetails", { plant_id: p.id })}
+              />
+            ))}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

@@ -147,7 +147,6 @@ export default function EstimateWeightScanScreen() {
         leaf_area_cm2: data.A_des_cm2,
         leaf_diameter_cm: data.D_proj_cm,
         accuracy: 0, // your backend doesn't return accuracy yet
-        mask_url: data.mask_url,
         image_url: data.image_url,
         capturedAtISO,
         imageUri: rgbImage.uri,
