@@ -46,10 +46,10 @@ export default function SettingsScreen() {
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       {/* Header */}
       <View className="px-4 pt-4 pb-3">
-        <Text className="text-[28px] font-extrabold text-gray-900">
+        <Text className="text-[24px] font-extrabold text-gray-900">
           Settings
         </Text>
-        <Text className="text-[13px] text-gray-500 mt-1">
+        <Text className="text-[11px] text-gray-500 mt-1 font-semibold tracking-[0.4px]">
           Manage your account and preferences
         </Text>
       </View>
@@ -60,8 +60,8 @@ export default function SettingsScreen() {
       >
         {/* Profile Section */}
         <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[16px] font-extrabold text-gray-900 mb-4">
-            Profile
+          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
+            PROFILE
           </Text>
 
           <View className="flex-row items-center mb-4">
@@ -105,8 +105,8 @@ export default function SettingsScreen() {
 
         {/* Notifications */}
         <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[16px] font-extrabold text-gray-900 mb-4">
-            Notifications
+          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
+            NOTIFICATIONS
           </Text>
 
           <SettingRow
@@ -142,8 +142,8 @@ export default function SettingsScreen() {
 
         {/* App Settings */}
         <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[16px] font-extrabold text-gray-900 mb-4">
-            App Settings
+          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
+            APP SETTINGS
           </Text>
 
           <SettingRow
@@ -196,8 +196,8 @@ export default function SettingsScreen() {
 
         {/* System */}
         <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[16px] font-extrabold text-gray-900 mb-4">
-            System
+          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
+            SYSTEM
           </Text>
 
           <TouchableOpacity
@@ -238,8 +238,8 @@ export default function SettingsScreen() {
 
         {/* About */}
         <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[16px] font-extrabold text-gray-900 mb-4">
-            About
+          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
+            ABOUT
           </Text>
 
           <TouchableOpacity
@@ -301,8 +301,8 @@ export default function SettingsScreen() {
 
         {/* Help & Support */}
         <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[16px] font-extrabold text-gray-900 mb-4">
-            Help & Support
+          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
+            HELP & SUPPORT
           </Text>
 
           <TouchableOpacity

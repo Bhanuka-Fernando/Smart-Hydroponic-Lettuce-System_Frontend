@@ -92,10 +92,10 @@ export default function IoTDashboardScreen() {
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       {/* Header */}
       <View className="px-4 pt-4 pb-3">
-        <Text className="text-[28px] font-extrabold text-gray-900">
+        <Text className="text-[24px] font-extrabold text-gray-900">
           IoT Sensor Dashboard
         </Text>
-        <Text className="text-[13px] text-gray-500 mt-1">
+        <Text className="text-[11px] text-gray-500 mt-1 font-semibold tracking-[0.4px]">
           Monitor and manage sensor readings
         </Text>
       </View>
@@ -109,22 +109,22 @@ export default function IoTDashboardScreen() {
       >
         {/* Zone Selector */}
         <View className="mb-4">
-          <Text className="text-[14px] font-extrabold text-gray-900 mb-2">
-            Select Zone
+          <Text className="text-[11px] font-extrabold text-gray-900 mb-2 tracking-[0.6px]">
+            SELECT ZONE
           </Text>
           <View className="flex-row space-x-2">
             {["z01", "z02", "z03"].map((zone) => (
               <TouchableOpacity
                 key={zone}
                 onPress={() => setSelectedZone(zone)}
-                className={`flex-1 py-3 rounded-xl ${
-                  selectedZone === zone ? "bg-[#0046AD]" : "bg-white"
+                className={`flex-1 py-3 rounded-full border ${
+                  selectedZone === zone ? "bg-[#EAF4FF] border-[#B6C8F0]" : "bg-white border-gray-200"
                 }`}
                 activeOpacity={0.7}
               >
                 <Text
-                  className={`text-center text-[14px] font-bold ${
-                    selectedZone === zone ? "text-white" : "text-gray-600"
+                  className={`text-center text-[11px] font-extrabold ${
+                    selectedZone === zone ? "text-[#003B8F]" : "text-gray-600"
                   }`}
                 >
                   {zone.toUpperCase()}
@@ -144,8 +144,8 @@ export default function IoTDashboardScreen() {
             {/* Current Readings */}
             <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
               <View className="flex-row items-center justify-between mb-4">
-                <Text className="text-[18px] font-extrabold text-gray-900">
-                  Current Readings
+                <Text className="text-[13px] font-extrabold text-gray-900 tracking-[0.6px]">
+                  CURRENT READINGS
                 </Text>
                 <View className="flex-row items-center">
                   <View className="w-2 h-2 rounded-full bg-green-500 mr-2" />
@@ -234,8 +234,8 @@ export default function IoTDashboardScreen() {
 
             {/* Manual Input Section */}
             <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-              <Text className="text-[18px] font-extrabold text-gray-900 mb-4">
-                Manual Sensor Input
+              <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
+                MANUAL SENSOR INPUT
               </Text>
 
               <View className="space-y-3">
@@ -303,8 +303,8 @@ export default function IoTDashboardScreen() {
 
             {/* System Stats */}
             <View className="bg-white rounded-[18px] p-4 shadow-sm">
-              <Text className="text-[18px] font-extrabold text-gray-900 mb-4">
-                System Statistics
+              <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
+                SYSTEM STATISTICS
               </Text>
               
               <View className="flex-row justify-between items-center mb-3 pb-3 border-b border-gray-100">

@@ -100,21 +100,21 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
-      {/* HEADER (fixed) */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 }}>
-        <Text className="text-[13px] text-gray-500">{headerDate}</Text>
+      {/* HEADER */}
+      <View className="px-4 pt-4 pb-3">
+        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">{headerDate}</Text>
 
         <View className="flex-row items-start justify-between mt-2">
           <View>
-            <Text className="text-[28px] font-extrabold text-gray-900 leading-[34px]">
+            <Text className="text-[24px] font-extrabold text-gray-900 leading-[30px]">
               Good Morning,
             </Text>
-            <Text className="text-[28px] font-extrabold text-[#0046AD] leading-[34px]">
+            <Text className="text-[24px] font-extrabold text-[#0046AD] leading-[30px]">
               {user?.name ?? "Farmer"}
             </Text>
           </View>
 
-          {/* Profile avatar (tap to open logout sheet) */}
+          {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => setProfileOpen(true)}
@@ -122,14 +122,9 @@ export default function DashboardScreen() {
           >
             <Image
               source={{ uri: "https://i.pravatar.cc/100?img=12" }}
-              className="w-12 h-12 rounded-full"
+              className="w-11 h-11 rounded-full"
             />
-            <View className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-white" />
-
-            {/* small gear badge */}
-            <View className="absolute -top-1 -left-1 w-6 h-6 rounded-full bg-white items-center justify-center shadow-sm">
-              <Ionicons name="person-outline" size={14} color="#0F172A" />
-            </View>
+            <View className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-white" />
           </TouchableOpacity>
         </View>
       </View>
@@ -148,23 +143,25 @@ export default function DashboardScreen() {
         }}
       >
         {/* Zone Selector */}
-        <View className="flex-row items-center justify-between mb-4">
-          <Text className="text-[16px] font-extrabold text-gray-900">
-            Zone Selection
+        <View className="mb-4">
+          <Text className="text-[11px] font-extrabold text-gray-700 tracking-[0.6px] mb-2">
+            SELECT ZONE
           </Text>
-          <View className="flex-row space-x-2">
+          <View className="flex-row gap-2">
             {["z01", "z02", "z03"].map((zone) => (
               <TouchableOpacity
                 key={zone}
                 onPress={() => setSelectedZone(zone)}
-                className={`px-4 py-2 rounded-full ${
-                  selectedZone === zone ? "bg-[#0046AD]" : "bg-white"
+                activeOpacity={0.85}
+                className={`px-4 py-2 rounded-full border ${
+                  selectedZone === zone
+                    ? "bg-[#EAF4FF] border-[#B6C8F0]"
+                    : "bg-white border-gray-200"
                 }`}
-                activeOpacity={0.7}
               >
                 <Text
-                  className={`text-[13px] font-bold ${
-                    selectedZone === zone ? "text-white" : "text-gray-600"
+                  className={`text-[11px] font-extrabold ${
+                    selectedZone === zone ? "text-[#003B8F]" : "text-gray-600"
                   }`}
                 >
                   {zone.toUpperCase()}
@@ -293,7 +290,7 @@ export default function DashboardScreen() {
         </View>
 
         {/* Quick Actions */}
-        <Text className="text-[20px] font-extrabold text-gray-900 mt-7 mb-4">
+        <Text className="text-[13px] font-extrabold text-gray-900 mt-6 mb-3">
           Quick Actions
         </Text>
 
@@ -329,13 +326,13 @@ export default function DashboardScreen() {
         </View>
 
         {/* Notifications */}
-        <View className="flex-row items-center justify-between mt-8 mb-4">
-          <Text className="text-[20px] font-extrabold text-gray-900">
+        <View className="flex-row items-center justify-between mt-6 mb-3">
+          <Text className="text-[13px] font-extrabold text-gray-900">
             Notifications
           </Text>
 
-          <View className="bg-red-500 rounded-full px-4 py-2">
-            <Text className="text-white text-[12px] font-bold">2 New</Text>
+          <View className="bg-red-500 rounded-full px-3 py-1">
+            <Text className="text-white text-[11px] font-extrabold">2 New</Text>
           </View>
         </View>
 
@@ -358,13 +355,13 @@ export default function DashboardScreen() {
         />
 
         {/* Recent Activities */}
-        <View className="flex-row items-center justify-between mt-8 mb-3">
-          <Text className="text-[18px] font-extrabold text-gray-900">
+        <View className="flex-row items-center justify-between mt-6 mb-3">
+          <Text className="text-[13px] font-extrabold text-gray-900">
             Recent Activities
           </Text>
-          <TouchableOpacity onPress={() => go("History")} activeOpacity={0.8}>
-            <Text className="text-[13px] font-semibold text-green-600">
-              History
+          <TouchableOpacity onPress={() => go("History")} activeOpacity={0.85}>
+            <Text className="text-[11px] font-extrabold text-[#0046AD]">
+              View All
             </Text>
           </TouchableOpacity>
         </View>

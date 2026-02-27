@@ -114,8 +114,8 @@ export default function ProfileScreen({ navigation }: any) {
 
         {/* Profile Info */}
         <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[16px] font-extrabold text-gray-900 mb-4">
-            Personal Information
+          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
+            PERSONAL INFORMATION
           </Text>
 
           <ProfileField
@@ -163,8 +163,8 @@ export default function ProfileScreen({ navigation }: any) {
 
         {/* Bio */}
         <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[16px] font-extrabold text-gray-900 mb-4">
-            About Me
+          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
+            ABOUT ME
           </Text>
 
           <View className="bg-gray-50 rounded-xl p-3">
@@ -184,8 +184,8 @@ export default function ProfileScreen({ navigation }: any) {
 
         {/* Stats */}
         <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[16px] font-extrabold text-gray-900 mb-4">
-            Activity Stats
+          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
+            ACTIVITY STATS
           </Text>
 
           <View className="flex-row justify-between">
@@ -210,8 +210,8 @@ export default function ProfileScreen({ navigation }: any) {
         {/* Account Settings */}
         {!isEditing && (
           <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-            <Text className="text-[16px] font-extrabold text-gray-900 mb-4">
-              Account Settings
+            <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
+              ACCOUNT SETTINGS
             </Text>
 
             <TouchableOpacity

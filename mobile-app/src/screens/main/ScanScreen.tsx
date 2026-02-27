@@ -22,7 +22,6 @@ export default function ScanScreen() {
     
     switch (type) {
       case "weight":
-        // Navigate to weight estimation scan
         try {
           navigation.navigate("EstimateWeightScan");
         } catch {
@@ -57,10 +56,10 @@ export default function ScanScreen() {
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       {/* Header */}
       <View className="px-4 pt-4 pb-3">
-        <Text className="text-[28px] font-extrabold text-gray-900">
+        <Text className="text-[24px] font-extrabold text-gray-900">
           Scan & Analyze
         </Text>
-        <Text className="text-[13px] text-gray-500 mt-1">
+        <Text className="text-[11px] text-gray-500 mt-1 font-semibold tracking-[0.4px]">
           Choose what you want to scan and analyze
         </Text>
       </View>
@@ -106,7 +105,7 @@ export default function ScanScreen() {
         </View>
 
         {/* Scan Options Grid */}
-        <Text className="text-[18px] font-extrabold text-gray-900 mb-3">
+        <Text className="text-[13px] font-extrabold text-gray-900 mb-3">
           All Scan Types
         </Text>
 
@@ -156,8 +155,8 @@ export default function ScanScreen() {
 
         {/* Quick Actions */}
         <View className="bg-white rounded-[18px] p-4 shadow-sm mt-4 mb-4">
-          <Text className="text-[16px] font-extrabold text-gray-900 mb-4">
-            Quick Actions
+          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
+            QUICK ACTIONS
           </Text>
 
           <TouchableOpacity
@@ -265,8 +264,8 @@ export default function ScanScreen() {
         {/* Recent Scans Preview */}
         <View className="bg-white rounded-[18px] p-4 shadow-sm">
           <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-[16px] font-extrabold text-gray-900">
-              Recent Scans
+            <Text className="text-[13px] font-extrabold text-gray-900 tracking-[0.6px]">
+              RECENT SCANS
             </Text>
             <TouchableOpacity
               onPress={() => {

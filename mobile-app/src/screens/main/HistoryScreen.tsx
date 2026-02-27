@@ -171,10 +171,10 @@ export default function HistoryScreen() {
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       {/* Header */}
       <View className="px-4 pt-4 pb-3">
-        <Text className="text-[28px] font-extrabold text-gray-900">
+        <Text className="text-[24px] font-extrabold text-gray-900">
           Activity History
         </Text>
-        <Text className="text-[13px] text-gray-500 mt-1">
+        <Text className="text-[11px] text-gray-500 mt-1 font-semibold tracking-[0.4px]">
           Track all system activities and events
         </Text>
       </View>
@@ -329,26 +329,26 @@ function FilterChip({
   return (
     <TouchableOpacity
       onPress={onPress}
-      className={`mr-2 px-4 py-2 rounded-full flex-row items-center ${
-        active ? "bg-[#0046AD]" : "bg-white"
+      className={`mr-2 px-4 py-2 rounded-full border flex-row items-center ${
+        active ? "bg-[#EAF4FF] border-[#B6C8F0]" : "bg-white border-gray-200"
       }`}
       activeOpacity={0.7}
     >
       <Text
-        className={`text-[13px] font-bold ${
-          active ? "text-white" : "text-gray-600"
+        className={`text-[11px] font-extrabold ${
+          active ? "text-[#003B8F]" : "text-gray-600"
         }`}
       >
         {label}
       </Text>
       <View
         className={`ml-2 w-5 h-5 rounded-full items-center justify-center ${
-          active ? "bg-white/20" : "bg-gray-100"
+          active ? "bg-[#003B8F]/10" : "bg-gray-100"
         }`}
       >
         <Text
           className={`text-[10px] font-bold ${
-            active ? "text-white" : "text-gray-600"
+            active ? "text-[#003B8F]" : "text-gray-600"
           }`}
         >
           {count}
