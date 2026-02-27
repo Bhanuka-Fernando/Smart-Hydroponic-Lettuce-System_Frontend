@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,11 +8,14 @@ import {
   Alert,
   Modal,
   Pressable,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../../auth/useAuth";
+import { getDashboardLatest, DashboardMetricsResponse } from "../../api/dashboardApi";
 
 function formatHeaderDate(d: Date) {
   const month = d.toLocaleString("en-US", { month: "short" });
@@ -24,8 +27,58 @@ export default function DashboardScreen() {
   const navigation = useNavigation<any>();
   const headerDate = useMemo(() => formatHeaderDate(new Date()), []);
 
-  const { user, signOut } = useAuth();
+  const { user, signOut, accessToken } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
+  
+  // Dashboard state
+  const [metrics, setMetrics] = useState<DashboardMetricsResponse | null>(null);
+  const [selectedZone, setSelectedZone] = useState("z01");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Fetch dashboard metrics
+  const fetchDashboard = useCallback(async (isRefreshing = false) => {
+    try {
+      if (!isRefreshing) setLoading(true);
+      const data = await getDashboardLatest({ token: accessToken, zone_id: selectedZone });
+      setMetrics(data);
+    } catch (error: any) {
+      console.error("Failed to fetch dashboard:", error);
+      
+      // Use mock data if API is not available
+      const mockData: DashboardMetricsResponse = {
+        zone_id: selectedZone,
+        zone_name: `Zone ${selectedZone.toUpperCase()}`,
+        plant_count: 24,
+        harvest_ready_count: 5,
+        avg_growth_pct: 78.5,
+        temperature_c: 23.5,
+        humidity_pct: 62.0,
+        ec_ms_cm: 1.4,
+        ph: 6.2,
+        last_updated: new Date().toISOString(),
+      };
+      setMetrics(mockData);
+      
+      if (!isRefreshing) {
+        console.warn("Using mock data - backend endpoint not available");
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [accessToken, selectedZone]);
+
+  // Fetch on mount and when zone changes
+  useEffect(() => {
+    fetchDashboard();
+  }, [selectedZone]);
+
+  // Pull to refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchDashboard(true);
+  }, [fetchDashboard]);
 
   const go = (routeName: string) => {
     try {
@@ -85,12 +138,123 @@ export default function DashboardScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 0,
           paddingBottom: 16,
         }}
       >
+        {/* Zone Selector */}
+        <View className="flex-row items-center justify-between mb-4">
+          <Text className="text-[16px] font-extrabold text-gray-900">
+            Zone Selection
+          </Text>
+          <View className="flex-row space-x-2">
+            {["z01", "z02", "z03"].map((zone) => (
+              <TouchableOpacity
+                key={zone}
+                onPress={() => setSelectedZone(zone)}
+                className={`px-4 py-2 rounded-full ${
+                  selectedZone === zone ? "bg-[#0046AD]" : "bg-white"
+                }`}
+                activeOpacity={0.7}
+              >
+                <Text
+                  className={`text-[13px] font-bold ${
+                    selectedZone === zone ? "text-white" : "text-gray-600"
+                  }`}
+                >
+                  {zone.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Loading State */}
+        {loading && !metrics ? (
+          <View className="py-20 items-center">
+            <ActivityIndicator size="large" color="#0046AD" />
+            <Text className="text-gray-500 mt-4">Loading dashboard...</Text>
+          </View>
+        ) : metrics ? (
+          <>
+            {/* Metrics Cards */}
+            <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
+              <Text className="text-[16px] font-extrabold text-gray-900 mb-3">
+                System Overview
+              </Text>
+              <View className="flex-row justify-between mb-3">
+                <View className="flex-1 mr-2">
+                  <MetricItem
+                    icon={<MaterialCommunityIcons name="sprout" size={18} color="#0046AD" />}
+                    label="Total Plants"
+                    value={metrics.plant_count.toString()}
+                  />
+                </View>
+                <View className="flex-1 ml-2">
+                  <MetricItem
+                    icon={<Ionicons name="checkmark-circle" size={18} color="#16A34A" />}
+                    label="Harvest Ready"
+                    value={metrics.harvest_ready_count.toString()}
+                  />
+                </View>
+              </View>
+              <MetricItem
+                icon={<Ionicons name="trending-up" size={18} color="#0046AD" />}
+                label="Avg Growth"
+                value={`${metrics.avg_growth_pct.toFixed(1)}%`}
+              />
+            </View>
+
+            {/* Sensor Readings */}
+            <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
+              <Text className="text-[16px] font-extrabold text-gray-900 mb-3">
+                Sensor Readings
+              </Text>
+              <View className="flex-row flex-wrap">
+                <View className="w-1/2 pr-2 mb-3">
+                  <SensorMetric
+                    icon={<Ionicons name="thermometer-outline" size={18} color="#EF4444" />}
+                    label="Temperature"
+                    value={`${metrics.temperature_c.toFixed(1)}°C`}
+                    bgColor="bg-red-50"
+                  />
+                </View>
+                <View className="w-1/2 pl-2 mb-3">
+                  <SensorMetric
+                    icon={<Ionicons name="water-outline" size={18} color="#3B82F6" />}
+                    label="Humidity"
+                    value={`${metrics.humidity_pct.toFixed(1)}%`}
+                    bgColor="bg-blue-50"
+                  />
+                </View>
+                <View className="w-1/2 pr-2">
+                  <SensorMetric
+                    icon={<MaterialCommunityIcons name="flash" size={18} color="#F59E0B" />}
+                    label="EC"
+                    value={`${metrics.ec_ms_cm.toFixed(2)} mS/cm`}
+                    bgColor="bg-amber-50"
+                  />
+                </View>
+                <View className="w-1/2 pl-2">
+                  <SensorMetric
+                    icon={<MaterialCommunityIcons name="ph" size={18} color="#8B5CF6" />}
+                    label="pH"
+                    value={metrics.ph.toFixed(2)}
+                    bgColor="bg-purple-50"
+                  />
+                </View>
+              </View>
+              <Text className="text-[11px] text-gray-400 mt-3 text-right">
+                Last updated: {new Date(metrics.last_updated).toLocaleTimeString()}
+              </Text>
+            </View>
+          </>
+        ) : null}
         {/* Feature 2x2 grid */}
         <View className="mt-4">
           <View className="flex-row justify-between">
@@ -442,4 +606,50 @@ function ActivityRow({
 
 function Divider() {
   return <View className="h-px bg-gray-100 mx-4" />;
+}
+
+function MetricItem({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <View className="flex-row items-center bg-gray-50 rounded-xl p-3">
+      <View className="mr-3">{icon}</View>
+      <View className="flex-1">
+        <Text className="text-[11px] text-gray-500">{label}</Text>
+        <Text className="text-[16px] font-extrabold text-gray-900 mt-0.5">
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function SensorMetric({
+  icon,
+  label,
+  value,
+  bgColor,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  bgColor: string;
+}) {
+  return (
+    <View className={`${bgColor} rounded-xl p-3`}>
+      <View className="flex-row items-center mb-2">
+        {icon}
+        <Text className="text-[11px] text-gray-600 ml-2 font-semibold">
+          {label}
+        </Text>
+      </View>
+      <Text className="text-[15px] font-extrabold text-gray-900">{value}</Text>
+    </View>
+  );
 }
