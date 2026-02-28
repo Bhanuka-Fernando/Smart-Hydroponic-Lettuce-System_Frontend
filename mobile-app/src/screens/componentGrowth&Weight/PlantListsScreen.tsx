@@ -1,11 +1,11 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { View, Text, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
 import { useAuth } from "../../auth/useAuth";
-import { getPlants } from "../../api/plantsApi";
+import { getPlants, deletePlant } from "../../api/plantsApi";
 
 type Filter = "All" | "Growing" | "Harvest Ready";
 
@@ -56,7 +56,7 @@ function MiniField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PlantCard({ plant, onPress }: { plant: Plant; onPress: () => void }) {
+function PlantCard({ plant, onPress, onDelete }: { plant: Plant; onPress: () => void; onDelete: () => void }) {
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress} className="bg-white rounded-[18px] shadow-sm p-4 mb-3">
       <View className="flex-row">
@@ -67,7 +67,16 @@ function PlantCard({ plant, onPress }: { plant: Plant; onPress: () => void }) {
         <View className="flex-1 ml-3">
           <View className="flex-row items-start justify-between">
             <Text className="text-[13px] font-extrabold text-gray-900">{plant.name}</Text>
-            <StatusPill status={plant.status} />
+            <View className="flex-row items-center" style={{ gap: 8 }}>
+              <StatusPill status={plant.status} />
+              <TouchableOpacity
+                onPress={onDelete}
+                activeOpacity={0.7}
+                className="w-7 h-7 rounded-full bg-red-50 items-center justify-center"
+              >
+                <Ionicons name="trash-outline" size={14} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View className="flex-row mt-3" style={{ gap: 10 }}>
@@ -99,33 +108,61 @@ export default function PlantListsScreen() {
     return "harvest_ready";
   }, [filter]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await getPlants({ token: accessToken, filter: apiFilter as any });
+  const loadPlants = async () => {
+    try {
+      setLoading(true);
+      const data = await getPlants({ token: accessToken, filter: apiFilter as any });
 
-        const mapped: Plant[] = data.map((p: any) => ({
-          id: p.plant_id,
-          name: p.name ?? `Plant ${p.plant_id}`,
-          day: Number(p.age_days ?? 0),
-          area: Number(p.area_cm2 ?? 0).toFixed ? Number(Number(p.area_cm2 ?? 0).toFixed(1)) : Number(p.area_cm2 ?? 0),
-          diameter: Number(p.diameter_cm ?? 0).toFixed ? Number(Number(p.diameter_cm ?? 0).toFixed(1)) : Number(p.diameter_cm ?? 0),
-          estWeight: Number(p.estimated_weight_g ?? 0).toFixed ? Number(Number(p.estimated_weight_g ?? 0).toFixed(1)) : Number(p.estimated_weight_g ?? 0),
-          status: p.status === "HARVEST_READY" ? "HARVEST READY" : "NOT READY",
-          imageUri:
-            p.image_url ||
-            "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=60",
-        }));
+      const mapped: Plant[] = data.map((p: any) => ({
+        id: p.plant_id,
+        name: p.name ?? `Plant ${p.plant_id}`,
+        day: Number(p.age_days ?? 0),
+        area: Number(p.area_cm2 ?? 0).toFixed ? Number(Number(p.area_cm2 ?? 0).toFixed(1)) : Number(p.area_cm2 ?? 0),
+        diameter: Number(p.diameter_cm ?? 0).toFixed ? Number(Number(p.diameter_cm ?? 0).toFixed(1)) : Number(p.diameter_cm ?? 0),
+        estWeight: Number(p.estimated_weight_g ?? 0).toFixed ? Number(Number(p.estimated_weight_g ?? 0).toFixed(1)) : Number(p.estimated_weight_g ?? 0),
+        status: p.status === "HARVEST_READY" ? "HARVEST READY" : "NOT READY",
+        imageUri:
+          p.image_url ||
+          "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=60",
+      }));
 
-        setPlants(mapped);
-      } catch (e: any) {
-        Alert.alert("Error", e?.message || "Failed to load plants");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [apiFilter, accessToken]);
+      setPlants(mapped);
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to load plants");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = (plantId: string, plantName: string) => {
+    Alert.alert(
+      "Delete Plant",
+      `Are you sure you want to delete ${plantName}? This action cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deletePlant({ token: accessToken, plant_id: plantId });
+              Alert.alert("Success", "Plant deleted successfully");
+              loadPlants(); // Refresh the list
+            } catch (e: any) {
+              Alert.alert("Error", e?.message || "Failed to delete plant");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Refresh plants when screen comes into focus (e.g., after saving a new plant)
+  useFocusEffect(
+    useCallback(() => {
+      loadPlants();
+    }, [apiFilter, accessToken])
+  );
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
@@ -170,6 +207,7 @@ export default function PlantListsScreen() {
                 key={p.id}
                 plant={p}
                 onPress={() => navigation.navigate("PlantDetails", { plant_id: p.id })}
+                onDelete={() => handleDelete(p.id, p.name)}
               />
             ))}
           </View>

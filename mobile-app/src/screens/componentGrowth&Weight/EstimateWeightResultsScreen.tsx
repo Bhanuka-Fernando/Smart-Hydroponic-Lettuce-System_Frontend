@@ -1,11 +1,8 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, TouchableOpacity, Image, ScrollView, Alert, ActivityIndicator } from "react-native";
+import React, { useMemo } from "react";
+import { View, Text, TouchableOpacity, Image, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
-
-import { useAuth } from "../../auth/useAuth";
-import { saveWeightResult } from "../../api/weightApi";
 
 type RouteParams = {
   imageUri: string;
@@ -58,10 +55,8 @@ function MiniStatCard({
 export default function EstimateWeightResultsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { accessToken } = useAuth();
 
   const params: RouteParams = route.params || {};
-  const [saving, setSaving] = useState(false);
 
   const computed = useMemo(() => {
     const accuracy = params.accuracy ?? 0;
@@ -85,42 +80,12 @@ export default function EstimateWeightResultsScreen() {
     };
   }, [params]);
 
-  const onSave = async () => {
-    if (!params.rawPayload) {
-      Alert.alert("Missing data", "No backend payload found to save.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      // ✅ normalize fields from rawPayload (your merged object)
-      const payload = {
-        plant_id: params.rawPayload.plant_id ?? params.plantId ?? "p04",
-        zone_id: params.rawPayload.zone_id ?? "z01",
-        captured_at: params.rawPayload.captured_at ?? computed.capturedAtISO,
-
-        A_proj_cm2: Number(params.rawPayload.A_proj_cm2 ?? 0),
-        D_proj_cm: Number(params.rawPayload.D_proj_cm ?? 0),
-        A_des_cm2: Number(params.rawPayload.A_des_cm2 ?? 0),
-        W_today_g: Number(params.rawPayload.W_today_g ?? params.rawPayload.biomass_g ?? 0),
-
-        image_url: params.rawPayload.image_url ?? null,
-      };
-
-      await saveWeightResult({ token: accessToken, payload });
-
-      Alert.alert("Saved", "Saved to Growth Log.");
-      navigation.goBack();
-    } catch (e: any) {
-      Alert.alert("Save failed", e?.message || "Failed to save.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const onNewScan = () => {
     navigation.navigate("EstimateWeightScan", { reset: true });
+  };
+
+  const onViewGrowthForecast = () => {
+    navigation.navigate("GrowthForecasting");
   };
 
   return (
@@ -211,25 +176,16 @@ export default function EstimateWeightResultsScreen() {
           />
         </View>
 
-        {/* Buttons */}
+        {/* Action Buttons */}
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={onSave}
-          disabled={saving}
-          className={`mt-5 rounded-[16px] py-4 items-center justify-center flex-row ${
-            saving ? "bg-[#C7D2E5]" : "bg-[#003B8F]"
-          }`}
+          onPress={onViewGrowthForecast}
+          className="mt-5 bg-[#003B8F] rounded-[16px] py-4 items-center justify-center flex-row"
         >
-          {saving ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <>
-              <Ionicons name="save-outline" size={18} color="#FFFFFF" />
-              <Text className="ml-2 text-[12px] font-extrabold text-white">
-                Save to Growth Log
-              </Text>
-            </>
-          )}
+          <Ionicons name="trending-up" size={18} color="#FFFFFF" />
+          <Text className="ml-2 text-[12px] font-extrabold text-white">
+            View Growth Forecast
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity

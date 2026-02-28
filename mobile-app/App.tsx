@@ -5,6 +5,7 @@ import { AuthProvider } from "./src/auth/AuthProvider";
 import RootNavigator from "./src/navigation/RootNavigator";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { SensorReadingsProvider } from "./src/context/SensorReadingsContext";
+import { PreferencesProvider } from "./src/context/PreferencesContext";
 
 import { useFonts } from "expo-font";
 import {
@@ -36,13 +37,15 @@ export default function App() {
   return (
     
     <SafeAreaProvider>
-      <SensorReadingsProvider>
-        <AuthProvider>
-          <NavigationContainer>
-            <RootNavigator />
-          </NavigationContainer>
-        </AuthProvider>
-      </SensorReadingsProvider>
+      <PreferencesProvider>
+        <SensorReadingsProvider>
+          <AuthProvider>
+            <NavigationContainer>
+              <RootNavigator />
+            </NavigationContainer>
+          </AuthProvider>
+        </SensorReadingsProvider>
+      </PreferencesProvider>
     </SafeAreaProvider>
   );
 }

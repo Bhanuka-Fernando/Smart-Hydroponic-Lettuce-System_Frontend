@@ -87,6 +87,61 @@ class IoTSensorPayload(BaseModel):
 
 ---
 
+### 3. Save Growth Prediction
+**Endpoint:** `POST /growth/predict/save`
+
+**Request Body:**
+```python
+class SaveGrowthPredictionPayload(BaseModel):
+    plant_id: str
+    date_label: str
+    predicted_weight_g: float
+    predicted_area_cm2: float
+    predicted_diameter_cm: float
+    change_pct: float
+    series: Optional[dict] = None  # {"labels": [...], "actual": [...], "predicted": [...]}
+```
+
+**Response:**
+```python
+{
+  "ok": true,
+  "prediction_id": "pred_12345",
+  "saved_at": "2026-02-27T13:45:00Z"
+}
+```
+
+**Implementation Notes:**
+- Save the growth prediction to database
+- Link prediction to the plant_id
+- Store the series data for historical charts
+- Used after user runs growth forecasting and wants to save results
+
+---
+
+### 4. Delete Plant
+**Endpoint:** `DELETE /plants/{plant_id}`
+
+**Path Parameters:**
+- `plant_id`: The unique identifier of the plant to delete
+
+**Response:**
+```python
+{
+  "ok": true,
+  "plant_id": "p01",
+  "deleted_at": "2026-02-27T13:45:00Z"
+}
+```
+
+**Implementation Notes:**
+- Soft delete or hard delete based on your requirements
+- Consider cascade deletion or marking related records as deleted
+- Ensure proper authorization (user can only delete their own plants)
+- Used when user wants to remove a plant from their growth log
+
+---
+
 ## 🟡 RECOMMENDED - Enhanced Endpoints (Medium Priority)
 
 ### 3. Activity History Endpoint
@@ -297,6 +352,8 @@ curl -X POST "http://172.20.10.12:8000/infer/iot/ingest" \
 - ✅ POST /infer/today (weight estimation)
 - ✅ POST /infer/forecast (growth forecasting)
 - ✅ POST /infer/weights/save
+- ✅ POST /growth/predict/save (frontend ready, backend needed)
+- ✅ DELETE /plants/{plant_id} (frontend ready, backend needed)
 
 ---
 
@@ -385,6 +442,73 @@ async def ingest_iot_data(
     }
 ```
 
+### Step 3: Add Growth Prediction Save Endpoint
+```python
+# growth_routes.py
+
+@router.post("/growth/predict/save")
+async def save_growth_prediction(
+    payload: SaveGrowthPredictionPayload,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    prediction = GrowthPrediction(
+        plant_id=payload.plant_id,
+        user_id=current_user["user_id"],
+        date_label=payload.date_label,
+        predicted_weight_g=payload.predicted_weight_g,
+        predicted_area_cm2=payload.predicted_area_cm2,
+        predicted_diameter_cm=payload.predicted_diameter_cm,
+        change_pct=payload.change_pct,
+        series_data=payload.series,  # Store as JSON
+        created_at=datetime.now()
+    )
+    
+    db.add(prediction)
+    db.commit()
+    db.refresh(prediction)
+    
+    return {
+        "ok": True,
+        "prediction_id": str(prediction.id),
+        "saved_at": prediction.created_at.isoformat()
+    }
+```
+
+### Step 4: Add Plant Delete Endpoint
+```python
+# plants_routes.py
+
+@router.delete("/plants/{plant_id}")
+async def delete_plant(
+    plant_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    plant = db.query(Plant).filter(
+        Plant.plant_id == plant_id,
+        Plant.user_id == current_user["user_id"]
+    ).first()
+    
+    if not plant:
+        raise HTTPException(status_code=404, detail="Plant not found")
+    
+    # Option 1: Soft delete
+    plant.deleted_at = datetime.now()
+    plant.status = "DELETED"
+    
+    # Option 2: Hard delete (uncomment if preferred)
+    # db.delete(plant)
+    
+    db.commit()
+    
+    return {
+        "ok": True,
+        "plant_id": plant_id,
+        "deleted_at": datetime.now().isoformat()
+    }
+```
+
 ---
 
 ## 📞 Support
@@ -398,15 +522,27 @@ If you need clarification on any endpoint or response format, please check:
 
 ## ✅ Checklist for Backend Developer
 
+### Phase 1 - Critical (Required for Full Functionality)
 - [ ] Implement `GET /dashboard/latest`
 - [ ] Implement `POST /infer/iot/ingest`
-- [ ] Create sensor_readings table
+- [ ] Implement `POST /growth/predict/save`
+- [ ] Implement `DELETE /plants/{plant_id}`
+- [ ] Create sensor_readings table (if not exists)
+- [ ] Create growth_predictions table (if not exists)
 - [ ] Test dashboard endpoint with Postman
 - [ ] Test IoT ingestion endpoint
+- [ ] Test growth prediction save endpoint
+- [ ] Test plant deletion endpoint
 - [ ] Verify CORS settings for mobile app
 - [ ] Check authentication headers are working
-- [ ] (Optional) Implement activity history endpoint
-- [ ] (Optional) Implement user profile endpoints
+
+### Phase 2 - Optional Enhancements
+- [ ] Implement activity history endpoint
+- [ ] Implement user profile endpoints (GET/PUT /api/users/profile)
+- [ ] Implement user preferences endpoints
+- [ ] Add cascade deletion for plant-related data
+- [ ] Add soft delete for audit trail
+- [ ] Implement pagination for plant lists
 
 ---
 

@@ -1,9 +1,11 @@
-import React, { useMemo } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
+import React, { useMemo, useState } from "react";
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Svg, { Path, Circle, Line, Text as SvgText } from "react-native-svg";
+import { useAuth } from "../../auth/useAuth";
+import { saveGrowthPrediction } from "../../api/growthApi";
 
 type RouteParams = {
   dateLabel?: string;
@@ -207,6 +209,12 @@ export default function GrowthPredictionResultsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const params: RouteParams = route.params || {};
+  const { accessToken } = useAuth();
+  const [saving, setSaving] = useState(false);
+  
+  // User input fields
+  const [plantId, setPlantId] = useState("");
+  const [plantAge, setPlantAge] = useState("");
 
   const fmt = (n: number) => (Number.isFinite(n) ? n.toFixed(1) : "0.0");
 
@@ -258,10 +266,53 @@ const model = useMemo(() => {
 
 
 
-  const onSave = () => {
-    // TODO: persist to DB / history
-    Alert.alert("Saved", "Prediction saved (demo).");
-    navigation.goBack();
+  const onSave = async () => {
+    // Validate inputs
+    if (!plantId.trim()) {
+      Alert.alert("Missing Input", "Please enter a Plant ID.");
+      return;
+    }
+    
+    const ageNumber = parseInt(plantAge, 10);
+    if (!plantAge.trim() || isNaN(ageNumber) || ageNumber <= 0) {
+      Alert.alert("Invalid Input", "Please enter a valid plant age (days).");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const payload = {
+        plant_id: plantId.trim(),
+        age_days: ageNumber,
+        date_label: model.dateLabel,
+        predicted_weight_g: model.predictedWeight,
+        predicted_area_cm2: model.predictedArea,
+        predicted_diameter_cm: model.predictedDiameter,
+        change_pct: model.changePct,
+        series: {
+          labels: model.labels,
+          actual: model.actual,
+          predicted: model.predicted,
+        },
+      };
+
+      await saveGrowthPrediction({
+        token: accessToken,
+        payload,
+      });
+
+      Alert.alert("Success", "Growth prediction saved successfully!", [
+        {
+          text: "OK",
+          onPress: () => navigation.navigate("PlantLists"),
+        },
+      ]);
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Failed to save prediction.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -358,15 +409,53 @@ const model = useMemo(() => {
           </Text>
         </View>
 
+        {/* Plant Info Input */}
+        <View className="mt-4 bg-white rounded-[16px] border border-gray-100 px-4 py-4">
+          <Text className="text-[12px] font-extrabold text-gray-900 mb-3">
+            Plant Information
+          </Text>
+          
+          <Text className="text-[10px] font-extrabold text-gray-500 mb-1">
+            PLANT ID
+          </Text>
+          <TextInput
+            value={plantId}
+            onChangeText={setPlantId}
+            placeholder="e.g., P001 or Lettuce-A1"
+            placeholderTextColor="#9CA3AF"
+            className="bg-[#F6F8FC] rounded-[12px] px-3 py-3 text-[12px] font-semibold text-gray-900 mb-3"
+          />
+          
+          <Text className="text-[10px] font-extrabold text-gray-500 mb-1">
+            PLANT AGE (DAYS)
+          </Text>
+          <TextInput
+            value={plantAge}
+            onChangeText={setPlantAge}
+            placeholder="e.g., 14"
+            placeholderTextColor="#9CA3AF"
+            keyboardType="number-pad"
+            className="bg-[#F6F8FC] rounded-[12px] px-3 py-3 text-[12px] font-semibold text-gray-900"
+          />
+        </View>
+
         {/* Bottom Save */}
         <View className="px-4 pb-4 bg-[#F4F6FA]">
             <TouchableOpacity
             activeOpacity={0.9}
             onPress={onSave}
+            disabled={saving}
             className="bg-[#003B8F] rounded-[16px] py-4 items-center justify-center flex-row"
+            style={{ opacity: saving ? 0.6 : 1 }}
             >
-            <Ionicons name="save-outline" size={18} color="#FFFFFF" />
-            <Text className="ml-2 text-[12px] font-extrabold text-white">Save</Text>
+            {saving ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="save-outline" size={18} color="#FFFFFF" />
+                <Text className="ml-2 text-[12px] font-extrabold text-white">Save</Text>
+              </>
+            )}
             </TouchableOpacity>
         </View>
 

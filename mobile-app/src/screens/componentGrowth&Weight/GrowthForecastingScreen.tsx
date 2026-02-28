@@ -50,8 +50,6 @@ export default function GrowthForecastingScreen() {
   const [forecast, setForecast] = useState<any[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
 
-  const [dap, setDap] = useState<number>(20);
-
   const dateLabel = useMemo(() => "Oct 24, 2023", []);
 
   const sensorsReady =
@@ -123,8 +121,6 @@ export default function GrowthForecastingScreen() {
     try {
       setAnalyzing(true);
 
-      const dapVal = dap; 
-
       const PLANT_ID = "p04";
       const ZONE_ID = "z01";
 
@@ -134,7 +130,7 @@ export default function GrowthForecastingScreen() {
         token: accessToken,
         plant_id: PLANT_ID,
         zone_id: ZONE_ID,
-        dap: dapVal,
+        dap: 20, // Default DAP value
         A_prev_cm2: null,
         sensors,
       });
@@ -147,7 +143,7 @@ export default function GrowthForecastingScreen() {
         token: accessToken,
         plant_id: PLANT_ID,
         zone_id: ZONE_ID,
-        dap: dapVal,
+        dap: 20, // Default DAP value
         n_days: 4,
         A_prev_cm2: null,
         A_t_cm2: todayRes.A_proj_cm2,
@@ -344,9 +340,6 @@ const generatePrediction = () => {
             label="Weight"
             value={today?.W_today_g != null ? `${Number(today.W_today_g).toFixed(1)} g` : "--"}
           />
-          <View className="h-px bg-gray-100" />
-        
-          <StatRow iconName="calendar-outline" label="DAP" value={`${dap}`} />
         </View>
 
         {/* Bottom button */}

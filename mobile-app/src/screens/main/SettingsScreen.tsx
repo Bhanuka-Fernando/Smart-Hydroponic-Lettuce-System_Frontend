@@ -7,19 +7,77 @@ import {
   Image,
   Switch,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "../../auth/useAuth";
+import { usePreferences } from "../../context/PreferencesContext";
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }: any) {
   const { user, signOut } = useAuth();
-  
-  // Settings state
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(false);
-  const [autoSync, setAutoSync] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
+  const {
+    pushNotifications,
+    setPushNotifications,
+    emailNotifications,
+    setEmailNotifications,
+    autoSync,
+    setAutoSync,
+    darkMode,
+    setDarkMode,
+    language,
+    clearCache,
+    getStorageInfo,
+    loading,
+  } = usePreferences();
+
+  const [storageInfo, setStorageInfo] = useState({
+    appData: "0 MB",
+    cache: "0 MB",
+    images: "0 MB",
+    total: "0 MB",
+  });
+  const [clearingCache, setClearingCache] = useState(false);
+
+  // Load storage info on mount
+  React.useEffect(() => {
+    loadStorageInfo();
+  }, []);
+
+  const loadStorageInfo = async () => {
+    const info = await getStorageInfo();
+    setStorageInfo(info);
+  };
+
+  const handleClearCache = async () => {
+    Alert.alert(
+      "Clear Cache",
+      "Are you sure you want to clear the cache? This will free up storage space.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setClearingCache(true);
+              await clearCache();
+              await loadStorageInfo();
+              Alert.alert("Success", "Cache cleared successfully");
+            } catch (error) {
+              Alert.alert("Error", "Failed to clear cache");
+            } finally {
+              setClearingCache(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleViewProfile = () => {
+    navigation.navigate("Profile");
+  };
 
   const handleLogout = async () => {
     Alert.alert(
@@ -87,7 +145,7 @@ export default function SettingsScreen() {
           </View>
 
           <TouchableOpacity
-            onPress={() => Alert.alert("View Profile", "Feature coming soon")}
+            onPress={handleViewProfile}
             className="py-3 border-t border-gray-100"
             activeOpacity={0.7}
           >
@@ -165,12 +223,11 @@ export default function SettingsScreen() {
           <SettingRow
             icon={<Ionicons name="moon-outline" size={20} color="#6B7280" />}
             title="Dark Mode"
-            subtitle="Coming soon"
+            subtitle="Switch between light and dark theme"
             rightComponent={
               <Switch
                 value={darkMode}
                 onValueChange={setDarkMode}
-                disabled
                 trackColor={{ false: "#D1D5DB", true: "#0046AD" }}
                 thumbColor="#FFFFFF"
               />
@@ -204,7 +261,7 @@ export default function SettingsScreen() {
             onPress={() =>
               Alert.alert(
                 "Storage",
-                "App data: 45.2 MB\nCache: 12.8 MB\nImages: 28.4 MB"
+                `App data: ${storageInfo.appData}\nCache: ${storageInfo.cache}\nImages: ${storageInfo.images}\n\nTotal: ${storageInfo.total}`
               )
             }
             activeOpacity={0.7}
@@ -212,7 +269,7 @@ export default function SettingsScreen() {
             <SettingRow
               icon={<Ionicons name="folder-outline" size={20} color="#6B7280" />}
               title="Storage"
-              subtitle="45.2 MB used"
+              subtitle={storageInfo.total + " used"}
               rightComponent={
                 <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
               }
@@ -222,15 +279,20 @@ export default function SettingsScreen() {
           <View className="h-px bg-gray-100 my-3" />
 
           <TouchableOpacity
-            onPress={() => Alert.alert("Clear Cache", "Cache cleared successfully")}
+            onPress={handleClearCache}
             activeOpacity={0.7}
+            disabled={clearingCache}
           >
             <SettingRow
               icon={<Ionicons name="trash-outline" size={20} color="#6B7280" />}
               title="Clear Cache"
               subtitle="Free up storage space"
               rightComponent={
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                clearingCache ? (
+                  <ActivityIndicator size="small" color="#0046AD" />
+                ) : (
+                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                )
               }
             />
           </TouchableOpacity>

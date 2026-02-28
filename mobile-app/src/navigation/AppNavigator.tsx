@@ -19,6 +19,7 @@ import PlantDetailsScreen from "../screens/componentGrowth&Weight/PlantDetailsSc
 import ScanScreen from "../screens/main/ScanScreen";
 import HistoryScreen from "../screens/main/HistoryScreen";
 import SettingsScreen from "../screens/main/SettingsScreen";
+import ProfileScreen from "../screens/main/ProfileScreen";
 
 export type DashboardStackParamList = {
   DashboardHome: undefined;
@@ -72,11 +73,27 @@ function DashboardStackNavigator() {
   );
 }
 
+export type SettingsStackParamList = {
+  SettingsHome: undefined;
+  Profile: undefined;
+};
+
+const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
+
+function SettingsStackNavigator() {
+  return (
+    <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
+      <SettingsStack.Screen name="SettingsHome" component={SettingsScreen} />
+      <SettingsStack.Screen name="Profile" component={ProfileScreen} />
+    </SettingsStack.Navigator>
+  );
+}
+
 export type TabParamList = {
   Dashboard: NavigatorScreenParams<DashboardStackParamList>;
   Scan: undefined;
   History: undefined;
-  Settings: undefined;
+  Settings: NavigatorScreenParams<SettingsStackParamList>;
 };
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -129,7 +146,7 @@ function TabsNavigator() {
           paddingBottom: 18,
           backgroundColor: "white",
           borderTopWidth: 0,
-          elevation: 112,
+          elevation: 12,
         },
         tabBarIcon: ({ focused }) => {
           const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -145,7 +162,7 @@ function TabsNavigator() {
       <Tab.Screen name="Dashboard" component={DashboardStackNavigator} />
       <Tab.Screen name="Scan" component={ScanScreen} />
       <Tab.Screen name="History" component={HistoryScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="Settings" component={SettingsStackNavigator} />
     </Tab.Navigator>
   );
 }

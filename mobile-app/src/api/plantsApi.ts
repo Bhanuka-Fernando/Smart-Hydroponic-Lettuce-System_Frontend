@@ -89,3 +89,22 @@ export async function getPlantDetails(params: {
   if (!res.ok) throw new Error(await readError(res));
   return (await res.json()) as PlantDetailsResponse;
 }
+
+/**
+ * DELETE /plants/{plant_id}
+ */
+export async function deletePlant(params: {
+  token?: string | null;
+  plant_id: string;
+}) {
+  const res = await fetch(
+    `${ML_BASE_URL}/plants/${encodeURIComponent(params.plant_id)}`,
+    {
+      method: "DELETE",
+      headers: { ...authHeaders(params.token) } as any,
+    }
+  );
+
+  if (!res.ok) throw new Error(await readError(res));
+  return await res.json();
+}

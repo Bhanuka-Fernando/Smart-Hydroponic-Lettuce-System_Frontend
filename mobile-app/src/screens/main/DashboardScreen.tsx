@@ -17,6 +17,74 @@ import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../../auth/useAuth";
 import { getDashboardLatest, DashboardMetricsResponse } from "../../api/dashboardApi";
 
+type NotificationItem = {
+  id: string;
+  accent: "orange" | "blue" | "green" | "red";
+  iconName: "alert-circle" | "calendar" | "check-circle" | "alert-triangle";
+  title: string;
+  body: string;
+  time: string;
+};
+
+type ActivityItem = {
+  id: string;
+  iconBg: string;
+  iconName: string;
+  iconLib: "ionicons" | "material" | "feather";
+  title: string;
+  subtitle: string;
+  time: string;
+};
+
+const mockNotifications: NotificationItem[] = [
+  {
+    id: "n1",
+    accent: "orange",
+    iconName: "alert-circle",
+    title: "Water Tank Low",
+    body: "The main reservoir level is below 20%. Refill needed within 4 hours.",
+    time: "15 mins ago",
+  },
+  {
+    id: "n2",
+    accent: "blue",
+    iconName: "calendar",
+    title: "Nutrient Schedule",
+    body: "Weekly nutrient mix top-up is scheduled for tomorrow morning.",
+    time: "1 hour ago",
+  },
+];
+
+const mockActivities: ActivityItem[] = [
+  {
+    id: "a1",
+    iconBg: "bg-[#EAF4FF]",
+    iconName: "sprout",
+    iconLib: "material",
+    title: "Scanned Lettuce #4",
+    subtitle: "Weight recorded: 245g",
+    time: "10:42 AM",
+  },
+  {
+    id: "a2",
+    iconBg: "bg-[#E9FBEF]",
+    iconName: "water-outline",
+    iconLib: "ionicons",
+    title: "pH Adjustment",
+    subtitle: "Auto-balanced to 6.2",
+    time: "09:15 AM",
+  },
+  {
+    id: "a3",
+    iconBg: "bg-[#F3E8FF]",
+    iconName: "sun",
+    iconLib: "feather",
+    title: "Light Cycle Started",
+    subtitle: "Day mode activated",
+    time: "08:00 AM",
+  },
+];
+
 function formatHeaderDate(d: Date) {
   const month = d.toLocaleString("en-US", { month: "short" });
   const day = String(d.getDate()).padStart(2, "0");
@@ -32,23 +100,26 @@ export default function DashboardScreen() {
   
   // Dashboard state
   const [metrics, setMetrics] = useState<DashboardMetricsResponse | null>(null);
-  const [selectedZone, setSelectedZone] = useState("z01");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Notifications and Activities state
+  const [notifications, setNotifications] = useState<NotificationItem[]>(mockNotifications);
+  const [activities, setActivities] = useState<ActivityItem[]>(mockActivities);
 
   // Fetch dashboard metrics
   const fetchDashboard = useCallback(async (isRefreshing = false) => {
     try {
       if (!isRefreshing) setLoading(true);
-      const data = await getDashboardLatest({ token: accessToken, zone_id: selectedZone });
+      const data = await getDashboardLatest({ token: accessToken });
       setMetrics(data);
     } catch (error: any) {
       console.error("Failed to fetch dashboard:", error);
       
       // Use mock data if API is not available
       const mockData: DashboardMetricsResponse = {
-        zone_id: selectedZone,
-        zone_name: `Zone ${selectedZone.toUpperCase()}`,
+        zone_id: "all",
+        zone_name: "All Zones",
         plant_count: 24,
         harvest_ready_count: 5,
         avg_growth_pct: 78.5,
@@ -67,12 +138,12 @@ export default function DashboardScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [accessToken, selectedZone]);
+  }, [accessToken]);
 
-  // Fetch on mount and when zone changes
+  // Fetch on mount
   useEffect(() => {
     fetchDashboard();
-  }, [selectedZone]);
+  }, []);
 
   // Pull to refresh
   const onRefresh = useCallback(() => {
@@ -86,6 +157,25 @@ export default function DashboardScreen() {
     } catch {
       Alert.alert("Navigation", `Route not found: ${routeName}`);
     }
+  };
+
+  const handleDismissNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const handleClearAllNotifications = () => {
+    Alert.alert(
+      "Clear All Notifications",
+      "Are you sure you want to clear all notifications?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear All",
+          style: "destructive",
+          onPress: () => setNotifications([]),
+        },
+      ]
+    );
   };
 
   const handleLogout = async () => {
@@ -142,38 +232,8 @@ export default function DashboardScreen() {
           paddingBottom: 16,
         }}
       >
-        {/* Zone Selector */}
-        <View className="mb-4">
-          <Text className="text-[11px] font-extrabold text-gray-700 tracking-[0.6px] mb-2">
-            SELECT ZONE
-          </Text>
-          <View className="flex-row gap-2">
-            {["z01", "z02", "z03"].map((zone) => (
-              <TouchableOpacity
-                key={zone}
-                onPress={() => setSelectedZone(zone)}
-                activeOpacity={0.85}
-                className={`px-4 py-2 rounded-full border ${
-                  selectedZone === zone
-                    ? "bg-[#EAF4FF] border-[#B6C8F0]"
-                    : "bg-white border-gray-200"
-                }`}
-              >
-                <Text
-                  className={`text-[11px] font-extrabold ${
-                    selectedZone === zone ? "text-[#003B8F]" : "text-gray-600"
-                  }`}
-                >
-                  {zone.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Loading State */}
-        {loading && !metrics ? (
-          <View className="py-20 items-center">
+        {loading ? (
+          <View className="flex-1 items-center justify-center py-20">
             <ActivityIndicator size="large" color="#0046AD" />
             <Text className="text-gray-500 mt-4">Loading dashboard...</Text>
           </View>
@@ -326,81 +386,77 @@ export default function DashboardScreen() {
         </View>
 
         {/* Notifications */}
-        <View className="flex-row items-center justify-between mt-6 mb-3">
-          <Text className="text-[13px] font-extrabold text-gray-900">
-            Notifications
-          </Text>
+        {notifications.length > 0 && (
+          <>
+            <View className="flex-row items-center justify-between mt-6 mb-3">
+              <Text className="text-[13px] font-extrabold text-gray-900">
+                Notifications
+              </Text>
 
-          <View className="bg-red-500 rounded-full px-3 py-1">
-            <Text className="text-white text-[11px] font-extrabold">2 New</Text>
-          </View>
-        </View>
+              <View className="flex-row items-center gap-2">
+                <View className="bg-red-500 rounded-full px-3 py-1">
+                  <Text className="text-white text-[11px] font-extrabold">
+                    {notifications.length} New
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handleClearAllNotifications}
+                  activeOpacity={0.7}
+                  className="px-3 py-1 rounded-full bg-gray-100"
+                >
+                  <Text className="text-[11px] font-extrabold text-gray-600">
+                    Clear All
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
-        <NotificationCard
-          accent="orange"
-          iconName="alert-circle"
-          title="Water Tank Low"
-          body="The main reservoir level is below 20%. Refill needed within 4 hours."
-          time="15 mins ago"
-        />
-
-        <View className="h-3" />
-
-        <NotificationCard
-          accent="blue"
-          iconName="calendar"
-          title="Nutrient Schedule"
-          body="Weekly nutrient mix top-up is scheduled for tomorrow morning."
-          time="1 hour ago"
-        />
+            {notifications.map((notification, index) => (
+              <React.Fragment key={notification.id}>
+                <NotificationCard
+                  {...notification}
+                  onDismiss={() => handleDismissNotification(notification.id)}
+                />
+                {index < notifications.length - 1 && <View className="h-3" />}
+              </React.Fragment>
+            ))}
+          </>
+        )}
 
         {/* Recent Activities */}
-        <View className="flex-row items-center justify-between mt-6 mb-3">
-          <Text className="text-[13px] font-extrabold text-gray-900">
-            Recent Activities
-          </Text>
-          <TouchableOpacity onPress={() => go("History")} activeOpacity={0.85}>
-            <Text className="text-[11px] font-extrabold text-[#0046AD]">
-              View All
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {activities.length > 0 && (
+          <>
+            <View className="flex-row items-center justify-between mt-6 mb-3">
+              <Text className="text-[13px] font-extrabold text-gray-900">
+                Recent Activities
+              </Text>
+              <TouchableOpacity onPress={() => go("History")} activeOpacity={0.85}>
+                <Text className="text-[11px] font-extrabold text-[#0046AD]">
+                  View All
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-        <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
-          <ActivityRow
-            iconBg="bg-[#EAF4FF]"
-            icon={<MaterialCommunityIcons name="sprout" size={18} color="#0046AD" />}
-            title="Scanned Lettuce #4"
-            subtitle="Weight recorded: 245g"
-            time="10:42 AM"
-          />
-          <Divider />
-          <ActivityRow
-            iconBg="bg-[#E9FBEF]"
-            icon={<Ionicons name="water-outline" size={18} color="#16A34A" />}
-            title="pH Adjustment"
-            subtitle="Auto-balanced to 6.2"
-            time="09:15 AM"
-          />
-          <Divider />
-          <ActivityRow
-            iconBg="bg-[#F3E8FF]"
-            icon={<Feather name="sun" size={18} color="#7C3AED" />}
-            title="Light Cycle Started"
-            subtitle="Day mode activated"
-            time="08:00 AM"
-          />
+            <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
+              {activities.map((activity, index) => (
+                <React.Fragment key={activity.id}>
+                  <ActivityRow {...activity} />
+                  {index < activities.length - 1 && <Divider />}
+                </React.Fragment>
+              ))}
 
-          <TouchableOpacity
-            className="py-4 items-center"
-            activeOpacity={0.85}
-            onPress={() => go("History")}
-          >
-            <Text className="text-[13px] font-semibold text-gray-700">
-              View All Activity
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <TouchableOpacity
+                className="py-4 items-center"
+                activeOpacity={0.85}
+                onPress={() => go("History")}
+              >
+                <Text className="text-[13px] font-semibold text-gray-700">
+                  View All Activity
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* ✅ Profile Bottom Sheet Modal */}
@@ -534,25 +590,31 @@ function NotificationCard({
   title,
   body,
   time,
+  onDismiss,
 }: {
-  accent: "orange" | "blue";
-  iconName: "alert-circle" | "calendar";
+  accent: "orange" | "blue" | "green" | "red";
+  iconName: "alert-circle" | "calendar" | "check-circle" | "alert-triangle";
   title: string;
   body: string;
   time: string;
+  onDismiss: () => void;
 }) {
-  const leftBar = accent === "orange" ? "bg-orange-400" : "bg-blue-600";
-  const iconBg = accent === "orange" ? "bg-[#FFF6E5]" : "bg-[#EAF2FF]";
-  const iconColor = accent === "orange" ? "#F59E0B" : "#2563EB";
+  const colors = {
+    orange: { bar: "bg-orange-400", iconBg: "bg-[#FFF6E5]", iconColor: "#F59E0B" },
+    blue: { bar: "bg-blue-600", iconBg: "bg-[#EAF2FF]", iconColor: "#2563EB" },
+    green: { bar: "bg-green-500", iconBg: "bg-[#E9FBEF]", iconColor: "#16A34A" },
+    red: { bar: "bg-red-500", iconBg: "bg-[#FFE5E5]", iconColor: "#EF4444" },
+  };
+  const { bar, iconBg, iconColor } = colors[accent];
 
   return (
     <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
       <View className="flex-row">
-        <View className={`w-1.5 ${leftBar}`} />
+        <View className={`w-1.5 ${bar}`} />
         <View className="flex-1 px-4 py-4">
           <View className="flex-row items-center">
             <View className={`w-10 h-10 rounded-[14px] ${iconBg} items-center justify-center mr-3`}>
-              <Feather name={iconName} size={18} color={iconColor} />
+              <Ionicons name={iconName as any} size={18} color={iconColor} />
             </View>
 
             <View className="flex-1">
@@ -561,6 +623,14 @@ function NotificationCard({
               </Text>
               <Text className="text-[11px] text-gray-400 mt-0.5">{time}</Text>
             </View>
+
+            <TouchableOpacity
+              onPress={onDismiss}
+              activeOpacity={0.7}
+              className="w-8 h-8 rounded-full bg-red-50 items-center justify-center"
+            >
+              <Ionicons name="close" size={16} color="#EF4444" />
+            </TouchableOpacity>
           </View>
 
           <Text className="text-[12px] text-gray-600 mt-3 leading-[16px]">
@@ -574,21 +644,39 @@ function NotificationCard({
 
 function ActivityRow({
   iconBg,
-  icon,
+  iconName,
+  iconLib,
   title,
   subtitle,
   time,
 }: {
   iconBg: string;
-  icon: React.ReactNode;
+  iconName: string;
+  iconLib: "ionicons" | "material" | "feather";
   title: string;
   subtitle: string;
   time: string;
 }) {
+  const renderIcon = () => {
+    const iconColor = iconBg.includes("EAF4FF")
+      ? "#0046AD"
+      : iconBg.includes("E9FBEF")
+      ? "#16A34A"
+      : "#7C3AED";
+
+    if (iconLib === "material") {
+      return <MaterialCommunityIcons name={iconName as any} size={18} color={iconColor} />;
+    } else if (iconLib === "ionicons") {
+      return <Ionicons name={iconName as any} size={18} color={iconColor} />;
+    } else {
+      return <Feather name={iconName as any} size={18} color={iconColor} />;
+    }
+  };
+
   return (
     <View className="flex-row items-center px-4 py-4">
       <View className={`w-10 h-10 rounded-full ${iconBg} items-center justify-center mr-3`}>
-        {icon}
+        {renderIcon()}
       </View>
 
       <View className="flex-1">

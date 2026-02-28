@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   FlatList,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
@@ -105,10 +106,45 @@ const mockActivities: ActivityItem[] = [
 
 export default function HistoryScreen() {
   const [selectedFilter, setSelectedFilter] = useState<ActivityType>("all");
+  const [activities, setActivities] = useState<ActivityItem[]>(mockActivities);
 
-  const filteredActivities = mockActivities.filter(
+  const filteredActivities = activities.filter(
     (item) => selectedFilter === "all" || item.type === selectedFilter
   );
+
+  const handleDeleteActivity = (id: string) => {
+    Alert.alert(
+      "Delete Activity",
+      "Are you sure you want to remove this activity from history?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            setActivities(prev => prev.filter(item => item.id !== id));
+          },
+        },
+      ]
+    );
+  };
+
+  const handleClearAll = () => {
+    Alert.alert(
+      "Clear All Activities",
+      "Are you sure you want to clear all activity history? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear All",
+          style: "destructive",
+          onPress: () => {
+            setActivities([]);
+          },
+        },
+      ]
+    );
+  };
 
   const getActivityIcon = (type: ActivityType) => {
     switch (type) {
@@ -171,12 +207,27 @@ export default function HistoryScreen() {
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       {/* Header */}
       <View className="px-4 pt-4 pb-3">
-        <Text className="text-[24px] font-extrabold text-gray-900">
-          Activity History
-        </Text>
-        <Text className="text-[11px] text-gray-500 mt-1 font-semibold tracking-[0.4px]">
-          Track all system activities and events
-        </Text>
+        <View className="flex-row items-center justify-between">
+          <View>
+            <Text className="text-[24px] font-extrabold text-gray-900">
+              Activity History
+            </Text>
+            <Text className="text-[11px] text-gray-500 mt-1 font-semibold tracking-[0.4px]">
+              Track all system activities and events
+            </Text>
+          </View>
+          {activities.length > 0 && (
+            <TouchableOpacity
+              onPress={handleClearAll}
+              activeOpacity={0.7}
+              className="px-3 py-2 rounded-[12px] bg-red-50 border border-red-200"
+            >
+              <Text className="text-[11px] font-extrabold text-red-600">
+                Clear All
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Filters */}
@@ -190,39 +241,39 @@ export default function HistoryScreen() {
           label="All"
           active={selectedFilter === "all"}
           onPress={() => setSelectedFilter("all")}
-          count={mockActivities.length}
+          count={activities.length}
         />
         <FilterChip
           label="Weight"
           active={selectedFilter === "weight_scan"}
           onPress={() => setSelectedFilter("weight_scan")}
-          count={mockActivities.filter((a) => a.type === "weight_scan").length}
+          count={activities.filter((a) => a.type === "weight_scan").length}
         />
         <FilterChip
           label="Growth"
           active={selectedFilter === "growth_forecast"}
           onPress={() => setSelectedFilter("growth_forecast")}
           count={
-            mockActivities.filter((a) => a.type === "growth_forecast").length
+            activities.filter((a) => a.type === "growth_forecast").length
           }
         />
         <FilterChip
           label="Sensors"
           active={selectedFilter === "sensor_update"}
           onPress={() => setSelectedFilter("sensor_update")}
-          count={mockActivities.filter((a) => a.type === "sensor_update").length}
+          count={activities.filter((a) => a.type === "sensor_update").length}
         />
         <FilterChip
           label="Harvest"
           active={selectedFilter === "harvest"}
           onPress={() => setSelectedFilter("harvest")}
-          count={mockActivities.filter((a) => a.type === "harvest").length}
+          count={activities.filter((a) => a.type === "harvest").length}
         />
         <FilterChip
           label="System"
           active={selectedFilter === "system"}
           onPress={() => setSelectedFilter("system")}
-          count={mockActivities.filter((a) => a.type === "system").length}
+          count={activities.filter((a) => a.type === "system").length}
         />
       </ScrollView>
 
@@ -297,6 +348,15 @@ export default function HistoryScreen() {
                   )}
                 </View>
               </View>
+
+              {/* Delete Button */}
+              <TouchableOpacity
+                onPress={() => handleDeleteActivity(item.id)}
+                activeOpacity={0.7}
+                className="w-8 h-8 rounded-full bg-red-50 items-center justify-center ml-2"
+              >
+                <Ionicons name="trash-outline" size={16} color="#EF4444" />
+              </TouchableOpacity>
             </View>
           </View>
         )}

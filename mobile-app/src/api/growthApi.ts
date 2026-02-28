@@ -45,7 +45,7 @@ export async function predictGrowth(params: {
 
 export async function saveGrowthPrediction(params: {
   token?: string | null;
-  payload: GrowthPredictResponse;
+  payload: any; // Flexible payload for plant creation/update
 }) {
   const res = await http.post("/growth/predict/save", params.payload, {
     headers: authHeaders(params.token),
