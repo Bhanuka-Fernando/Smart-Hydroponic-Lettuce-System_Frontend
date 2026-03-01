@@ -115,7 +115,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           <Text className="text-[14px] font-extrabold text-gray-900">
             Current Batch Status
           </Text>
-          <TouchableOpacity activeOpacity={0.8} onPress={() => go("Plants")}>
+          <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate("SpoilagePlants")}>
             <Text className="text-[12px] font-semibold text-[#1D4ED8]">
               View Details
             </Text>

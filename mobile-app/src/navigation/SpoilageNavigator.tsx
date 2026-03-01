@@ -6,6 +6,8 @@ import SpoilageScanScreen from "../screens/spoilage/SpoilageScanScreen";
 import SpoilageConfirmScreen from "../screens/spoilage/SpoilageConfirmScreen";
 import SpoilageShelfLifeResultScreen from "../screens/spoilage/SpoilageShelfLifeResultScreen";
 import SpoilageAlertsScreen from "../screens/spoilage/SpoilageAlertsScreen";
+import SpoilagePlantsScreen from "../screens/spoilage/SpoilagePlantsScreen";
+
 
 export type SpoilageStackParamList = {
   SpoilageDetails: undefined;
@@ -13,6 +15,7 @@ export type SpoilageStackParamList = {
   SpoilageConfirm: { imageUri: string };
   SpoilageShelfLifeResult: { imageUri: string };
   SpoilageAlerts: undefined;
+  SpoilagePlants: undefined;
 };
 
 const Stack = createNativeStackNavigator<SpoilageStackParamList>();
@@ -25,6 +28,7 @@ export default function SpoilageNavigator() {
       <Stack.Screen name="SpoilageConfirm" component={SpoilageConfirmScreen} />
       <Stack.Screen name="SpoilageShelfLifeResult" component={SpoilageShelfLifeResultScreen} />
       <Stack.Screen name="SpoilageAlerts" component={SpoilageAlertsScreen} />
+      <Stack.Screen name="SpoilagePlants" component={SpoilagePlantsScreen} />
     </Stack.Navigator>
   );
 }
