@@ -166,7 +166,3 @@ function TabsNavigator() {
     </Tab.Navigator>
   );
 }
-
-export default function AppNavigator() {
-  return <TabsNavigator />;
-}

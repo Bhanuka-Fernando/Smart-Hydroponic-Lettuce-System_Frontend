@@ -267,48 +267,21 @@ export default function DashboardScreen() {
               />
             </View>
 
-            {/* Sensor Readings */}
-            <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-              <Text className="text-[16px] font-extrabold text-gray-900 mb-3">
-                Sensor Readings
-              </Text>
-              <View className="flex-row flex-wrap">
-                <View className="w-1/2 pr-2 mb-3">
-                  <SensorMetric
-                    icon={<Ionicons name="thermometer-outline" size={18} color="#EF4444" />}
-                    label="Temperature"
-                    value={`${metrics.temperature_c.toFixed(1)}°C`}
-                    bgColor="bg-red-50"
-                  />
-                </View>
-                <View className="w-1/2 pl-2 mb-3">
-                  <SensorMetric
-                    icon={<Ionicons name="water-outline" size={18} color="#3B82F6" />}
-                    label="Humidity"
-                    value={`${metrics.humidity_pct.toFixed(1)}%`}
-                    bgColor="bg-blue-50"
-                  />
-                </View>
-                <View className="w-1/2 pr-2">
-                  <SensorMetric
-                    icon={<MaterialCommunityIcons name="flash" size={18} color="#F59E0B" />}
-                    label="EC"
-                    value={`${metrics.ec_ms_cm.toFixed(2)} mS/cm`}
-                    bgColor="bg-amber-50"
-                  />
-                </View>
-                <View className="w-1/2 pl-2">
-                  <SensorMetric
-                    icon={<MaterialCommunityIcons name="ph" size={18} color="#8B5CF6" />}
-                    label="pH"
-                    value={metrics.ph.toFixed(2)}
-                    bgColor="bg-purple-50"
-                  />
-                </View>
-              </View>
-              <Text className="text-[11px] text-gray-400 mt-3 text-right">
-                Last updated: {new Date(metrics.last_updated).toLocaleTimeString()}
-              </Text>
+            <View className="flex-row justify-between mt-3">
+              <FeatureCard
+                title="Spoilage Detection"
+                subtitle="Identify Crop Issues"
+                iconBg="bg-[#FFF6E5]"
+                icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
+                onPress={() => (navigation.getParent() as any)?.navigate("Spoilage")}
+              />
+              <FeatureCard
+                title="Water Quality"
+                subtitle="Monitor Sensor data"
+                iconBg="bg-[#E8F7FF]"
+                icon={<Ionicons name="water-outline" size={22} color="#0284C7" />}
+                onPress={() => go("Scan")}
+              />
             </View>
           </>
         ) : null}
@@ -381,7 +354,7 @@ export default function DashboardScreen() {
             bottom="Check"
             iconBg="bg-[#FFF6E5]"
             icon={<Ionicons name="warning-outline" size={20} color="#F59E0B" />}
-            onPress={() => go("Scan")}
+            onPress={() => navigation.navigate("SpoilageDetails")}
           />
         </View>
 

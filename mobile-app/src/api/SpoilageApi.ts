@@ -1,0 +1,98 @@
+import axios from "axios";
+
+const BASE_URL =
+  process.env.EXPO_PUBLIC_SPOILAGE_API_URL || "http://10.0.2.2:8002";
+
+const client = axios.create({
+  baseURL: BASE_URL,
+  timeout: 20000,
+});
+
+export type StageProbs = {
+  fresh: number;
+  slightly_aged: number;
+  near_spoilage: number;
+  spoiled: number;
+};
+
+export type StageOnlyResponse = {
+  plant_id: string;       // "P-001"
+  captured_at: string;    // ISO
+  stage: string;          // label
+  stage_probs: StageProbs;
+  status: string;         // from make_status()
+};
+
+export type SpoilagePredictResponse = StageOnlyResponse & {
+  remaining_days: number;
+};
+
+function makeFormData(input: {
+  imageUri: string;
+  temperature: number;
+  humidity: number;
+  plant_id: string;
+  captured_at?: string;
+}) {
+  const form = new FormData();
+
+  form.append("image", {
+    uri: input.imageUri,
+    name: "spoilage.jpg",
+    type: "image/jpeg",
+  } as any);
+
+  form.append("temperature", String(input.temperature));
+  form.append("humidity", String(input.humidity));
+  form.append("plant_id", input.plant_id);
+  if (input.captured_at) form.append("captured_at", input.captured_at);
+
+  return form;
+}
+
+// AUTH_ENABLED=false => no token needed.
+// If later you enable auth, add Authorization header here.
+export async function predictAll(input: {
+  imageUri: string;
+  temperature: number;
+  humidity: number;
+  plant_id: string;
+  captured_at?: string;
+}) {
+  const res = await client.post<SpoilagePredictResponse>(
+    "/spoilage/predict",
+    makeFormData(input),
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+  return res.data;
+}
+
+export async function stageOnly(input: {
+  imageUri: string;
+  temperature: number;
+  humidity: number;
+  plant_id: string;
+  captured_at?: string;
+}) {
+  const res = await client.post<StageOnlyResponse>(
+    "/spoilage/stage-only",
+    makeFormData(input),
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+  return res.data;
+}
+
+export async function remainingDaysOnly(payload: {
+  plant_id?: string;
+  captured_at?: string;
+  stage_probs: StageProbs;
+  temperature: number;
+  humidity: number;
+}) {
+  const res = await client.post<{ remaining_days: number }>(
+    "/spoilage/remaining-days-only",
+    payload,
+    { headers: { "Content-Type": "application/json" } }
+  );
+  return res.data;
+}
