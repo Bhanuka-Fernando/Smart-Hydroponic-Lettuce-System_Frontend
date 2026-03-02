@@ -45,12 +45,23 @@ export async function predictGrowth(params: {
 
 export async function saveGrowthPrediction(params: {
   token?: string | null;
-  payload: any; // Flexible payload for plant creation/update
+  payload: GrowthPredictResponse;
 }) {
-  const res = await http.post("/growth/predict/save", params.payload, {
-    headers: authHeaders(params.token),
+  const res = await fetch(`${ML_BASE_URL}/infer/growth/predict/save`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(params.token),
+    } as any,
+    body: JSON.stringify(params.payload),
   });
-  return res.data;
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+
+  return await res.json();
 }
 
 
