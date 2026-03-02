@@ -50,7 +50,13 @@ export default function GrowthForecastingScreen() {
   const [forecast, setForecast] = useState<any[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
 
-  const dateLabel = useMemo(() => "Oct 24, 2023", []);
+  const dateLabel = useMemo(() => {
+    return new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }, []);
 
   const sensorsReady =
     readings.airT != null && readings.RH != null && readings.EC != null && readings.pH != null;
