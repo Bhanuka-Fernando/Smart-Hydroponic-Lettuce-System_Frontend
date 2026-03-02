@@ -1,22 +1,33 @@
-// src/navigation/RootNavigator.tsx
 import React from "react";
+import { View, ActivityIndicator } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+
 import { useAuth } from "../auth/useAuth";
 import AuthNavigator from "./AuthNavigator";
 import AppNavigator from "./AppNavigator";
-import SplashScreen from "../screens/auth/SplashScreen";
+import SpoilageNavigator from "./SpoilageNavigator";
 
 export type RootStackParamList = {
   Auth: undefined;
   App: undefined;
+
+  // ✅ Spoilage module entry point
+  Spoilage: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const RootNavigator: React.FC = () => {
+export default function RootNavigator() {
   const { user, isLoading } = useAuth();
 
-  if (isLoading) return <SplashScreen />;
+  // ✅ DO NOT render <SplashScreen/> here (causes gallery crash sometimes)
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -25,8 +36,9 @@ const RootNavigator: React.FC = () => {
       ) : (
         <Stack.Screen name="Auth" component={AuthNavigator} />
       )}
+
+      {/* ✅ whole spoilage module */}
+      <Stack.Screen name="Spoilage" component={SpoilageNavigator} />
     </Stack.Navigator>
   );
-};
-
-export default RootNavigator;
+}
