@@ -199,22 +199,25 @@ export default function PlantDetailsScreen() {
     const plantedOn = data?.planted_on ?? "Planted --";
     const ageDays = Number(data?.age_days ?? 0);
 
-    const startWeightG = Number(data?.start_weight_g ?? 0);
-    const currentWeightG = Number(data?.current_weight_g ?? 0);
+    const fmt2 = (n: any) => {
+      const x = Number(n);
+      return Number.isFinite(x) ? Number(x.toFixed(2)) : 0;
+    };
+
+    const startWeightG = fmt2(data?.start_weight_g);
+    const currentWeightG = fmt2(data?.current_weight_g);
+    const predictedToday = fmt2(data?.predicted_today_g);
 
     const growthPct = Number(data?.growth_pct ?? 0);
     const growthPctLabel = startWeightG > 0 ? `+${growthPct.toFixed(0)}%` : "";
-
-    const predictedToday =
-      data?.predicted_today_g == null ? 0 : Number(data.predicted_today_g);
 
     const history: HistoryItem[] = Array.isArray(data?.history)
       ? data.history.map((h: any, idx: number) => ({
           id: `${idx}`,
           dateLabel: h?.date_label ?? h?.date ?? "",
-          weightG: h?.actual_weight_g == null ? 0 : Number(h.actual_weight_g),
-          predG: h?.predicted_weight_g == null ? 0 : Number(h.predicted_weight_g),
-          deltaG: h?.delta_g == null ? undefined : Number(h.delta_g),
+          weightG: h?.actual_weight_g == null ? 0 : fmt2(h.actual_weight_g),
+          predG: h?.predicted_weight_g == null ? 0 : fmt2(h.predicted_weight_g),
+          deltaG: h?.delta_g == null ? undefined : fmt2(h.delta_g),
           statusLabel: h?.status ?? "On Track",
         }))
       : [];
@@ -279,11 +282,11 @@ export default function PlantDetailsScreen() {
           {/* Top stats */}
           <View className="flex-row mt-4" style={{ gap: 10 }}>
             <TopStat icon="calendar-outline" label="AGE" value={`${ui.ageDays} Days`} />
-            <TopStat icon="hourglass-outline" label="START" value={`${ui.startWeightG}g`} />
+            <TopStat icon="hourglass-outline" label="START" value={`${ui.startWeightG.toFixed(2)}g`} />
             <TopStat
               icon="bar-chart-outline"
               label="CURRENT"
-              value={`${ui.currentWeightG}g`}
+              value={`${ui.currentWeightG.toFixed(2)}g`}
               subValue={ui.growthPctLabel}
             />
           </View>
@@ -300,7 +303,7 @@ export default function PlantDetailsScreen() {
             <View className="flex-row items-end justify-between mt-3">
               <View className="flex-row items-end">
                 <Text className="text-[26px] font-extrabold text-gray-900">
-                  {ui.currentWeightG}g
+                  {ui.currentWeightG.toFixed(2)}g
                 </Text>
                 <View className="ml-3 px-3 py-1 rounded-full bg-[#EAF4FF]">
                   <Text className="text-[10px] font-extrabold text-[#003B8F]">
@@ -310,7 +313,7 @@ export default function PlantDetailsScreen() {
               </View>
 
               <Text className="text-[14px] font-extrabold text-gray-500">
-                {ui.predictedToday}g
+                {ui.predictedToday.toFixed(2)}g
               </Text>
             </View>
 
