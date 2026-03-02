@@ -1,5 +1,4 @@
-// src/screens/spoilage/SpoilageShelfLifeResultScreen.tsx
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { View, Text, ScrollView, TouchableOpacity, Image, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,27 +7,32 @@ import type { SpoilageStackParamList } from "../../navigation/SpoilageNavigator"
 
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageShelfLifeResult">;
 
-export default function SpoilageShelfLifeResultScreen({ navigation, route }: Props) {
-  const imageUri = route.params?.imageUri;
+function maxProbPercent(p: any) {
+  if (!p) return "—";
+  const m = Math.max(p.fresh, p.slightly_aged, p.near_spoilage, p.spoiled);
+  return `${Math.round(m * 100)}% Conf.`;
+}
 
-  // mock data
-  const plantId = "P-051";
-  const status = "WARNING";
-  const confidence = "92% Conf.";
-  const remainingDays = 1.2;
-  const estimatedSpoilage = "Oct 26";
-  const temp = "5°C";
-  const humidity = "90%";
+function prettyStage(stage: string) {
+  if (stage === "fresh") return "Fresh";
+  if (stage === "slightly_aged") return "Slightly Aged";
+  if (stage === "near_spoilage") return "Near Spoilage";
+  return "Spoiled";
+}
+
+export default function SpoilageShelfLifeResultScreen({ navigation, route }: Props) {
+  const { imageUri, result } = route.params;
+
+  const confidence = useMemo(() => maxProbPercent(result?.stage_probs), [result]);
+  const plantId = result?.plant_id ?? "-";
+  const status = result?.status ?? "-";
+  const remainingDays = typeof result?.remaining_days === "number" ? result.remaining_days : 0;
 
   const [showSaved, setShowSaved] = useState(false);
 
   const goToDetails = () => {
     setShowSaved(false);
-
-    // ensure modal closes first, then navigate
-    requestAnimationFrame(() => {
-      navigation.navigate("SpoilageDetails");
-    });
+    requestAnimationFrame(() => navigation.navigate("SpoilageDetails"));
   };
 
   return (
@@ -75,7 +79,7 @@ export default function SpoilageShelfLifeResultScreen({ navigation, route }: Pro
 
             <View className="absolute bottom-3 right-3 px-2 py-1 rounded-full bg-black/60">
               <Text className="text-[10px] text-white font-semibold">
-                IMG_Name, 10:42 AM
+                {result?.captured_at ? `Captured: ${result.captured_at}` : "Captured"}
               </Text>
             </View>
           </View>
@@ -85,7 +89,7 @@ export default function SpoilageShelfLifeResultScreen({ navigation, route }: Pro
         <View className="mt-4 items-center">
           <Text className="text-[26px] font-extrabold text-gray-900">{plantId}</Text>
           <Text className="text-[12px] font-extrabold text-[#F59E0B] mt-1">
-            {status}
+            {status} • {prettyStage(result.stage)}
           </Text>
           <Text className="text-[11px] text-gray-500 mt-1">{confidence}</Text>
 
@@ -107,7 +111,7 @@ export default function SpoilageShelfLifeResultScreen({ navigation, route }: Pro
             <View className="flex-row items-end">
               <Ionicons name="time-outline" size={18} color="#F59E0B" />
               <Text className="ml-2 text-[34px] font-extrabold text-[#F59E0B]">
-                {remainingDays}
+                {remainingDays.toFixed(1)}
               </Text>
               <Text className="ml-2 mb-1 text-[12px] font-extrabold text-[#F59E0B]">
                 DAYS
@@ -115,63 +119,19 @@ export default function SpoilageShelfLifeResultScreen({ navigation, route }: Pro
             </View>
 
             <Text className="text-[11px] text-gray-500 mt-1">REMAINING</Text>
-
-            <Text className="text-[11px] text-gray-500 mt-2">
-              Estimated Spoilage:{" "}
-              <Text className="font-bold">{estimatedSpoilage}</Text>
-            </Text>
-          </View>
-
-          <View className="mt-4">
-            <View className="h-2 rounded-full bg-gray-200 overflow-hidden">
-              <View
-                className="h-2 rounded-full"
-                style={{ width: "68%", backgroundColor: "#F59E0B" }}
-              />
-            </View>
-
-            <View className="flex-row justify-between mt-2">
-              <Text className="text-[10px] text-gray-400 font-semibold">FRESH</Text>
-              <Text className="text-[10px] text-[#F59E0B] font-extrabold">
-                WARNING
-              </Text>
-              <Text className="text-[10px] text-gray-400 font-semibold">SPOILED</Text>
-            </View>
           </View>
         </View>
 
-        {/* Sensor snapshot */}
+        {/* Stage probabilities (optional but useful) */}
         <View className="mt-4 bg-white rounded-[18px] p-4 shadow-sm">
-          <View className="flex-row items-center">
-            <Ionicons name="pulse-outline" size={16} color="#111827" />
-            <Text className="ml-2 font-extrabold text-gray-900">Sensor Snapshot</Text>
-          </View>
+          <Text className="font-extrabold text-gray-900">Stage Probabilities</Text>
 
-          <View className="mt-3 flex-row justify-between">
-            <SensorPill label="Temp" value={temp} />
-            <SensorPill label="Humidity" value={humidity} />
+          <View className="mt-3 space-y-2">
+            <ProbRow label="Fresh" value={result.stage_probs.fresh} />
+            <ProbRow label="Slightly Aged" value={result.stage_probs.slightly_aged} />
+            <ProbRow label="Near Spoilage" value={result.stage_probs.near_spoilage} />
+            <ProbRow label="Spoiled" value={result.stage_probs.spoiled} />
           </View>
-        </View>
-
-        {/* Recommended actions */}
-        <View className="mt-4 bg-[#FFF7ED] rounded-[18px] p-4 shadow-sm">
-          <View className="flex-row items-center">
-            <View className="w-8 h-8 rounded-full bg-white items-center justify-center">
-              <Ionicons name="bulb-outline" size={16} color="#F59E0B" />
-            </View>
-            <Text className="ml-2 font-extrabold text-gray-900">
-              Recommended Actions
-            </Text>
-          </View>
-
-          <ActionRow
-            title="Trim Leaves"
-            desc="Remove slimy or browned outer leaves immediately. Wash thoroughly."
-          />
-          <ActionRow
-            title="Consume Fast"
-            desc="Use edible parts within 24 hours. Store dry."
-          />
         </View>
 
         {/* Save button */}
@@ -213,7 +173,6 @@ export default function SpoilageShelfLifeResultScreen({ navigation, route }: Pro
                 alignItems: "center",
               }}
             >
-              {/* X close (closes only) */}
               <TouchableOpacity
                 onPress={() => setShowSaved(false)}
                 activeOpacity={0.8}
@@ -231,7 +190,6 @@ export default function SpoilageShelfLifeResultScreen({ navigation, route }: Pro
                 <Ionicons name="close" size={18} color="#111827" />
               </TouchableOpacity>
 
-              {/* green check */}
               <View
                 style={{
                   width: 56,
@@ -264,7 +222,6 @@ export default function SpoilageShelfLifeResultScreen({ navigation, route }: Pro
                 Successfully
               </Text>
 
-              {/* OK (closes + redirects) */}
               <TouchableOpacity
                 onPress={goToDetails}
                 activeOpacity={0.9}
@@ -290,23 +247,17 @@ export default function SpoilageShelfLifeResultScreen({ navigation, route }: Pro
   );
 }
 
-function SensorPill({ label, value }: { label: string; value: string }) {
+function ProbRow({ label, value }: { label: string; value: number }) {
+  const pct = Math.round((value ?? 0) * 100);
   return (
-    <View className="bg-[#EAF4FF] rounded-[14px] px-4 py-3" style={{ width: "48%" }}>
-      <Text className="text-[11px] text-gray-600 font-semibold">{label}</Text>
-      <Text className="text-[16px] font-extrabold text-gray-900 mt-1">{value}</Text>
-    </View>
-  );
-}
-
-function ActionRow({ title, desc }: { title: string; desc: string }) {
-  return (
-    <View className="mt-3 bg-white rounded-[14px] px-4 py-3">
-      <View className="flex-row items-center">
-        <Ionicons name="warning-outline" size={16} color="#F59E0B" />
-        <Text className="ml-2 font-extrabold text-gray-900">{title}</Text>
+    <View>
+      <View className="flex-row justify-between">
+        <Text className="text-[12px] text-gray-700 font-semibold">{label}</Text>
+        <Text className="text-[12px] text-gray-900 font-extrabold">{pct}%</Text>
       </View>
-      <Text className="text-[12px] text-gray-600 mt-2 leading-4">{desc}</Text>
+      <View className="h-2 rounded-full bg-gray-200 overflow-hidden mt-1">
+        <View className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: "#0046AD" }} />
+      </View>
     </View>
   );
 }

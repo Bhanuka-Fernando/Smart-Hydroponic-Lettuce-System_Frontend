@@ -96,3 +96,25 @@ export async function remainingDaysOnly(payload: {
   );
   return res.data;
 }
+
+export type SpoilagePredictionRow = {
+  id: number;
+  plant_id: string;
+  captured_at: string;
+  temperature: number;
+  humidity: number;
+  stage: string;
+  status: string;
+  remaining_days: number;
+  p_fresh: number;
+  p_slightly_aged: number;
+  p_near_spoilage: number;
+  p_spoiled: number;
+};
+
+export async function getRecentPredictions(limit = 20) {
+  const res = await client.get<SpoilagePredictionRow[]>(
+    `/spoilage/predictions?limit=${limit}`
+  );
+  return res.data;
+}

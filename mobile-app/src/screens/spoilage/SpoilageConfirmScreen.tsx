@@ -1,24 +1,86 @@
-import React from "react";
-import { View, Text, ScrollView, TouchableOpacity, Image } from "react-native";
+import React, { useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { SpoilageStackParamList } from "../../navigation/SpoilageNavigator";
 
+import { predictAll } from "../../api/SpoilageApi";
+
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageConfirm">;
 
-export default function SpoilageConfirmScreen({ navigation, route }: Props) {
-  const imageUri = route.params?.imageUri;
+function stageTitle(stage: string) {
+  if (stage === "fresh") return "Stage 1: Fresh";
+  if (stage === "slightly_aged") return "Stage 2: Slightly Aged";
+  if (stage === "near_spoilage") return "Stage 3: Near Spoilage";
+  return "Stage 4: Spoiled";
+}
 
-  // ✅ mock results for now
-  const confidence = 0.95;
-  const stageTitle = "Stage 3: Near Spoilage";
-  const desc =
-    "Analysis indicates marginal necrosis (tip burn) and slight slime formation on basal leaves.";
-  const temp = "5°C";
-  const humidity = "94%";
-  const plantId = "P-051";
-  const batchId = "#BUT-2291";
+function stageDesc(stage: string) {
+  if (stage === "fresh") return "Plant looks fresh with minimal spoilage indicators.";
+  if (stage === "slightly_aged") return "Minor aging indicators detected. Monitor storage conditions.";
+  if (stage === "near_spoilage") return "High spoilage risk detected. Inspect and take action soon.";
+  return "Spoiled indicators detected. Discard/segregate to avoid contamination.";
+}
+
+export default function SpoilageConfirmScreen({ navigation, route }: Props) {
+  const { imageUri } = route.params;
+
+  // inputs (you can auto-fill later from sensor simulation)
+  const [plantId, setPlantId] = useState("P-001");
+  const [temperature, setTemperature] = useState("26");
+  const [humidity, setHumidity] = useState("85");
+
+  const [loading, setLoading] = useState(false);
+
+  // temporary preview values (before predict)
+  const preview = useMemo(() => {
+    const t = Number(temperature);
+    const h = Number(humidity);
+    return {
+      tempText: Number.isFinite(t) ? `${t}°C` : "--",
+      humText: Number.isFinite(h) ? `${h}%` : "--",
+    };
+  }, [temperature, humidity]);
+
+  const onPredict = async () => {
+    if (!imageUri) return Alert.alert("Missing", "No image found.");
+    if (!plantId.trim()) return Alert.alert("Missing", "Enter Plant ID.");
+
+    const t = Number(temperature);
+    const h = Number(humidity);
+    if (!Number.isFinite(t) || !Number.isFinite(h)) {
+      return Alert.alert("Invalid", "Temperature/Humidity must be valid numbers.");
+    }
+
+    try {
+      setLoading(true);
+
+      const result = await predictAll({
+        imageUri,
+        temperature: t,
+        humidity: h,
+        plant_id: plantId.trim(),
+        // captured_at: leave undefined => backend auto fills
+      });
+
+      navigation.navigate("SpoilageShelfLifeResult", { imageUri, result });
+    } catch (e: any) {
+      console.log("Predict error:", e?.message, e?.response?.data);
+      Alert.alert("Error", e?.response?.data?.detail || "Prediction failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
@@ -59,41 +121,41 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
             )}
           </View>
 
-          {/* confidence pill */}
-          <View className="absolute top-3 right-3">
-            <View
-              className="px-3 py-1 rounded-full bg-white/95 flex-row items-center"
-              style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
-            >
-              <View className="w-2 h-2 rounded-full bg-[#16A34A]" />
-              <Text className="ml-2 text-[12px] font-extrabold text-gray-900">
-                {(confidence * 100).toFixed(0)}% Confidence
-              </Text>
-            </View>
-          </View>
-
-          {/* Stage details */}
           <View className="p-4">
-            <View className="flex-row items-center justify-between">
-              <View>
-                <Text className="text-[10px] font-semibold text-gray-500">
-                  AI DETECTED STAGE
-                </Text>
-                <Text className="text-[16px] font-extrabold text-gray-900 mt-1">
-                  {stageTitle}
-                </Text>
-              </View>
+            <Text className="text-[10px] font-semibold text-gray-500">
+              INPUTS (USED FOR PREDICTION)
+            </Text>
 
-              <TouchableOpacity activeOpacity={0.85} onPress={() => {}}>
-                <Text className="text-[12px] font-semibold text-[#2563EB]">
-                  Report wrong
-                </Text>
-              </TouchableOpacity>
+            <View className="mt-3">
+              <Text className="text-[12px] text-gray-500 font-semibold">Plant ID</Text>
+              <TextInput
+                value={plantId}
+                onChangeText={setPlantId}
+                autoCapitalize="characters"
+                className="mt-2 px-3 py-3 rounded-xl bg-[#F4F6FA] text-gray-900"
+              />
             </View>
 
-            <Text className="text-[12px] text-gray-600 mt-2 leading-4">
-              {desc}
-            </Text>
+            <View className="mt-3 flex-row">
+              <View className="flex-1 mr-2">
+                <Text className="text-[12px] text-gray-500 font-semibold">Temperature (°C)</Text>
+                <TextInput
+                  value={temperature}
+                  onChangeText={setTemperature}
+                  keyboardType="numeric"
+                  className="mt-2 px-3 py-3 rounded-xl bg-[#F4F6FA] text-gray-900"
+                />
+              </View>
+              <View className="flex-1 ml-2">
+                <Text className="text-[12px] text-gray-500 font-semibold">Humidity (%)</Text>
+                <TextInput
+                  value={humidity}
+                  onChangeText={setHumidity}
+                  keyboardType="numeric"
+                  className="mt-2 px-3 py-3 rounded-xl bg-[#F4F6FA] text-gray-900"
+                />
+              </View>
+            </View>
           </View>
         </View>
 
@@ -106,14 +168,14 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
           <MiniStat
             icon="thermometer-outline"
             label="Temperature"
-            value={temp}
+            value={preview.tempText}
             iconBg="#FFF2E6"
             iconColor="#F59E0B"
           />
           <MiniStat
             icon="water-outline"
             label="Humidity"
-            value={humidity}
+            value={preview.humText}
             iconBg="#EAF4FF"
             iconColor="#2563EB"
           />
@@ -125,9 +187,7 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
         </Text>
 
         <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
-          <RowItem left="Plant ID" right={plantId} />
-          <Divider />
-          <RowItem left="Batch ID" right={batchId} />
+          <RowItem left="Plant ID" right={plantId || "-"} />
         </View>
 
         {/* Retake */}
@@ -143,18 +203,21 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
         {/* Predict Shelf Life */}
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() =>
-  navigation.navigate("SpoilageShelfLifeResult", { imageUri: imageUri })
-}
+          onPress={onPredict}
+          disabled={loading}
           className="mt-4 rounded-[12px] items-center justify-center"
-          style={{ backgroundColor: "#0046AD", height: 54 }}
+          style={{ backgroundColor: "#0046AD", height: 54, opacity: loading ? 0.7 : 1 }}
         >
-          <View className="flex-row items-center">
-            <Ionicons name="sparkles" size={18} color="#fff" />
-            <Text className="ml-2 text-[14px] font-extrabold text-white">
-              Predict Shelf Life
-            </Text>
-          </View>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <View className="flex-row items-center">
+              <Ionicons name="sparkles" size={18} color="#fff" />
+              <Text className="ml-2 text-[14px] font-extrabold text-white">
+                Predict Shelf Life
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -204,8 +267,4 @@ function RowItem({ left, right }: { left: string; right: string }) {
       <Text className="text-[13px] font-extrabold text-gray-900">{right}</Text>
     </View>
   );
-}
-
-function Divider() {
-  return <View className="h-px bg-gray-100 mx-4" />;
 }
