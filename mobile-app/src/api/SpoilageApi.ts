@@ -110,6 +110,7 @@ export type SpoilagePredictionRow = {
   p_slightly_aged: number;
   p_near_spoilage: number;
   p_spoiled: number;
+  image_url?: string | null;
 };
 
 export async function getRecentPredictions(limit = 20) {
