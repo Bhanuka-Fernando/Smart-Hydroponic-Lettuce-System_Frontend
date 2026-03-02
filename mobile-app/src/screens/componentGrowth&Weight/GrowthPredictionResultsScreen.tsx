@@ -284,7 +284,8 @@ const model = useMemo(() => {
 
       const payload = {
         plant_id: plantId.trim(),
-        age_days: ageNumber,
+        zone_id: "z01",      // ✅ must match what you use in PlantDetails
+        age_days: ageNumber, // ✅ already have
         date_label: model.dateLabel,
         predicted_weight_g: model.predictedWeight,
         predicted_area_cm2: model.predictedArea,

@@ -1,4 +1,3 @@
-// src/navigation/AppNavigator.tsx
 import React from "react";
 import { View, Text } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -28,7 +27,6 @@ export type DashboardStackParamList = {
   EstimateWeightScan: undefined;
   GrowthForecasting: undefined;
   PlantLists: undefined;
-
   EstimateWeightResults: {
     imageUri: string;
     accuracy?: number;
@@ -39,7 +37,6 @@ export type DashboardStackParamList = {
     plantAgeDays?: number;
     capturedAtISO?: string;
   };
-
   GrowthPredictionResults: {
     dateLabel?: string;
     predictedWeight?: number;
@@ -50,8 +47,6 @@ export type DashboardStackParamList = {
     actual?: number[];
     predicted?: number[];
   };
-
-  // ✅ FIX: pass ONLY plant_id
   PlantDetails: { plant_id: string };
 };
 
@@ -120,7 +115,7 @@ function TabIcon({
   );
 }
 
-function TabsNavigator() {
+export default function AppNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
