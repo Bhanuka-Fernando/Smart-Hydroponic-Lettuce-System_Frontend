@@ -10,8 +10,6 @@ import SpoilageNavigator from "./SpoilageNavigator";
 export type RootStackParamList = {
   Auth: undefined;
   App: undefined;
-
-  // ✅ Spoilage module entry point
   Spoilage: undefined;
 };
 
@@ -20,7 +18,6 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
   const { user, isLoading } = useAuth();
 
-  // ✅ DO NOT render <SplashScreen/> here (causes gallery crash sometimes)
   if (isLoading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -37,7 +34,6 @@ export default function RootNavigator() {
         <Stack.Screen name="Auth" component={AuthNavigator} />
       )}
 
-      {/* ✅ whole spoilage module */}
       <Stack.Screen name="Spoilage" component={SpoilageNavigator} />
     </Stack.Navigator>
   );
