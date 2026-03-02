@@ -1,10 +1,10 @@
 import axios from "axios";
+import { SPOILAGE_BASE_URL } from "../utils/constants";
 
-const BASE_URL =
-  process.env.EXPO_PUBLIC_SPOILAGE_API_URL || "http://10.0.2.2:8002";
+
 
 const client = axios.create({
-  baseURL: BASE_URL,
+  baseURL: SPOILAGE_BASE_URL,
   timeout: 20000,
 });
 
