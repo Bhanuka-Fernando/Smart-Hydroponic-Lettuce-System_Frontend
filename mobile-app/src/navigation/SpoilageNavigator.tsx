@@ -7,13 +7,14 @@ import SpoilageConfirmScreen from "../screens/spoilage/SpoilageConfirmScreen";
 import SpoilageShelfLifeResultScreen from "../screens/spoilage/SpoilageShelfLifeResultScreen";
 import SpoilageAlertsScreen from "../screens/spoilage/SpoilageAlertsScreen";
 import SpoilagePlantsScreen from "../screens/spoilage/SpoilagePlantsScreen";
+import type { SpoilagePredictResponse } from "../api/SpoilageApi";
 
 
 export type SpoilageStackParamList = {
   SpoilageDetails: undefined;
   SpoilageScan: undefined;
   SpoilageConfirm: { imageUri: string };
-  SpoilageShelfLifeResult: { imageUri: string };
+  SpoilageShelfLifeResult: { imageUri: string; result: SpoilagePredictResponse };
   SpoilageAlerts: undefined;
   SpoilagePlants: undefined;
 };

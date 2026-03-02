@@ -1,16 +1,25 @@
-import React, { useMemo, useState } from "react";
+// src/screens/spoilage/SpoilageDetailsScreen.tsx
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { SpoilageStackParamList } from "../../navigation/SpoilageNavigator";
+
+import {
+  getRecentPredictions,
+  type SpoilagePredictionRow,
+} from "../../api/SpoilageApi";
+
+import { SPOILAGE_BASE_URL } from "../../utils/constants";
 
 type StatusFilter = "All Status" | "Monitoring" | "Warning" | "Critical";
 
@@ -18,54 +27,111 @@ type PredictionItem = {
   id: string;
   plantId: string;
   shelfLifeDays: number;
-  stageLabel: string;
+  stageLabel: "Fresh" | "Slightly Aged" | "Near Spoilage" | "Critical";
   actionText?: string;
   severity: "monitoring" | "warning" | "critical";
+  imageUrl?: string | null; // ✅ added
 };
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+function mapStageLabel(
+  stage: SpoilagePredictionRow["stage"]
+): PredictionItem["stageLabel"] {
+  if (stage === "fresh") return "Fresh";
+  if (stage === "slightly_aged") return "Slightly Aged";
+  if (stage === "near_spoilage") return "Near Spoilage";
+  return "Critical"; // spoiled
+}
+
+function mapSeverity(
+  stage: SpoilagePredictionRow["stage"]
+): PredictionItem["severity"] {
+  if (stage === "fresh" || stage === "slightly_aged") return "monitoring";
+  if (stage === "near_spoilage") return "warning";
+  return "critical";
+}
+
+function mapAction(stage: SpoilagePredictionRow["stage"]): string | undefined {
+  if (stage === "near_spoilage") return "Action : Inspect Now";
+  if (stage === "spoiled") return "Action : Discard";
+  return undefined;
+}
+
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageDetails">;
 
 export default function SpoilageDetailsScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<StatusFilter>("All Status");
-
   const currentLocation = "Farm A - Chiller 3";
 
-  const batchStats = useMemo(
-    () => ({ fresh: 42, aged: 15, risk: 5, spoiled: 2 }),
-    []
-  );
+  const [rows, setRows] = useState<SpoilagePredictionRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const predictions: PredictionItem[] = useMemo(
-    () => [
-      { id: "1", plantId: "P-001", shelfLifeDays: 7, stageLabel: "Fresh", severity: "monitoring" },
-      { id: "2", plantId: "P-020", shelfLifeDays: 5, stageLabel: "Slightly Aged", severity: "monitoring" },
-      { id: "3", plantId: "P-050", shelfLifeDays: 2, stageLabel: "Near Spoilage", actionText: "Action: Inspect Now", severity: "warning" },
-      { id: "4", plantId: "P-060", shelfLifeDays: 0, stageLabel: "Spoiled", actionText: "Action: Discard", severity: "critical" },
-      { id: "5", plantId: "P-061", shelfLifeDays: 0, stageLabel: "Spoiled", actionText: "Action: Discard", severity: "critical" },
-    ],
-    []
-  );
+  const load = async () => {
+    try {
+      setLoading(true);
+      const data = await getRecentPredictions(30);
+      setRows(data);
+    } catch (e: any) {
+      console.log("Load predictions error:", e?.message, e?.response?.data);
+      Alert.alert(
+        "Error",
+        e?.response?.data?.detail || "Failed to load predictions"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsub = navigation.addListener("focus", () => {
+      load();
+    });
+    load();
+    return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const predictions: PredictionItem[] = useMemo(() => {
+    return rows.map((r) => {
+      const stageLabel = mapStageLabel(r.stage);
+      const severity = mapSeverity(r.stage);
+      return {
+        id: String(r.id),
+        plantId: r.plant_id,
+        shelfLifeDays: Math.round(r.remaining_days),
+        stageLabel,
+        severity,
+        actionText: mapAction(r.stage),
+        imageUrl: (r as any).image_url ?? null, // ✅ backend field
+      };
+    });
+  }, [rows]);
 
   const filtered = useMemo(() => {
     if (filter === "All Status") return predictions;
-    if (filter === "Monitoring") return predictions.filter((p) => p.severity === "monitoring");
-    if (filter === "Warning") return predictions.filter((p) => p.severity === "warning");
+    if (filter === "Monitoring")
+      return predictions.filter((p) => p.severity === "monitoring");
+    if (filter === "Warning")
+      return predictions.filter((p) => p.severity === "warning");
     return predictions.filter((p) => p.severity === "critical");
   }, [filter, predictions]);
 
-  const openSpoilageScan = () => navigation.navigate("SpoilageScan");
+  const batchStats = useMemo(() => {
+    const fresh = rows.filter((r) => r.stage === "fresh").length;
+    const aged = rows.filter((r) => r.stage === "slightly_aged").length;
+    const risk = rows.filter((r) => r.stage === "near_spoilage").length;
+    const spoiled = rows.filter((r) => r.stage === "spoiled").length;
+    return { fresh, aged, risk, spoiled };
+  }, [rows]);
 
-  const go = (routeName: string) => {
-    Alert.alert("Todo", `Add "${routeName}" screen first.`);
-  };
+  const openSpoilageScan = () => navigation.navigate("SpoilageScan");
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
-      {/* Header */}
+      {/* Header + Location (NO search bar) */}
       <View className="px-4 pt-3 pb-3">
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
@@ -80,10 +146,15 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
             Spoilage Details
           </Text>
 
-          <View className="w-10 h-10" />
+          <TouchableOpacity
+            onPress={load}
+            activeOpacity={0.85}
+            className="w-10 h-10 items-center justify-center"
+          >
+            <Ionicons name="refresh" size={18} color="#111827" />
+          </TouchableOpacity>
         </View>
 
-        {/* Location */}
         <View className="mt-2">
           <Text className="text-[11px] text-gray-500 font-semibold">
             CURRENT LOCATION
@@ -92,17 +163,13 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
             <Text className="text-[14px] font-extrabold text-gray-900">
               {currentLocation}
             </Text>
-            <Ionicons name="chevron-down" size={16} color="#6B7280" style={{ marginLeft: 6 }} />
+            <Ionicons
+              name="chevron-down"
+              size={16}
+              color="#6B7280"
+              style={{ marginLeft: 6 }}
+            />
           </View>
-        </View>
-
-        {/* Search */}
-        <View className="mt-3 bg-white rounded-[14px] px-3 py-2 flex-row items-center shadow-sm">
-          <Ionicons name="search" size={18} color="#9CA3AF" />
-          <Text className="text-gray-400 text-[13px] ml-2 flex-1">
-            Search by Plant ID ...
-          </Text>
-          <Feather name="sliders" size={16} color="#9CA3AF" />
         </View>
       </View>
 
@@ -110,12 +177,15 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 18 }}
       >
-        {/* Batch status row */}
+        {/* Current Batch Status */}
         <View className="flex-row items-center justify-between mt-2 mb-2">
           <Text className="text-[14px] font-extrabold text-gray-900">
             Current Batch Status
           </Text>
-          <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate("SpoilagePlants")}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate("SpoilagePlants")}
+          >
             <Text className="text-[12px] font-semibold text-[#1D4ED8]">
               View Details
             </Text>
@@ -141,7 +211,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
                 Scan Spoilage
               </Text>
               <Text className="text-white/70 text-[12px] mt-1">
-                Analyze a single plant health
+                Analyze single plant health
               </Text>
             </View>
 
@@ -155,7 +225,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
         <View className="flex-row justify-between mt-3">
           <SmallActionCard
             title="Batch Scan"
-            icon={<Ionicons name="grid-outline" size={18} color="#2563EB" />}
+            icon={<Ionicons name="layers-outline" size={18} color="#2563EB" />}
             onPress={openSpoilageScan}
           />
           <SmallActionCard
@@ -172,23 +242,57 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
 
         {/* Filter chips */}
         <View className="flex-row mb-3">
-          <Chip label="All Status" active={filter === "All Status"} onPress={() => setFilter("All Status")} />
-          <Chip label="Monitoring" active={filter === "Monitoring"} onPress={() => setFilter("Monitoring")} />
-          <Chip label="Warning" active={filter === "Warning"} onPress={() => setFilter("Warning")} />
-          <Chip label="Critical" active={filter === "Critical"} onPress={() => setFilter("Critical")} />
+          <Chip
+            label="All Status"
+            active={filter === "All Status"}
+            onPress={() => setFilter("All Status")}
+          />
+          <Chip
+            label="Monitoring"
+            active={filter === "Monitoring"}
+            onPress={() => setFilter("Monitoring")}
+          />
+          <Chip
+            label="Warning"
+            active={filter === "Warning"}
+            onPress={() => setFilter("Warning")}
+          />
+          <Chip
+            label="Critical"
+            active={filter === "Critical"}
+            onPress={() => setFilter("Critical")}
+          />
         </View>
 
-        <View className="space-y-3">
-          {filtered.map((item) => (
-            <PredictionRow
-              key={item.id}
-              item={item}
-              onPress={() => Alert.alert("Open", `Open details for ${item.plantId}`)}
-            />
-          ))}
-        </View>
+        {/* List */}
+        {loading ? (
+          <View className="py-10 items-center">
+            <ActivityIndicator />
+            <Text className="mt-2 text-[12px] text-gray-500 font-semibold">
+              Loading...
+            </Text>
+          </View>
+        ) : filtered.length === 0 ? (
+          <View className="py-10 items-center">
+            <Text className="text-[12px] text-gray-500 font-semibold">
+              No predictions yet
+            </Text>
+          </View>
+        ) : (
+          <View className="space-y-3">
+            {filtered.map((item) => (
+              <PredictionRow
+                key={item.id}
+                item={item}
+                onPress={() =>
+                  Alert.alert("Open", `Open details for ${item.plantId}`)
+                }
+              />
+            ))}
+          </View>
+        )}
 
-        <View className="h-8" />
+        <View className="h-10" />
       </ScrollView>
     </SafeAreaView>
   );
@@ -269,10 +373,16 @@ function Chip({
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={onPress}
-      className={`mr-2 px-3 py-2 rounded-full ${active ? "bg-[#111827]" : "bg-white"}`}
+      className={`mr-2 px-3 py-2 rounded-full ${
+        active ? "bg-[#111827]" : "bg-white"
+      }`}
       style={{ borderWidth: active ? 0 : 1, borderColor: "#E5E7EB" }}
     >
-      <Text className={`text-[12px] font-semibold ${active ? "text-white" : "text-gray-700"}`}>
+      <Text
+        className={`text-[12px] font-semibold ${
+          active ? "text-white" : "text-gray-700"
+        }`}
+      >
         {label}
       </Text>
     </TouchableOpacity>
@@ -293,31 +403,20 @@ function PredictionRow({
       ? "bg-[#F59E0B]"
       : "bg-[#DC2626]";
 
-  const badgeBg =
-    item.severity === "monitoring"
-      ? "bg-[#E9FBEF]"
-      : item.severity === "warning"
-      ? "bg-[#FFF6E5]"
-      : "bg-[#FEE2E2]";
+  const badge = (() => {
+    if (item.stageLabel === "Fresh")
+      return { bg: "#E9FBEF", text: "#16A34A", label: "Fresh" };
+    if (item.stageLabel === "Slightly Aged")
+      return { bg: "#ECFDF5", text: "#22C55E", label: "Slightly Aged" };
+    if (item.stageLabel === "Near Spoilage")
+      return { bg: "#FFF7ED", text: "#F59E0B", label: "Near Spoilage" };
+    return { bg: "#FEE2E2", text: "#DC2626", label: "Critical" };
+  })();
 
-  const badgeText =
-    item.severity === "monitoring"
-      ? "text-[#16A34A]"
-      : item.severity === "warning"
-      ? "text-[#F59E0B]"
-      : "text-[#DC2626]";
-
-  const badgeLabel =
-    item.stageLabel === "Fresh"
-      ? "Fresh"
-      : item.stageLabel === "Slightly Aged"
-      ? "Slightly Aged"
-      : item.stageLabel === "Near Spoilage"
-      ? "Near Spoilage"
-      : "Critical";
-
-  const imgUrl =
-    "https://images.unsplash.com/photo-1557844352-761f2565b576?auto=format&fit=crop&w=200&q=60";
+  // ✅ real uploaded image from backend + cache buster
+  const imgUri = item.imageUrl
+    ? `${SPOILAGE_BASE_URL}${item.imageUrl}?t=${item.id}`
+    : undefined;
 
   return (
     <TouchableOpacity
@@ -327,11 +426,18 @@ function PredictionRow({
     >
       <View className="flex-row">
         <View className={`w-1.5 ${leftBar}`} />
+
         <View className="flex-1 px-3 py-3 flex-row items-center">
-          <Image
-            source={{ uri: imgUrl }}
-            className="w-12 h-12 rounded-[14px] bg-gray-100"
-          />
+          {imgUri ? (
+            <Image
+              source={{ uri: imgUri }}
+              className="w-12 h-12 rounded-[14px] bg-gray-100"
+            />
+          ) : (
+            <View className="w-12 h-12 rounded-[14px] bg-gray-100 items-center justify-center">
+              <Ionicons name="image-outline" size={18} color="#9CA3AF" />
+            </View>
+          )}
 
           <View className="flex-1 ml-3">
             <View className="flex-row items-center justify-between">
@@ -339,9 +445,15 @@ function PredictionRow({
                 {item.plantId}
               </Text>
 
-              <View className={`px-3 py-1 rounded-full ${badgeBg}`}>
-                <Text className={`text-[11px] font-bold ${badgeText}`}>
-                  {badgeLabel}
+              <View
+                className="px-3 py-1 rounded-full"
+                style={{ backgroundColor: badge.bg }}
+              >
+                <Text
+                  className="text-[11px] font-extrabold"
+                  style={{ color: badge.text }}
+                >
+                  {badge.label}
                 </Text>
               </View>
             </View>
@@ -351,7 +463,7 @@ function PredictionRow({
             </Text>
 
             {item.actionText ? (
-              <Text className="text-[11px] text-red-500 mt-1 font-semibold">
+              <Text className="text-[11px] text-gray-700 mt-1 font-semibold">
                 {item.actionText}
               </Text>
             ) : null}

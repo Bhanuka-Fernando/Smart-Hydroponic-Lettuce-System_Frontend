@@ -1,12 +1,13 @@
 import axios from "axios";
-
-const BASE_URL =
-  process.env.EXPO_PUBLIC_SPOILAGE_API_URL || "http://10.0.2.2:8002";
+import { SPOILAGE_BASE_URL } from "../utils/constants";
 
 const client = axios.create({
-  baseURL: BASE_URL,
+  baseURL: SPOILAGE_BASE_URL,
   timeout: 20000,
 });
+
+// ---- TYPES ----
+export type SpoilageStage = "fresh" | "slightly_aged" | "near_spoilage" | "spoiled";
 
 export type StageProbs = {
   fresh: number;
@@ -16,17 +17,34 @@ export type StageProbs = {
 };
 
 export type StageOnlyResponse = {
-  plant_id: string;       // "P-001"
-  captured_at: string;    // ISO
-  stage: string;          // label
+  plant_id: string;
+  captured_at: string;
+  stage: SpoilageStage;
   stage_probs: StageProbs;
-  status: string;         // from make_status()
+  status: string;
 };
 
 export type SpoilagePredictResponse = StageOnlyResponse & {
   remaining_days: number;
 };
 
+export type SpoilagePredictionRow = {
+  id: number;
+  plant_id: string;
+  captured_at: string;
+  temperature: number;
+  humidity: number;
+  stage: SpoilageStage;
+  status: string;
+  remaining_days: number;
+  p_fresh: number;
+  p_slightly_aged: number;
+  p_near_spoilage: number;
+  p_spoiled: number;
+  image_url?: string | null;
+};
+
+// ---- HELPERS ----
 function makeFormData(input: {
   imageUri: string;
   temperature: number;
@@ -50,8 +68,7 @@ function makeFormData(input: {
   return form;
 }
 
-// AUTH_ENABLED=false => no token needed.
-// If later you enable auth, add Authorization header here.
+// ---- API ----
 export async function predictAll(input: {
   imageUri: string;
   temperature: number;
@@ -93,6 +110,13 @@ export async function remainingDaysOnly(payload: {
     "/spoilage/remaining-days-only",
     payload,
     { headers: { "Content-Type": "application/json" } }
+  );
+  return res.data;
+}
+
+export async function getRecentPredictions(limit = 20) {
+  const res = await client.get<SpoilagePredictionRow[]>(
+    `/spoilage/predictions?limit=${limit}`
   );
   return res.data;
 }
