@@ -111,7 +111,7 @@ export default function PlantListsScreen() {
   const loadPlants = async () => {
     try {
       setLoading(true);
-      const data = await getPlants({ token: accessToken, filter: apiFilter as any });
+      const data = await getPlants({ token: accessToken, filter: apiFilter as any, zone_id: "z01" });
 
       const mapped: Plant[] = data.map((p: any) => ({
         id: p.plant_id,
