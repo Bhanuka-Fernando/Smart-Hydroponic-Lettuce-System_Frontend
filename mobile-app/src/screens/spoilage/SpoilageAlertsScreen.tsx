@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+// src/screens/spoilage/SpoilageAlertsScreen.tsx
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,11 +8,18 @@ import {
   Platform,
   ToastAndroid,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { SpoilageStackParamList } from "../../navigation/SpoilageNavigator";
+
+import {
+  getRecentPredictions,
+  type SpoilagePredictionRow,
+  type SpoilageStage,
+} from "../../api/SpoilageApi";
 
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageAlerts">;
 
@@ -24,58 +32,46 @@ type AlertItem = {
   title: string;
   plantId: string;
   actionText: string;
+  stage: SpoilageStage;
 };
+
+function toTimeLabel(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "--:--";
+  let h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12;
+  h = h === 0 ? 12 : h;
+  return `${h}:${m} ${ampm}`;
+}
+
+function severityFromStage(stage: SpoilageStage): AlertItem["severity"] {
+  if (stage === "spoiled") return "critical";
+  if (stage === "near_spoilage") return "warning";
+  return "monitoring";
+}
+
+function titleFromStage(stage: SpoilageStage) {
+  if (stage === "spoiled") return "Spoilage Detected";
+  if (stage === "near_spoilage") return "Shelf-Life Risk";
+  return "Freshness Detected";
+}
+
+function actionTextFromRemaining(days: number) {
+  const d = Math.max(0, days);
+  // keep your wording format
+  return `Act Now! ${d.toFixed(d < 2 ? 1 : 0)} Days Left`;
+}
 
 export default function SpoilageAlertsScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<Filter>("All Status");
 
-  const initialItems: AlertItem[] = useMemo(
-    () => [
-      {
-        id: "a1",
-        severity: "critical",
-        time: "10:45 AM",
-        title: "Spoilage Detected",
-        plantId: "P-060",
-        actionText: "Act Now! 0 Days Left",
-      },
-      {
-        id: "a2",
-        severity: "warning",
-        time: "09:30 AM",
-        title: "Shelf-Life Risk",
-        plantId: "P-051",
-        actionText: "Act Now! 1.2 Days Left",
-      },
-      {
-        id: "a3",
-        severity: "monitoring",
-        time: "09:30 AM",
-        title: "Freshness Detected",
-        plantId: "P-020",
-        actionText: "Act Now! 5 Days Left",
-      },
-      {
-        id: "a4",
-        severity: "critical",
-        time: "10:45 AM",
-        title: "Spoilage Detected",
-        plantId: "P-061",
-        actionText: "Act Now! 0 Days Left",
-      },
-    ],
-    []
-  );
+  const [rows, setRows] = useState<SpoilagePredictionRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // ✅ alerts in state so we can remove them
-  const [items, setItems] = useState<AlertItem[]>(initialItems);
-
-  const filtered = useMemo(() => {
-    if (filter === "All Status") return items;
-    if (filter === "Monitoring") return items.filter((i) => i.severity === "monitoring");
-    if (filter === "Warning") return items.filter((i) => i.severity === "warning");
-    return items.filter((i) => i.severity === "critical");
-  }, [filter, items]);
+  // ✅ local acknowledge state (frontend only)
+  const [ackIds, setAckIds] = useState<Set<string>>(new Set());
 
   const toast = (msg: string) => {
     if (Platform.OS === "android") ToastAndroid.show(msg, ToastAndroid.SHORT);
@@ -83,9 +79,60 @@ export default function SpoilageAlertsScreen({ navigation }: Props) {
   };
 
   const acknowledge = (id: string, plantId: string) => {
-    setItems((prev) => prev.filter((x) => x.id !== id));
+    setAckIds((prev) => new Set([...Array.from(prev), id]));
     toast(`Alert acknowledged for ${plantId}`);
   };
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const data = await getRecentPredictions(200);
+
+      // ✅ if you only want Warning+Critical alerts, filter here:
+      // const onlyAlerts = data.filter(r => r.stage === "near_spoilage" || r.stage === "spoiled");
+      // setRows(onlyAlerts);
+
+      setRows(data);
+    } catch (e: any) {
+      console.log("Load alerts error:", e?.message, e?.response?.data);
+      Alert.alert("Error", e?.response?.data?.detail || "Failed to load alerts");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsub = navigation.addListener("focus", load);
+    load();
+    return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ✅ map db -> alert items
+  const items: AlertItem[] = useMemo(() => {
+    return rows
+      .map((r) => {
+        const stage = r.stage as SpoilageStage;
+        return {
+          id: String(r.id),
+          stage,
+          severity: severityFromStage(stage),
+          time: toTimeLabel(r.captured_at),
+          title: titleFromStage(stage),
+          plantId: r.plant_id,
+          actionText: actionTextFromRemaining(r.remaining_days),
+        };
+      })
+      // hide acknowledged ones
+      .filter((a) => !ackIds.has(a.id));
+  }, [rows, ackIds]);
+
+  const filtered = useMemo(() => {
+    if (filter === "All Status") return items;
+    if (filter === "Monitoring") return items.filter((i) => i.severity === "monitoring");
+    if (filter === "Warning") return items.filter((i) => i.severity === "warning");
+    return items.filter((i) => i.severity === "critical");
+  }, [filter, items]);
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#EAF4FF]">
@@ -102,7 +149,13 @@ export default function SpoilageAlertsScreen({ navigation }: Props) {
 
           <Text className="text-[14px] font-extrabold text-gray-900">Today&apos;s Alerts</Text>
 
-          <View className="w-10 h-10" />
+          <TouchableOpacity
+            onPress={load}
+            activeOpacity={0.85}
+            className="w-10 h-10 items-center justify-center"
+          >
+            <Ionicons name="refresh" size={18} color="#111827" />
+          </TouchableOpacity>
         </View>
 
         {/* Filters */}
@@ -115,7 +168,12 @@ export default function SpoilageAlertsScreen({ navigation }: Props) {
 
         {/* Cards */}
         <View className="mt-4 space-y-4">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <View className="bg-white rounded-[18px] p-5 items-center">
+              <ActivityIndicator />
+              <Text className="mt-2 text-[12px] text-gray-500 font-semibold">Loading...</Text>
+            </View>
+          ) : filtered.length === 0 ? (
             <View className="bg-white rounded-[18px] p-5 items-center">
               <Ionicons name="checkmark-circle-outline" size={26} color="#16A34A" />
               <Text className="mt-2 font-extrabold text-gray-900">All caught up</Text>
@@ -125,11 +183,7 @@ export default function SpoilageAlertsScreen({ navigation }: Props) {
             </View>
           ) : (
             filtered.map((a) => (
-              <AlertCard
-                key={a.id}
-                item={a}
-                onAcknowledge={() => acknowledge(a.id, a.plantId)}
-              />
+              <AlertCard key={a.id} item={a} onAcknowledge={() => acknowledge(a.id, a.plantId)} />
             ))
           )}
         </View>
@@ -140,7 +194,15 @@ export default function SpoilageAlertsScreen({ navigation }: Props) {
   );
 }
 
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+function Chip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
   return (
     <TouchableOpacity
       activeOpacity={0.9}
@@ -156,7 +218,13 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
   );
 }
 
-function AlertCard({ item, onAcknowledge }: { item: AlertItem; onAcknowledge: () => void }) {
+function AlertCard({
+  item,
+  onAcknowledge,
+}: {
+  item: { severity: "monitoring" | "warning" | "critical"; time: string; title: string; plantId: string; actionText: string };
+  onAcknowledge: () => void;
+}) {
   const isCritical = item.severity === "critical";
   const isWarning = item.severity === "warning";
 
@@ -164,7 +232,7 @@ function AlertCard({ item, onAcknowledge }: { item: AlertItem; onAcknowledge: ()
   const softBg = isCritical ? "#FEE2E2" : isWarning ? "#FFF7ED" : "#ECFDF5";
   const titleColor = isCritical ? "#DC2626" : isWarning ? "#F59E0B" : "#16A34A";
 
-  const badge = isCritical ? "Critical" : isWarning ? "Near Spoilage" : "Slightly Aged";
+  const badge = isCritical ? "Critical" : isWarning ? "Near Spoilage" : "Monitoring";
   const icon = isCritical ? "warning-outline" : isWarning ? "time-outline" : "checkmark-circle-outline";
 
   return (
