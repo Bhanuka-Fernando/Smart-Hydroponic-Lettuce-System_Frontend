@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Image, Switch } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -7,6 +7,9 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
 import SensorReadingsModal from "../../components/Sensors/SensorReadingsModal";
 import { useSensorReadings } from "../../context/SensorReadingsContext";
+import { getDeviceSensors } from "../../api/deviceApi";
+import axios from 'axios';
+import { ML_BASE_URL } from '../../utils/constants';
 
 function formatHeaderDate(d: Date) {
   const month = d.toLocaleString("en-US", { month: "short" });
@@ -38,6 +41,7 @@ function MetricCard({
   unit,
   status,
   onRetryPress,
+  loading,
 }: {
   iconBg: string;
   icon: React.ReactNode;
@@ -46,6 +50,7 @@ function MetricCard({
   unit?: string;
   status: Status;
   onRetryPress: () => void;
+  loading?: boolean;
 }) {
   return (
     <View className="bg-white rounded-[18px] p-4 w-[48%]">
@@ -65,8 +70,12 @@ function MetricCard({
         </View>
 
         {/* retry / edit */}
-        <TouchableOpacity onPress={onRetryPress} activeOpacity={0.85}>
-          <Ionicons name="sync-circle-outline" size={24} color="#1D4ED8" />
+        <TouchableOpacity onPress={onRetryPress} activeOpacity={0.85} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator size="small" color="#1D4ED8" />
+          ) : (
+            <Ionicons name="sync-circle-outline" size={24} color="#1D4ED8" />
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -178,6 +187,13 @@ export default function WeightGrowthScreen() {
   const [modalMode, setModalMode] = useState<"all" | "single">("all");
   const [singleKey, setSingleKey] = useState<"airT" | "RH" | "EC" | "pH">("airT");
 
+  // Loading states for individual sensors
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [loadingTemp, setLoadingTemp] = useState(false);
+  const [loadingEC, setLoadingEC] = useState(false);
+  const [loadingRH, setLoadingRH] = useState(false);
+  const [loadingPH, setLoadingPH] = useState(false);
+
   const openAll = () => {
     setModalMode("all");
     setSensorModalOpen(true);
@@ -194,6 +210,110 @@ export default function WeightGrowthScreen() {
       navigation.navigate(routeName);
     } catch {
       // ignore
+    }
+  };
+
+  // Fetch all sensor readings from device simulator
+  const handleCheckForUpdates = async () => {
+    try {
+      setLoadingAll(true);
+
+      const ZONE_ID = "z01";
+      const deviceSensors = await getDeviceSensors(ZONE_ID, "NORMAL");
+
+      const mappedSensors = {
+        airT: deviceSensors.temperature_c,
+        RH: deviceSensors.humidity_pct,
+        EC: deviceSensors.ec_ms_cm,
+        pH: deviceSensors.ph,
+      };
+
+      setAll(mappedSensors);
+
+      // Optional: Ingest to ML backend
+      try {
+        await axios.post(`${ML_BASE_URL}/infer/iot/ingest`, {
+          device_id: deviceSensors.device_id,
+          zone_id: deviceSensors.zone_id,
+          plant_id: "p04",
+          ts: deviceSensors.timestamp,
+          airT: deviceSensors.temperature_c,
+          RH: deviceSensors.humidity_pct,
+          EC: deviceSensors.ec_ms_cm,
+          pH: deviceSensors.ph,
+        });
+      } catch (e) {
+        console.warn("Failed to ingest sensor data to ML backend:", e);
+      }
+
+      Alert.alert("Success", "All sensor readings updated from device simulator");
+    } catch (error: any) {
+      Alert.alert(
+        "Update Failed",
+        error?.message || "Failed to fetch sensor readings. Ensure device simulator is running.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setLoadingAll(false);
+    }
+  };
+
+  // Fetch individual sensor reading
+  const handleRetryOne = async (key: "airT" | "RH" | "EC" | "pH") => {
+    const setLoading = {
+      airT: setLoadingTemp,
+      RH: setLoadingRH,
+      EC: setLoadingEC,
+      pH: setLoadingPH,
+    }[key];
+
+    const sensorName = {
+      airT: "Temperature",
+      RH: "Humidity",
+      EC: "EC Level",
+      pH: "pH",
+    }[key];
+
+    try {
+      setLoading(true);
+
+      const ZONE_ID = "z01";
+      const deviceSensors = await getDeviceSensors(ZONE_ID, "NORMAL");
+
+      const value = {
+        airT: deviceSensors.temperature_c,
+        RH: deviceSensors.humidity_pct,
+        EC: deviceSensors.ec_ms_cm,
+        pH: deviceSensors.ph,
+      }[key];
+
+      setOne(key, value);
+
+      // Optional: Ingest to ML backend
+      try {
+        await axios.post(`${ML_BASE_URL}/infer/iot/ingest`, {
+          device_id: deviceSensors.device_id,
+          zone_id: deviceSensors.zone_id,
+          plant_id: "p04",
+          ts: deviceSensors.timestamp,
+          airT: deviceSensors.temperature_c,
+          RH: deviceSensors.humidity_pct,
+          EC: deviceSensors.ec_ms_cm,
+          pH: deviceSensors.ph,
+        });
+      } catch (e) {
+        console.warn("Failed to ingest sensor data to ML backend:", e);
+      }
+
+      Alert.alert("Success", `${sensorName} updated from device simulator`);
+    } catch (error: any) {
+      Alert.alert(
+        "Update Failed",
+        error?.message || `Failed to fetch ${sensorName}. Ensure device simulator is running.`,
+        [{ text: "OK" }]
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -239,7 +359,8 @@ export default function WeightGrowthScreen() {
               value={readings.airT != null ? `${readings.airT}` : "--"}
               unit="°C"
               status={statusFor("airT", readings.airT)}
-              onRetryPress={() => openOne("airT")}
+              onRetryPress={() => handleRetryOne("airT")}
+              loading={loadingTemp}
             />
 
             <MetricCard
@@ -249,7 +370,8 @@ export default function WeightGrowthScreen() {
               value={readings.EC != null ? `${readings.EC}` : "--"}
               unit="ms/cm"
               status={statusFor("EC", readings.EC)}
-              onRetryPress={() => openOne("EC")}
+              onRetryPress={() => handleRetryOne("EC")}
+              loading={loadingEC}
             />
           </View>
 
@@ -261,7 +383,8 @@ export default function WeightGrowthScreen() {
               value={readings.RH != null ? `${readings.RH}` : "--"}
               unit="%"
               status={statusFor("RH", readings.RH)}
-              onRetryPress={() => openOne("RH")}
+              onRetryPress={() => handleRetryOne("RH")}
+              loading={loadingRH}
             />
 
             <MetricCard
@@ -270,18 +393,32 @@ export default function WeightGrowthScreen() {
               label="Water pH"
               value={readings.pH != null ? `${readings.pH}` : "--"}
               status={statusFor("pH", readings.pH)}
-              onRetryPress={() => openOne("pH")}
+              onRetryPress={() => handleRetryOne("pH")}
+              loading={loadingPH}
             />
           </View>
         </View>
 
         {/* Small actions row */}
         <View className="flex-row items-center justify-between mt-6">
-          <SmallActionButton
-            icon={<Ionicons name="sync-outline" size={16} color="#1D4ED8" />}
-            label="Check for Updates"
-            onPress={openAll}
-          />
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleCheckForUpdates}
+            disabled={loadingAll}
+            className="flex-row items-center bg-white rounded-[14px] px-3 py-2"
+          >
+            {loadingAll ? (
+              <>
+                <ActivityIndicator size="small" color="#1D4ED8" />
+                <Text className="ml-2 text-[12px] font-bold text-gray-700">Updating...</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="sync-outline" size={16} color="#1D4ED8" />
+                <Text className="ml-2 text-[12px] font-bold text-gray-700">Check for Updates</Text>
+              </>
+            )}
+          </TouchableOpacity>
           <SmallActionButton
             icon={<Ionicons name="time-outline" size={16} color="#1D4ED8" />}
             label="View All Past Activities"
