@@ -15,6 +15,7 @@ import * as ImagePicker from "expo-image-picker";
 
 import { useAuth } from "../../auth/useAuth";
 import { estimateWeight } from "../../api/weightApi";
+import { captureDevicePair, downloadToLocalFile, DeviceMode } from '../../api/deviceApi';
 
 type PickedImage = { uri: string };
 
@@ -185,6 +186,59 @@ export default function EstimateWeightScanScreen() {
       capturedAtISO: result.capturedAtISO,
       rawPayload: result,
     });
+  };
+
+  const [mode, setMode] = useState<DeviceMode>('NORMAL');
+  const [useManual, setUseManual] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleDeviceCapture = async () => {
+    try {
+      setLoading(true);
+      
+      // Update these constants with your actual values
+      const PLANT_ID = 'plant_001'; // Replace with actual plant ID from context/props
+      const ZONE_ID = 'z01'; // Replace with actual zone ID from context/props
+      
+      // Capture from device simulator
+      const captureResponse = await captureDevicePair(PLANT_ID, ZONE_ID, mode);
+      
+      // Download both images to local cache
+      const [localRgbUri, localDepthUri] = await Promise.all([
+        downloadToLocalFile(captureResponse.rgb_url),
+        downloadToLocalFile(captureResponse.depth_url),
+      ]);
+      
+      // Set images in state
+      setRgbImage({ uri: localRgbUri });
+      setDepthImage({ uri: localDepthUri });
+      
+      // Call existing ML estimation function
+      // Adjust this to match your actual estimateWeight API call
+      const result = await estimateWeight({
+        rgbUri: localRgbUri,
+        depthUri: localDepthUri,
+        token: accessToken,
+        plant_id: "p04",
+        zone_id: "z01",
+        captured_at: new Date().toISOString(),
+        dap: 25,
+        A_prev_cm2: null,
+        sensors: null,
+      });
+      
+      // Navigate to results
+      navigation.navigate('WeightResults', { result });
+      
+    } catch (error) {
+      Alert.alert(
+        'Capture Failed',
+        error instanceof Error ? error.message : 'Failed to capture from device simulator. Check if the service is running on port 8010.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
