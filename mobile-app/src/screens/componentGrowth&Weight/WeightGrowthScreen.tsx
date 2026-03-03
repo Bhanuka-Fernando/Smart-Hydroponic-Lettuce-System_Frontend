@@ -246,7 +246,7 @@ export default function WeightGrowthScreen() {
         console.warn("Failed to ingest sensor data to ML backend:", e);
       }
 
-      Alert.alert("Success", "All sensor readings updated from device simulator");
+      // Success - no alert shown
     } catch (error: any) {
       Alert.alert(
         "Update Failed",
@@ -305,7 +305,7 @@ export default function WeightGrowthScreen() {
         console.warn("Failed to ingest sensor data to ML backend:", e);
       }
 
-      Alert.alert("Success", `${sensorName} updated from device simulator`);
+      // Success - no alert shown
     } catch (error: any) {
       Alert.alert(
         "Update Failed",

@@ -297,7 +297,7 @@ export default function GrowthForecastingScreen() {
         console.warn("Failed to ingest sensor data to ML backend:", e);
       }
 
-      Alert.alert("Success", "Plant captured and sensor readings updated. Tap Start Data Analysis to continue.");
+      // Success - no alert shown
     } catch (error: any) {
       Alert.alert(
         "Capture Failed",
