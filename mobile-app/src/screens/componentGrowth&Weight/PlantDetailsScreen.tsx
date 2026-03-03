@@ -293,7 +293,7 @@ export default function PlantDetailsScreen() {
         dateLabel: prettyDayLabel(ts) || "Scan",
         ageDays: age != null ? Number(age) : undefined,
         weightG: w,
-        predG: 0,
+        predG: fmt2(s?.predicted_g ?? s?.predicted_weight_g ?? 0), // ✅ include prediction if available
         kind: "scan",
       });
     }
@@ -335,31 +335,51 @@ export default function PlantDetailsScreen() {
     // ✅ Sort newest->oldest for list
     const sortedDesc = [...items].sort((a, b) => b.ts - a.ts);
 
-    // ✅ start weight = first scan weight (if exists) else first predicted
-    const firstScan = sortedAsc.find((x) => x.kind === "scan" && x.weightG > 0);
-    const firstPred = sortedAsc.find((x) => x.kind === "prediction" && x.predG > 0);
-    const startWeightG = firstScan ? firstScan.weightG : firstPred ? firstPred.predG : 0;
+    // ✅ Separate scan and prediction data points
+    const scanPoints = sortedAsc.filter((x) => x.kind === "scan" && x.weightG > 0);
+    const predPoints = sortedAsc.filter((x) => x.kind === "prediction" && x.predG > 0);
 
-    // ✅ current weight = latest scan weight (if exists) else 0
-    const lastScan = [...sortedAsc].reverse().find((x) => x.kind === "scan" && x.weightG > 0);
-    const currentWeightG = lastScan ? lastScan.weightG : 0;
+    // ✅ start weight = first scan or first prediction
+    const startWeightG = scanPoints.length > 0 
+      ? scanPoints[0].weightG 
+      : predPoints.length > 0 
+      ? predPoints[0].predG 
+      : 0;
+
+    // ✅ current weight = latest scan
+    const currentWeightG = scanPoints.length > 0 ? scanPoints[scanPoints.length - 1].weightG : 0;
 
     // ✅ predicted today = latest prediction
-    const lastPred = [...sortedAsc].reverse().find((x) => x.kind === "prediction" && x.predG > 0);
-    const predictedToday = lastPred ? lastPred.predG : 0;
+    const predictedToday = predPoints.length > 0 ? predPoints[predPoints.length - 1].predG : 0;
 
-    // ✅ Chart series: use scan weights as actual; use prediction weights as predicted
-    const labels = sortedAsc.map((x) =>
-      x.ageDays != null ? `D+${x.ageDays}` : x.kind === "scan" ? "Scan" : "Pred"
-    );
+    // ✅ Chart: only plot non-zero values
+    const chartLabels: string[] = [];
+    const actualSeries: number[] = [];
+    const predictedSeries: number[] = [];
 
-    const actual = sortedAsc.map((x) => (x.kind === "scan" ? x.weightG : 0));
-    const predicted = sortedAsc.map((x) => (x.kind === "prediction" ? x.predG : 0));
+    // Add scan data points
+    scanPoints.forEach((s) => {
+      chartLabels.push(s.ageDays != null ? `D${s.ageDays}` : "Scan");
+      actualSeries.push(s.weightG);
+      predictedSeries.push(s.predG > 0 ? s.predG : s.weightG); // use scan weight if no prediction
+    });
 
-    // growth % label
+    // Add prediction-only points (not already covered by scans)
+    predPoints.forEach((p) => {
+      const alreadyHasScanAtSameTime = scanPoints.some(
+        (s) => Math.abs(s.ts - p.ts) < 60000 // within 1 minute
+      );
+      if (!alreadyHasScanAtSameTime) {
+        chartLabels.push(p.ageDays != null ? `D${p.ageDays}` : "Pred");
+        actualSeries.push(0); // no actual measurement, leave gap
+        predictedSeries.push(p.predG);
+      }
+    });
+
+    // ✅ growth % based on actual measurements or predictions
     const growthPctLabel =
-      startWeightG > 0 && currentWeightG > 0
-        ? `+${(((currentWeightG - startWeightG) / startWeightG) * 100).toFixed(0)}%`
+      startWeightG > 0 && (currentWeightG > 0 || predictedToday > 0)
+        ? `+${(((Math.max(currentWeightG, predictedToday) - startWeightG) / startWeightG) * 100).toFixed(0)}%`
         : "";
 
     return {
@@ -372,7 +392,11 @@ export default function PlantDetailsScreen() {
       growthPctLabel,
       historyAsc: sortedAsc,
       historyDesc: sortedDesc,
-      chart: { labels, actual, predicted },
+      chart: { 
+        labels: chartLabels, 
+        actual: actualSeries, 
+        predicted: predictedSeries 
+      },
     };
   }, [data, plant_id]);
 

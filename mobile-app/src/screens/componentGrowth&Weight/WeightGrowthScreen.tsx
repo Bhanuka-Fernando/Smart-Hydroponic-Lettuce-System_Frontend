@@ -1,11 +1,13 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { View, Text, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import SensorReadingsModal from "../../components/Sensors/SensorReadingsModal";
+import ActionTile from "../../components/ui/ActionTile";
 import { useSensorReadings } from "../../context/SensorReadingsContext";
 import { getDeviceSensors } from "../../api/deviceApi";
 import axios from 'axios';
@@ -18,6 +20,23 @@ function formatHeaderDate(d: Date) {
 }
 
 type Status = "Good" | "Optimal" | "Low";
+
+function statusFor(key: "airT" | "RH" | "EC" | "pH", value: number | null): Status {
+  if (value === null || value === undefined) return "Low";
+  
+  const ranges: Record<string, { optimal: [number, number]; good: [number, number] }> = {
+    airT: { optimal: [22, 28], good: [18, 32] },
+    RH: { optimal: [50, 70], good: [40, 80] },
+    EC: { optimal: [1.2, 1.8], good: [0.8, 2.2] },
+    pH: { optimal: [5.5, 6.5], good: [5.0, 7.0] },
+  };
+
+  const range = ranges[key];
+  const isOptimal = value >= range.optimal[0] && value <= range.optimal[1];
+  const isGood = value >= range.good[0] && value <= range.good[1];
+
+  return isOptimal ? "Optimal" : isGood ? "Good" : "Low";
+}
 
 function StatusPill({ status }: { status: Status }) {
   const map: Record<Status, { bg: string; text: string }> = {
@@ -103,6 +122,17 @@ function SmallActionButton({
   );
 }
 
+type Slot = {
+  id: string;
+  name: string;
+  timeLabel: string;
+  enabled: boolean;
+  hour24: number;
+  minute: number;
+};
+
+const STORAGE_KEY = '@schedule_time_slots';
+
 function SlotRow({
   label,
   time,
@@ -133,53 +163,11 @@ function SlotRow({
   );
 }
 
-function ActionTile({
-  iconBg,
-  icon,
-  labelTop,
-  labelBottom,
-  onPress,
-}: {
-  iconBg: string;
-  icon: React.ReactNode;
-  labelTop: string;
-  labelBottom: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={onPress}
-      className="bg-white rounded-[18px] w-[31%] pt-4 pb-3 items-center shadow-sm"
-    >
-      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>{icon}</View>
-
-      <View className="mt-3 items-center">
-        <Text className="text-[12px] text-gray-800 font-extrabold leading-[15px]">{labelTop}</Text>
-        <Text className="text-[12px] text-gray-800 font-extrabold leading-[15px]">{labelBottom}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-const statusFor = (key: "airT" | "RH" | "EC" | "pH", v: number | null): Status => {
-  if (v == null) return "Low";
-  // simple demo rules (keep it light)
-  if (key === "EC") return v >= 1.2 && v <= 1.8 ? "Optimal" : "Low";
-  if (key === "pH") return v >= 5.8 && v <= 6.5 ? "Good" : "Low";
-  if (key === "RH") return v >= 50 ? "Good" : "Low";
-  return "Good";
-};
-
 export default function WeightGrowthScreen() {
   const navigation = useNavigation<any>();
   const tabBarHeight = useBottomTabBarHeight();
 
   const headerDate = useMemo(() => formatHeaderDate(new Date()), []);
-
-  const [morning, setMorning] = useState(true);
-  const [afternoon, setAfternoon] = useState(false);
-  const [evening, setEvening] = useState(true);
 
   const { readings, setAll, setOne } = useSensorReadings();
 
@@ -193,6 +181,45 @@ export default function WeightGrowthScreen() {
   const [loadingEC, setLoadingEC] = useState(false);
   const [loadingRH, setLoadingRH] = useState(false);
   const [loadingPH, setLoadingPH] = useState(false);
+
+  // Load schedules from AsyncStorage
+  const [schedules, setSchedules] = useState<Slot[]>([]);
+
+  useEffect(() => {
+    loadSchedules();
+
+    // Listen for navigation focus to reload schedules when returning from ScheduleTimeSlotsScreen
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadSchedules();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  const loadSchedules = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed: Slot[] = JSON.parse(saved);
+        setSchedules(parsed);
+      } else {
+        setSchedules([]);
+      }
+    } catch (error) {
+      console.error("Failed to load schedules:", error);
+      setSchedules([]);
+    }
+  };
+
+  const handleToggleSchedule = async (id: string, value: boolean) => {
+    try {
+      const updated = schedules.map((s) => (s.id === id ? { ...s, enabled: value } : s));
+      setSchedules(updated);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.error("Failed to update schedule:", error);
+    }
+  };
 
   const openAll = () => {
     setModalMode("all");
@@ -426,7 +453,7 @@ export default function WeightGrowthScreen() {
           />
         </View>
 
-        {/* Scheduled time slots (CLICKABLE) */}
+        {/* Scheduled time slots (CLICKABLE) - Now dynamic */}
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => navigation.navigate("ScheduleTimeSlots")}
@@ -439,17 +466,32 @@ export default function WeightGrowthScreen() {
 
             <View className="flex-1">
               <Text className="text-[14px] font-extrabold text-gray-900">Scheduled Time Slots</Text>
-              <Text className="text-[11px] text-gray-500 mt-0.5">Daily sensor logging</Text>
+              <Text className="text-[11px] text-gray-500 mt-0.5">
+                {schedules.length > 0 ? "Daily sensor logging" : "No schedules set"}
+              </Text>
             </View>
 
             <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
           </View>
 
-          <SlotRow label="MORNING" time="09:00 AM" value={morning} onChange={setMorning} />
-          <View className="h-px bg-gray-100" />
-          <SlotRow label="AFTERNOON" time="01:00 PM" value={afternoon} onChange={setAfternoon} />
-          <View className="h-px bg-gray-100" />
-          <SlotRow label="EVENING" time="05:00 PM" value={evening} onChange={setEvening} />
+          {schedules.length > 0 ? (
+            schedules.map((slot, index) => (
+              <View key={slot.id}>
+                {index > 0 && <View className="h-px bg-gray-100" />}
+                <SlotRow
+                  label={slot.name.toUpperCase()}
+                  time={slot.timeLabel}
+                  value={slot.enabled}
+                  onChange={(v) => handleToggleSchedule(slot.id, v)}
+                />
+              </View>
+            ))
+          ) : (
+            <View className="py-4 items-center">
+              <Text className="text-[11px] text-gray-400">No time slots configured</Text>
+              <Text className="text-[10px] text-gray-400 mt-1">Tap to add schedules</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         {/* Actions */}
