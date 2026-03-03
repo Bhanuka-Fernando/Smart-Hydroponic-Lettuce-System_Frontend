@@ -1,3 +1,4 @@
+// src/screens/componentGrowth&Weight/EstimateWeightScanScreen.tsx
 import React, { useMemo, useState } from "react";
 import {
   View,
@@ -15,7 +16,11 @@ import * as ImagePicker from "expo-image-picker";
 
 import { useAuth } from "../../auth/useAuth";
 import { estimateWeight } from "../../api/weightApi";
-import { captureDevicePair, downloadToLocalFile, DeviceMode } from '../../api/deviceApi';
+import {
+  captureDevicePair,
+  downloadToLocalFile,
+  DeviceMode,
+} from "../../api/deviceApi";
 
 type PickedImage = { uri: string };
 
@@ -54,10 +59,14 @@ export default function EstimateWeightScanScreen() {
   const [result, setResult] = useState<any>(null);
   const [maskPreview, setMaskPreview] = useState<string | null>(null);
 
+  // Simulator UI state - removed mode toggle, default to NORMAL
+  const [loadingCapture, setLoadingCapture] = useState(false);
+
   const canAnalyze = useMemo(
     () => !!rgbImage?.uri && !!depthImage?.uri && !analyzing,
     [rgbImage, depthImage, analyzing]
   );
+
   const canGoResults = useMemo(
     () => !!result?.imageUri && !analyzing,
     [result, analyzing]
@@ -79,7 +88,7 @@ export default function EstimateWeightScanScreen() {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
-      allowsEditing: false, // ✅ must be false
+      allowsEditing: false,
     });
 
     if (!res.canceled && res.assets?.[0]?.uri) {
@@ -96,7 +105,7 @@ export default function EstimateWeightScanScreen() {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
-      allowsEditing: false, // ✅ must be false
+      allowsEditing: false,
     });
 
     if (!res.canceled && res.assets?.[0]?.uri) {
@@ -106,15 +115,39 @@ export default function EstimateWeightScanScreen() {
     }
   };
 
-  function getImageSize(uri: string): Promise<{ w: number; h: number }> {
-    return new Promise((resolve, reject) => {
-      Image.getSize(
-        uri,
-        (w, h) => resolve({ w, h }),
-        (err) => reject(err)
+  // ✅ Simulator capture: IMAGES ONLY (no sensors, no ML call) - always use NORMAL mode
+  const handleDeviceCaptureImagesOnly = async () => {
+    try {
+      setLoadingCapture(true);
+
+      const PLANT_ID = "p04";
+      const ZONE_ID = "z01";
+
+      const captureResponse = await captureDevicePair(PLANT_ID, ZONE_ID, "NORMAL");
+
+      const [localRgbUri, localDepthUri] = await Promise.all([
+        downloadToLocalFile(captureResponse.rgb_url),
+        downloadToLocalFile(captureResponse.depth_url),
+      ]);
+
+      setRgbImage({ uri: localRgbUri });
+      setDepthImage({ uri: localDepthUri });
+
+      setResult(null);
+      setMaskPreview(null);
+
+      Alert.alert("Captured", "RGB + Depth captured from simulator. Now tap Start Analysis.");
+    } catch (error: any) {
+      Alert.alert(
+        "Capture Failed",
+        error?.message ||
+          "Failed to capture from device simulator. Ensure it is running on port 8010.",
+        [{ text: "OK" }]
       );
-    });
-  }
+    } finally {
+      setLoadingCapture(false);
+    }
+  };
 
   const startAnalysis = async () => {
     if (!rgbImage?.uri || !depthImage?.uri) {
@@ -136,9 +169,8 @@ export default function EstimateWeightScanScreen() {
         captured_at: capturedAtISO,
         dap: 25,
         A_prev_cm2: null,
-        sensors: null,
+        sensors: null, // ✅ no sensors for weight estimation
       });
-
 
       // ✅ map backend keys -> UI keys
       const merged = {
@@ -147,7 +179,7 @@ export default function EstimateWeightScanScreen() {
         biomass_g: data.W_today_g,
         leaf_area_cm2: data.A_des_cm2,
         leaf_diameter_cm: data.D_proj_cm,
-        accuracy: 0, // your backend doesn't return accuracy yet
+        accuracy: 0,
         image_url: data.image_url,
         capturedAtISO,
         imageUri: rgbImage.uri,
@@ -155,6 +187,7 @@ export default function EstimateWeightScanScreen() {
       };
 
       setResult(merged);
+
       if (data.mask_overlay_b64) {
         setMaskPreview(`data:image/png;base64,${data.mask_overlay_b64}`);
       } else {
@@ -188,59 +221,6 @@ export default function EstimateWeightScanScreen() {
     });
   };
 
-  const [mode, setMode] = useState<DeviceMode>('NORMAL');
-  const [useManual, setUseManual] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const handleDeviceCapture = async () => {
-    try {
-      setLoading(true);
-      
-      // Update these constants with your actual values
-      const PLANT_ID = 'plant_001'; // Replace with actual plant ID from context/props
-      const ZONE_ID = 'z01'; // Replace with actual zone ID from context/props
-      
-      // Capture from device simulator
-      const captureResponse = await captureDevicePair(PLANT_ID, ZONE_ID, mode);
-      
-      // Download both images to local cache
-      const [localRgbUri, localDepthUri] = await Promise.all([
-        downloadToLocalFile(captureResponse.rgb_url),
-        downloadToLocalFile(captureResponse.depth_url),
-      ]);
-      
-      // Set images in state
-      setRgbImage({ uri: localRgbUri });
-      setDepthImage({ uri: localDepthUri });
-      
-      // Call existing ML estimation function
-      // Adjust this to match your actual estimateWeight API call
-      const result = await estimateWeight({
-        rgbUri: localRgbUri,
-        depthUri: localDepthUri,
-        token: accessToken,
-        plant_id: "p04",
-        zone_id: "z01",
-        captured_at: new Date().toISOString(),
-        dap: 25,
-        A_prev_cm2: null,
-        sensors: null,
-      });
-      
-      // Navigate to results
-      navigation.navigate('WeightResults', { result });
-      
-    } catch (error) {
-      Alert.alert(
-        'Capture Failed',
-        error instanceof Error ? error.message : 'Failed to capture from device simulator. Check if the service is running on port 8010.',
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       {/* Header */}
@@ -255,7 +235,6 @@ export default function EstimateWeightScanScreen() {
           </TouchableOpacity>
 
           <Text className="text-[13px] font-extrabold text-gray-900">New Scan</Text>
-
           <View className="w-10 h-10" />
         </View>
       </View>
@@ -273,7 +252,7 @@ export default function EstimateWeightScanScreen() {
         </Text>
 
         {/* RGB Upload */}
-        <View className="bg-white rounded-[18px] shadow-sm mt-4 p-4">
+        <View className="bg-white rounded-[18px] shadow-sm mt-3 p-4">
           {!rgbImage?.uri ? (
             <TouchableOpacity
               activeOpacity={0.9}
@@ -297,7 +276,6 @@ export default function EstimateWeightScanScreen() {
                 resizeMode="cover"
               />
 
-              {/* Change button */}
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={pickRgbFromGallery}
@@ -307,7 +285,6 @@ export default function EstimateWeightScanScreen() {
                 <Text className="ml-2 text-[10px] font-extrabold text-white">Change</Text>
               </TouchableOpacity>
 
-              {/* Remove button (optional) */}
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => {
@@ -322,7 +299,6 @@ export default function EstimateWeightScanScreen() {
             </View>
           )}
         </View>
-
 
         {/* Depth Upload */}
         <View className="bg-white rounded-[18px] shadow-sm mt-3 p-4">
@@ -339,9 +315,7 @@ export default function EstimateWeightScanScreen() {
               <Text className="text-[12px] font-extrabold text-gray-900">
                 Upload Depth Image
               </Text>
-              <Text className="text-[10px] text-gray-500 mt-1">
-                (must match RGB size)
-              </Text>
+              <Text className="text-[10px] text-gray-500 mt-1">(must match RGB size)</Text>
             </TouchableOpacity>
           ) : (
             <View className="relative">
@@ -351,7 +325,6 @@ export default function EstimateWeightScanScreen() {
                 resizeMode="cover"
               />
 
-              {/* Change button */}
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={pickDepthFromGallery}
@@ -361,7 +334,6 @@ export default function EstimateWeightScanScreen() {
                 <Text className="ml-2 text-[10px] font-extrabold text-white">Change</Text>
               </TouchableOpacity>
 
-              {/* Remove button (optional) */}
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => {
@@ -377,6 +349,26 @@ export default function EstimateWeightScanScreen() {
           )}
         </View>
 
+        {/* Capture Plant Button */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={handleDeviceCaptureImagesOnly}
+          disabled={loadingCapture || analyzing}
+          className={`mt-3 rounded-[16px] py-4 items-center justify-center flex-row ${
+            loadingCapture || analyzing ? "bg-[#C7D2E5]" : "bg-[#003B8F]"
+          }`}
+        >
+          {loadingCapture ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="camera-outline" size={18} color="#FFFFFF" />
+              <Text className="ml-2 text-[12px] font-extrabold text-white">
+                Capture Plant
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
 
         {/* Start Analysis */}
         <TouchableOpacity
@@ -400,12 +392,8 @@ export default function EstimateWeightScanScreen() {
         </TouchableOpacity>
 
         {/* Tips */}
-        <Text className="text-[12px] font-extrabold text-gray-900 mt-6">
-          QUICK TIPS
-        </Text>
-        <Text className="text-[11px] text-gray-500 mt-1 mb-3">
-          For Accurate Estimation
-        </Text>
+        <Text className="text-[12px] font-extrabold text-gray-900 mt-6">QUICK TIPS</Text>
+        <Text className="text-[11px] text-gray-500 mt-1 mb-3">For Accurate Estimation</Text>
 
         <TipCard
           icon={<Ionicons name="checkmark-circle-outline" size={18} color="#16A34A" />}
