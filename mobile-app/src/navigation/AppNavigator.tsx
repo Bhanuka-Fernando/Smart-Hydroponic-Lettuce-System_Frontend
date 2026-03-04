@@ -179,7 +179,3 @@ export default function AppNavigator() {
   );
 }
 
-/** ✅ CHANGE: add a default export so RootNavigator can import AppNavigator */
-export default function AppNavigator() {
-  return <TabsNavigator />;
-}

@@ -44,6 +44,16 @@ export type SpoilagePredictionRow = {
   image_url?: string | null;
 };
 
+export type SimSampleResponse = {
+  plant_id: string;
+  temperature: number;
+  humidity: number;
+  label: SpoilageStage;
+  image_name?: string | null;
+  image_url?: string | null; // ✅ "/sim-images/IMG_1206.jpg"
+  remaining_days: number;
+};
+
 // ---- HELPERS ----
 function makeFormData(input: {
   imageUri: string;
@@ -118,5 +128,35 @@ export async function getRecentPredictions(limit = 20) {
   const res = await client.get<SpoilagePredictionRow[]>(
     `/spoilage/predictions?limit=${limit}`
   );
+  return res.data;
+}
+
+export async function startSimulation(params: {
+  plant_id: string;        // "P-001"
+  interval_sec?: number;   // 10, 15...
+  loop?: boolean;
+}) {
+  const res = await client.post("/sim/start", null, {
+    params: {
+      plant_id: params.plant_id,
+      interval_sec: params.interval_sec ?? 15,
+      loop: params.loop ?? false,
+    },
+  });
+  return res.data;
+}
+
+export async function stopSimulation() {
+  const res = await client.post("/sim/stop");
+  return res.data;
+}
+
+export async function getSimulationStatus() {
+  const res = await client.get("/sim/status");
+  return res.data;
+}
+
+export async function getSimSample(params?: { plant_id?: string; label?: string; mode?: "random" | "next" }) { 
+  const res = await client.get<SimSampleResponse>("/sim/sample", { params });
   return res.data;
 }
