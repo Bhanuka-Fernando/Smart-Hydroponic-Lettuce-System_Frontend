@@ -7,7 +7,11 @@ const client = axios.create({
 });
 
 // ---- TYPES ----
-export type SpoilageStage = "fresh" | "slightly_aged" | "near_spoilage" | "spoiled";
+export type SpoilageStage =
+  | "fresh"
+  | "slightly_aged"
+  | "near_spoilage"
+  | "spoiled";
 
 export type StageProbs = {
   fresh: number;
@@ -50,8 +54,24 @@ export type SimSampleResponse = {
   humidity: number;
   label: SpoilageStage;
   image_name?: string | null;
-  image_url?: string | null; // ✅ "/sim-images/IMG_1206.jpg"
+  image_url?: string | null;
   remaining_days: number;
+
+  // optional debug
+  mode?: "random" | "time";
+  picked_label?: string | null;
+  now?: string;
+};
+
+export type SimSampleParams = {
+  plant_id?: string;
+  label?: string;
+
+  // ✅ UPDATED
+  mode?: "random" | "time";
+
+  // optional override for testing
+  now_iso?: string;
 };
 
 // ---- HELPERS ----
@@ -132,8 +152,8 @@ export async function getRecentPredictions(limit = 20) {
 }
 
 export async function startSimulation(params: {
-  plant_id: string;        // "P-001"
-  interval_sec?: number;   // 10, 15...
+  plant_id: string;
+  interval_sec?: number;
   loop?: boolean;
 }) {
   const res = await client.post("/sim/start", null, {
@@ -156,7 +176,8 @@ export async function getSimulationStatus() {
   return res.data;
 }
 
-export async function getSimSample(params?: { plant_id?: string; label?: string; mode?: "random" | "next" }) { 
+// ✅ FIXED FUNCTION (no stray braces)
+export async function getSimSample(params?: SimSampleParams) {
   const res = await client.get<SimSampleResponse>("/sim/sample", { params });
   return res.data;
 }

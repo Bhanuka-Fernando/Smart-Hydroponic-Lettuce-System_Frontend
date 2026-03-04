@@ -1,3 +1,4 @@
+// src/screens/spoilage/SpoilageScanScreen.tsx
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -48,11 +49,9 @@ async function ensureLocalUri(uri: string) {
 export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [mode, setMode] = useState<Mode>("Camera");
 
-  // ✅ plantId from previous screen (locked flow)
   const lockedPlantId = route.params?.plantId?.trim();
   const isPlantLocked = !!lockedPlantId;
 
-  // camera
   const cameraRef = useRef<CameraViewRef | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const camGranted = permission?.granted ?? false;
@@ -61,15 +60,12 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [facing, setFacing] = useState<"back" | "front">("back");
   const [torchOn, setTorchOn] = useState(false);
 
-  // shared
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // sensor state (from backend csv)
   const [temperature, setTemperature] = useState<number>(6.5);
   const [humidity, setHumidity] = useState<number>(91.0);
 
-  // plant id (locked when passed)
   const [plantId, setPlantId] = useState<string>(lockedPlantId ?? "P-001");
 
   useEffect(() => {
@@ -124,18 +120,19 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
 
   const retake = () => setCapturedUri(null);
 
-  // ✅ real csv sensor sample
+  // ✅ captured_at-based progression
   const onUseLastSensor = async () => {
     try {
       setBusy(true);
 
       const pid = (lockedPlantId ?? plantId)?.trim();
-      const sample = await getSimSample({ plant_id: pid ? pid : undefined, mode: "next" } as any);
+      const sample = await getSimSample({
+        plant_id: pid ? pid : undefined,
+        mode: "time",
+      });
 
       setTemperature(Number(sample.temperature));
       setHumidity(Number(sample.humidity));
-
-      // ✅ do not overwrite if locked
       if (!isPlantLocked && sample.plant_id) setPlantId(sample.plant_id);
 
       Alert.alert(
@@ -152,25 +149,23 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
     }
   };
 
-  // ✅ Simulate Camera = sample row + use matching backend image
+  // ✅ captured_at-based progression + dataset image preview
   const onSimulateCamera = async () => {
     try {
       setBusy(true);
 
       const pid = (lockedPlantId ?? plantId)?.trim();
-      const sample = await getSimSample({ plant_id: pid ? pid : undefined });
+      const sample = await getSimSample({
+        plant_id: pid ? pid : undefined,
+        mode: "time",
+      });
 
       setTemperature(Number(sample.temperature));
       setHumidity(Number(sample.humidity));
-
-      // ✅ do not overwrite if locked
       if (!isPlantLocked && sample.plant_id) setPlantId(sample.plant_id);
 
       if (!sample.image_url) {
-        Alert.alert(
-          "No Image",
-          "No matching image found in backend sim_images folder."
-        );
+        Alert.alert("No Image", "No matching image found in backend sim_images folder.");
         return;
       }
 
@@ -262,19 +257,11 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
 
         {/* Segmented Tabs */}
         <View className="mt-2 bg-white rounded-full p-1 flex-row">
-          <Segment
-            label="Camera"
-            active={mode === "Camera"}
-            onPress={() => setMode("Camera")}
-          />
-          <Segment
-            label="Gallery"
-            active={mode === "Gallery"}
-            onPress={() => setMode("Gallery")}
-          />
+          <Segment label="Camera" active={mode === "Camera"} onPress={() => setMode("Camera")} />
+          <Segment label="Gallery" active={mode === "Gallery"} onPress={() => setMode("Gallery")} />
         </View>
 
-        {/* ✅ Plant ID (locked/hide input) */}
+        {/* Plant ID */}
         {isPlantLocked ? (
           <View
             className="mt-4 bg-white rounded-[16px] px-4 py-3 shadow-sm"
@@ -319,7 +306,6 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                       style={{ width: "100%", height: "100%" }}
                       resizeMode="cover"
                     />
-
                     <View className="absolute top-3 right-3">
                       <TouchableOpacity
                         onPress={retake}
@@ -396,51 +382,6 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                   </View>
                 )}
               </View>
-            </View>
-
-            {/* Control strip */}
-            <View className="mt-4 bg-white rounded-[22px] px-6 py-4 shadow-sm flex-row items-center justify-between">
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => setTorchOn((p) => !p)}
-                className="w-12 h-12 rounded-full bg-[#F3F4F6] items-center justify-center"
-              >
-                <Ionicons
-                  name={torchOn ? "flash-outline" : "flash-off-outline"}
-                  size={18}
-                  color="#111827"
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={takePhoto}
-                disabled={busy || !camGranted}
-              >
-                <View
-                  className="w-[74px] h-[74px] rounded-full bg-white items-center justify-center"
-                  style={{
-                    opacity: busy || !camGranted ? 0.5 : 1,
-                    borderWidth: 2,
-                    borderColor: "#CBD5E1",
-                  }}
-                >
-                  <View
-                    className="w-[62px] h-[62px] rounded-full"
-                    style={{ borderWidth: 4, borderColor: "#0B1220" }}
-                  />
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() =>
-                  setFacing((p) => (p === "back" ? "front" : "back"))
-                }
-                className="w-12 h-12 rounded-full bg-[#F3F4F6] items-center justify-center"
-              >
-                <Ionicons name="camera-reverse-outline" size={18} color="#111827" />
-              </TouchableOpacity>
             </View>
 
             {/* Buttons */}
@@ -545,11 +486,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 }}
               >
                 {capturedUri ? (
-                  <Image
-                    source={{ uri: capturedUri }}
-                    style={{ width: "100%", height: "100%" }}
-                    resizeMode="cover"
-                  />
+                  <Image source={{ uri: capturedUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
                 ) : (
                   <>
                     <View className="w-14 h-14 rounded-full bg-[#EAF4FF] items-center justify-center">
@@ -630,37 +567,9 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
               </TouchableOpacity>
             </View>
 
-            <View className="mt-4 bg-white rounded-[18px] p-4 shadow-sm">
-              <View className="flex-row items-center">
-                <View className="w-8 h-8 rounded-full bg-[#EAF4FF] items-center justify-center">
-                  <Ionicons name="information" size={16} color={PRIMARY} />
-                </View>
-                <Text className="ml-2 font-extrabold text-gray-900">QUICK TIPS</Text>
-              </View>
-
-              <TipRow
-                icon="ellipse-outline"
-                iconBg="#EAF4FF"
-                title="Use a clear image"
-                desc="Keep focus and avoid motion blur."
-              />
-              <TipRow
-                icon="remove-outline"
-                iconBg="#FFF2E6"
-                title="Top-down view"
-                desc="Capture directly above the plant/leaf."
-              />
-              <TipRow
-                icon="square-outline"
-                iconBg="#EEF2FF"
-                title="One plant at a time"
-                desc="Keep only one leaf/plant in frame."
-              />
-            </View>
+            <View className="h-6" />
           </>
         )}
-
-        <View className="h-6" />
       </ScrollView>
     </SafeAreaView>
   );
@@ -731,10 +640,7 @@ function TipRow({
 }) {
   return (
     <View className="mt-3 bg-[#F8FAFC] rounded-[14px] px-4 py-3 flex-row">
-      <View
-        className="w-9 h-9 rounded-[10px] items-center justify-center"
-        style={{ backgroundColor: iconBg }}
-      >
+      <View className="w-9 h-9 rounded-[10px] items-center justify-center" style={{ backgroundColor: iconBg }}>
         <Ionicons name={icon} size={16} color="#111827" />
       </View>
 
