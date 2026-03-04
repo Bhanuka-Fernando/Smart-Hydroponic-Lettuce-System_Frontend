@@ -1,5 +1,5 @@
 // src/screens/spoilage/SpoilageDetailsScreen.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -14,8 +14,10 @@ import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { SpoilageStackParamList } from "../../navigation/SpoilageNavigator";
 
+import { useSpoilagePolling } from "../../hooks/useSpoilagePolling";
 import {
-  getRecentPredictions,
+  startSimulation,
+  stopSimulation,
   type SpoilagePredictionRow,
 } from "../../api/SpoilageApi";
 
@@ -30,7 +32,7 @@ type PredictionItem = {
   stageLabel: "Fresh" | "Slightly Aged" | "Near Spoilage" | "Critical";
   actionText?: string;
   severity: "monitoring" | "warning" | "critical";
-  imageUrl?: string | null; // ✅ added
+  imageUrl?: string | null;
 };
 
 function clamp(n: number, min: number, max: number) {
@@ -43,7 +45,7 @@ function mapStageLabel(
   if (stage === "fresh") return "Fresh";
   if (stage === "slightly_aged") return "Slightly Aged";
   if (stage === "near_spoilage") return "Near Spoilage";
-  return "Critical"; // spoiled
+  return "Critical";
 }
 
 function mapSeverity(
@@ -66,33 +68,43 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<StatusFilter>("All Status");
   const currentLocation = "Farm A - Chiller 3";
 
-  const [rows, setRows] = useState<SpoilagePredictionRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  // ✅ Poll DB every 4 seconds while screen is focused
+  const {
+    rows,
+    loading,
+    error,
+    refresh: reloadNow,
+  } = useSpoilagePolling(30, 4000);
 
-  const load = async () => {
+  // ✅ simulation controls (one plant at a time)
+  const [simPlant] = useState("P-001"); // keep fixed or replace with a dropdown later
+  const [simBusy, setSimBusy] = useState(false);
+
+  const onStartSim = async () => {
     try {
-      setLoading(true);
-      const data = await getRecentPredictions(30);
-      setRows(data);
+      setSimBusy(true);
+      await startSimulation({ plant_id: simPlant, interval_sec: 15, loop: false });
+      Alert.alert("Simulation", `Started for ${simPlant}`);
     } catch (e: any) {
-      console.log("Load predictions error:", e?.message, e?.response?.data);
-      Alert.alert(
-        "Error",
-        e?.response?.data?.detail || "Failed to load predictions"
-      );
+      console.log("Start sim error:", e?.message, e?.response?.data);
+      Alert.alert("Error", e?.response?.data?.detail || "Failed to start simulation");
     } finally {
-      setLoading(false);
+      setSimBusy(false);
     }
   };
 
-  useEffect(() => {
-    const unsub = navigation.addListener("focus", () => {
-      load();
-    });
-    load();
-    return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const onStopSim = async () => {
+    try {
+      setSimBusy(true);
+      await stopSimulation();
+      Alert.alert("Simulation", "Stopped");
+    } catch (e: any) {
+      console.log("Stop sim error:", e?.message, e?.response?.data);
+      Alert.alert("Error", e?.response?.data?.detail || "Failed to stop simulation");
+    } finally {
+      setSimBusy(false);
+    }
+  };
 
   const predictions: PredictionItem[] = useMemo(() => {
     return rows.map((r) => {
@@ -101,11 +113,11 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
       return {
         id: String(r.id),
         plantId: r.plant_id,
-        shelfLifeDays: Math.round(r.remaining_days),
+        shelfLifeDays: Math.round(Number(r.remaining_days ?? 0)),
         stageLabel,
         severity,
         actionText: mapAction(r.stage),
-        imageUrl: (r as any).image_url ?? null, // ✅ backend field
+        imageUrl: (r as any).image_url ?? null, // backend field
       };
     });
   }, [rows]);
@@ -127,7 +139,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
     return { fresh, aged, risk, spoiled };
   }, [rows]);
 
-  const openSpoilageScan = () => navigation.navigate("SpoilageScan");
+  const openSpoilageScan = () => navigation.navigate("SpoilagePlants");
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
@@ -135,7 +147,10 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
       <View className="px-4 pt-3 pb-3">
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+  if (navigation.canGoBack()) navigation.goBack();
+  else navigation.navigate("SpoilageDetails");
+}}
             activeOpacity={0.8}
             className="w-10 h-10 items-center justify-center"
           >
@@ -147,7 +162,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           </Text>
 
           <TouchableOpacity
-            onPress={load}
+            onPress={reloadNow}
             activeOpacity={0.85}
             className="w-10 h-10 items-center justify-center"
           >
@@ -177,6 +192,60 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 18 }}
       >
+        {/* ✅ Simulation controls (optional but useful for demo) */}
+        <View className="bg-white rounded-[18px] px-4 py-4 shadow-sm mb-3">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-[13px] font-extrabold text-gray-900">
+              Simulation (One Plant)
+            </Text>
+
+            <View className="flex-row items-center">
+              <Text className="text-[12px] text-gray-500 font-semibold mr-2">
+                {simPlant}
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                disabled={simBusy}
+                onPress={onStartSim}
+                className={`px-3 py-2 rounded-full mr-2 ${
+                  simBusy ? "bg-gray-200" : "bg-[#111827]"
+                }`}
+              >
+                <Text className="text-[12px] font-semibold text-white">
+                  Start
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                disabled={simBusy}
+                onPress={onStopSim}
+                className={`px-3 py-2 rounded-full ${
+                  simBusy ? "bg-gray-200" : "bg-white"
+                }`}
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                }}
+              >
+                <Text className="text-[12px] font-semibold text-gray-900">
+                  Stop
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {error ? (
+            <Text className="text-[12px] text-red-600 font-semibold mt-2">
+              {error}
+            </Text>
+          ) : (
+            <Text className="text-[11px] text-gray-500 font-semibold mt-2">
+              Live updates from DB every 4 seconds
+            </Text>
+          )}
+        </View>
+
         {/* Current Batch Status */}
         <View className="flex-row items-center justify-between mt-2 mb-2">
           <Text className="text-[14px] font-extrabold text-gray-900">
@@ -415,7 +484,7 @@ function PredictionRow({
 
   // ✅ real uploaded image from backend + cache buster
   const imgUri = item.imageUrl
-    ? `${SPOILAGE_BASE_URL}${item.imageUrl}?t=${item.id}`
+    ? `${SPOILAGE_BASE_URL}${item.imageUrl}`
     : undefined;
 
   return (

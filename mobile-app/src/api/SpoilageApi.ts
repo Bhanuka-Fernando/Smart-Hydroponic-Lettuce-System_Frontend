@@ -7,7 +7,11 @@ const client = axios.create({
 });
 
 // ---- TYPES ----
-export type SpoilageStage = "fresh" | "slightly_aged" | "near_spoilage" | "spoiled";
+export type SpoilageStage =
+  | "fresh"
+  | "slightly_aged"
+  | "near_spoilage"
+  | "spoiled";
 
 export type StageProbs = {
   fresh: number;
@@ -42,6 +46,32 @@ export type SpoilagePredictionRow = {
   p_near_spoilage: number;
   p_spoiled: number;
   image_url?: string | null;
+};
+
+export type SimSampleResponse = {
+  plant_id: string;
+  temperature: number;
+  humidity: number;
+  label: SpoilageStage;
+  image_name?: string | null;
+  image_url?: string | null;
+  remaining_days: number;
+
+  // optional debug
+  mode?: "random" | "time";
+  picked_label?: string | null;
+  now?: string;
+};
+
+export type SimSampleParams = {
+  plant_id?: string;
+  label?: string;
+
+  // ✅ UPDATED
+  mode?: "random" | "time";
+
+  // optional override for testing
+  now_iso?: string;
 };
 
 // ---- HELPERS ----
@@ -118,5 +148,36 @@ export async function getRecentPredictions(limit = 20) {
   const res = await client.get<SpoilagePredictionRow[]>(
     `/spoilage/predictions?limit=${limit}`
   );
+  return res.data;
+}
+
+export async function startSimulation(params: {
+  plant_id: string;
+  interval_sec?: number;
+  loop?: boolean;
+}) {
+  const res = await client.post("/sim/start", null, {
+    params: {
+      plant_id: params.plant_id,
+      interval_sec: params.interval_sec ?? 15,
+      loop: params.loop ?? false,
+    },
+  });
+  return res.data;
+}
+
+export async function stopSimulation() {
+  const res = await client.post("/sim/stop");
+  return res.data;
+}
+
+export async function getSimulationStatus() {
+  const res = await client.get("/sim/status");
+  return res.data;
+}
+
+// ✅ FIXED FUNCTION (no stray braces)
+export async function getSimSample(params?: SimSampleParams) {
+  const res = await client.get<SimSampleResponse>("/sim/sample", { params });
   return res.data;
 }

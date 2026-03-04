@@ -3,11 +3,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   Image,
   ActivityIndicator,
   Alert,
+  FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -32,11 +32,10 @@ type PlantItem = {
   temperature: string;
   humidity: string;
   status: "FRESH" | "SLIGHTLY AGED" | "NEAR SPOILAGE" | "SPOILED";
-  imageUrl?: string | null; // <-- db path "/uploads/..jpg"
+  imageUrl?: string | null; // db path "/uploads/..jpg" or "/sim-images/..jpg"
 };
 
 function formatDay(iso: string) {
-  // iso like "2026-03-02T13:51:40.277493"
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
   const yyyy = d.getFullYear();
@@ -61,7 +60,10 @@ export default function SpoilagePlantsScreen({ navigation }: Props) {
   const load = async () => {
     try {
       setLoading(true);
-      const data = await getRecentPredictions(200); // load more for list/stats
+
+      // ✅ FIX: reduce load (ScrollView+200+images can crash)
+      const data = await getRecentPredictions(50);
+
       setRows(data);
     } catch (e: any) {
       console.log("Load plants error:", e?.message, e?.response?.data);
@@ -72,8 +74,9 @@ export default function SpoilagePlantsScreen({ navigation }: Props) {
   };
 
   useEffect(() => {
-    const unsub = navigation.addListener("focus", load);
+    // ✅ FIX: do not double-call too aggressively
     load();
+    const unsub = navigation.addListener("focus", load);
     return unsub;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -84,9 +87,9 @@ export default function SpoilagePlantsScreen({ navigation }: Props) {
       id: String(r.id),
       plantId: r.plant_id,
       day: formatDay(r.captured_at),
-      remainingDays: Math.max(0, Math.round(r.remaining_days)),
-      temperature: `${Math.round(r.temperature)}°C`,
-      humidity: `${Math.round(r.humidity)}%`,
+      remainingDays: Math.max(0, Math.round(Number(r.remaining_days ?? 0))),
+      temperature: `${Math.round(Number(r.temperature ?? 0))}°C`,
+      humidity: `${Math.round(Number(r.humidity ?? 0))}%`,
       status: mapStatus(r.stage),
       imageUrl: (r as any).image_url ?? null,
     }));
@@ -112,113 +115,131 @@ export default function SpoilagePlantsScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#EAF4FF]">
-      <ScrollView
+      <FlatList
+        data={loading ? [] : filtered}
+        keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16 }}
-      >
-        {/* Header */}
-        <View className="flex-row items-center justify-between">
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.85}
-            className="w-10 h-10 items-center justify-center"
-          >
-            <Ionicons name="chevron-back" size={22} color="#111827" />
-          </TouchableOpacity>
+        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+        ListHeaderComponent={
+          <>
+            {/* Header */}
+            <View className="flex-row items-center justify-between">
+              <TouchableOpacity
+                onPress={() => {
+                  // ✅ FIX: don’t exit app if this is root
+                  if (navigation.canGoBack()) navigation.goBack();
+                  else navigation.navigate("SpoilageDetails");
+                }}
+                activeOpacity={0.85}
+                className="w-10 h-10 items-center justify-center"
+              >
+                <Ionicons name="chevron-back" size={22} color="#111827" />
+              </TouchableOpacity>
 
-          <Text className="text-[14px] font-extrabold text-gray-900">
-            All Plants
-          </Text>
-
-          <TouchableOpacity
-            onPress={load}
-            activeOpacity={0.85}
-            className="w-10 h-10 items-center justify-center"
-          >
-            <Ionicons name="refresh" size={18} color="#111827" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Filter chips */}
-        <View className="mt-3 bg-white rounded-full p-1 flex-row">
-          <Chip
-            label="All Plants"
-            active={filter === "All Plants"}
-            onPress={() => setFilter("All Plants")}
-          />
-          <Chip
-            label="Fresh"
-            active={filter === "Fresh"}
-            onPress={() => setFilter("Fresh")}
-          />
-          <Chip
-            label="Slightly Aged"
-            active={filter === "Slightly Aged"}
-            onPress={() => setFilter("Slightly Aged")}
-          />
-          <Chip
-            label="Spoiled"
-            active={filter === "Spoiled"}
-            onPress={() => setFilter("Spoiled")}
-          />
-        </View>
-
-        {/* Stats summary */}
-        <View className="mt-4 bg-white rounded-[18px] p-4 shadow-sm">
-          <Text className="text-[14px] font-extrabold text-gray-900">
-            Stats Summary
-          </Text>
-
-          <View className="flex-row justify-between mt-3">
-            <StatBox
-              title="Total Plants"
-              value={String(totalPlants)}
-              bg="#7DE9D9"
-            />
-            <StatBox
-              title="Avg Shelf-life"
-              value={`${avgShelf} Days`}
-              bg="#AFC8FF"
-            />
-          </View>
-
-          <View className="mt-3 items-center">
-            <View
-              className="rounded-[14px] px-6 py-3"
-              style={{ backgroundColor: "#FAD1D1" }}
-            >
-              <Text className="text-[10px] font-semibold text-gray-700 text-center">
-                Total Alerts
+              <Text className="text-[14px] font-extrabold text-gray-900">
+                All Plants
               </Text>
-              <Text className="text-[16px] font-extrabold text-gray-900 text-center mt-1">
-                {totalAlerts}
-              </Text>
+
+              <TouchableOpacity
+                onPress={load}
+                activeOpacity={0.85}
+                className="w-10 h-10 items-center justify-center"
+              >
+                <Ionicons name="refresh" size={18} color="#111827" />
+              </TouchableOpacity>
             </View>
-          </View>
-        </View>
 
-        {/* Plant cards */}
-        <View className="mt-4 space-y-3">
-          {loading ? (
-            <View className="py-10 items-center">
-              <ActivityIndicator />
-              <Text className="mt-2 text-[12px] text-gray-500 font-semibold">
-                Loading...
-              </Text>
+            {/* Filter chips */}
+            <View className="mt-3 bg-white rounded-full p-1 flex-row">
+              <Chip
+                label="All Plants"
+                active={filter === "All Plants"}
+                onPress={() => setFilter("All Plants")}
+              />
+              <Chip
+                label="Fresh"
+                active={filter === "Fresh"}
+                onPress={() => setFilter("Fresh")}
+              />
+              <Chip
+                label="Slightly Aged"
+                active={filter === "Slightly Aged"}
+                onPress={() => setFilter("Slightly Aged")}
+              />
+              <Chip
+                label="Spoiled"
+                active={filter === "Spoiled"}
+                onPress={() => setFilter("Spoiled")}
+              />
             </View>
-          ) : filtered.length === 0 ? (
-            <View className="py-10 items-center">
-              <Text className="text-[12px] text-gray-500 font-semibold">
-                No plants yet
-              </Text>
-            </View>
-          ) : (
-            filtered.map((p) => <PlantCard key={p.id} plant={p} />)
-          )}
-        </View>
 
-        <View className="h-6" />
-      </ScrollView>
+            {/* Stats summary */}
+            <View className="mt-4 bg-white rounded-[18px] p-4 shadow-sm">
+              <Text className="text-[14px] font-extrabold text-gray-900">
+                Stats Summary
+              </Text>
+
+              <View className="flex-row justify-between mt-3">
+                <StatBox
+                  title="Total Plants"
+                  value={String(totalPlants)}
+                  bg="#7DE9D9"
+                />
+                <StatBox
+                  title="Avg Shelf-life"
+                  value={`${avgShelf} Days`}
+                  bg="#AFC8FF"
+                />
+              </View>
+
+              <View className="mt-3 items-center">
+                <View
+                  className="rounded-[14px] px-6 py-3"
+                  style={{ backgroundColor: "#FAD1D1" }}
+                >
+                  <Text className="text-[10px] font-semibold text-gray-700 text-center">
+                    Total Alerts
+                  </Text>
+                  <Text className="text-[16px] font-extrabold text-gray-900 text-center mt-1">
+                    {totalAlerts}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Loading / empty states */}
+            {loading ? (
+              <View className="py-10 items-center">
+                <ActivityIndicator />
+                <Text className="mt-2 text-[12px] text-gray-500 font-semibold">
+                  Loading...
+                </Text>
+              </View>
+            ) : filtered.length === 0 ? (
+              <View className="py-10 items-center">
+                <Text className="text-[12px] text-gray-500 font-semibold">
+                  No plants yet
+                </Text>
+              </View>
+            ) : null}
+
+            <View className="h-4" />
+          </>
+        }
+        renderItem={({ item }) => (
+          <PlantCard
+            plant={item}
+            onPress={() =>
+              navigation.navigate("SpoilagePlantDetails", { plantId: item.plantId })
+            }
+          />
+        )}
+        // ✅ performance props
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        removeClippedSubviews
+      />
     </SafeAreaView>
   );
 }
@@ -251,7 +272,15 @@ function Chip({
   );
 }
 
-function StatBox({ title, value, bg }: { title: string; value: string; bg: string }) {
+function StatBox({
+  title,
+  value,
+  bg,
+}: {
+  title: string;
+  value: string;
+  bg: string;
+}) {
   return (
     <View
       className="rounded-[16px] px-4 py-3"
@@ -265,7 +294,13 @@ function StatBox({ title, value, bg }: { title: string; value: string; bg: strin
   );
 }
 
-function PlantCard({ plant }: { plant: PlantItem }) {
+function PlantCard({
+  plant,
+  onPress,
+}: {
+  plant: PlantItem;
+  onPress: () => void;
+}) {
   const badgeBg =
     plant.status === "FRESH"
       ? "#E9FBEF"
@@ -284,12 +319,15 @@ function PlantCard({ plant }: { plant: PlantItem }) {
       ? "#F59E0B"
       : "#DC2626";
 
-  const imgUri = plant.imageUrl
-    ? `${SPOILAGE_BASE_URL}${plant.imageUrl}?t=${plant.id}`
-    : undefined;
+  // ✅ FIX: no cache-buster query param (prevents constant re-download)
+  const imgUri = plant.imageUrl ? `${SPOILAGE_BASE_URL}${plant.imageUrl}` : undefined;
 
   return (
-    <View className="bg-white rounded-[18px] p-4 shadow-sm flex-row">
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      className="bg-white rounded-[18px] p-4 shadow-sm flex-row"
+    >
       {imgUri ? (
         <Image
           source={{ uri: imgUri }}
@@ -338,7 +376,11 @@ function PlantCard({ plant }: { plant: PlantItem }) {
           <Mini label="HUMIDITY" value={plant.humidity} />
         </View>
       </View>
-    </View>
+
+      <View className="ml-2 items-center justify-center">
+        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+      </View>
+    </TouchableOpacity>
   );
 }
 
