@@ -113,18 +113,28 @@ export default function PlantListsScreen() {
       setLoading(true);
       const data = await getPlants({ token: accessToken, filter: apiFilter as any, zone_id: "z01" });
 
-      const mapped: Plant[] = data.map((p: any) => ({
-        id: p.plant_id,
-        name: p.name ?? `Plant ${p.plant_id}`,
-        day: Number(p.age_days ?? 0),
-        area: Number(p.area_cm2 ?? 0).toFixed ? Number(Number(p.area_cm2 ?? 0).toFixed(1)) : Number(p.area_cm2 ?? 0),
-        diameter: Number(p.diameter_cm ?? 0).toFixed ? Number(Number(p.diameter_cm ?? 0).toFixed(1)) : Number(p.diameter_cm ?? 0),
-        estWeight: Number(p.estimated_weight_g ?? 0).toFixed ? Number(Number(p.estimated_weight_g ?? 0).toFixed(1)) : Number(p.estimated_weight_g ?? 0),
-        status: p.status === "HARVEST_READY" ? "HARVEST READY" : "NOT READY",
-        imageUri:
-          p.image_url ||
-          "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=60",
-      }));
+      // ✅ Filter out p04 and any invalid plants
+      const mapped: Plant[] = data
+        .filter((p: any) => {
+          // Block p04/P04 completely
+          if (p.plant_id?.toLowerCase() === "p04") {
+            console.log('🚫 Blocking p04 from display');
+            return false;
+          }
+          return true;
+        })
+        .map((p: any) => ({
+          id: p.plant_id,
+          name: p.name ?? `Plant ${p.plant_id}`,
+          day: Number(p.age_days ?? 0),
+          area: Number(p.area_cm2 ?? 0).toFixed ? Number(Number(p.area_cm2 ?? 0).toFixed(1)) : Number(p.area_cm2 ?? 0),
+          diameter: Number(p.diameter_cm ?? 0).toFixed ? Number(Number(p.diameter_cm ?? 0).toFixed(1)) : Number(p.diameter_cm ?? 0),
+          estWeight: Number(p.estimated_weight_g ?? 0).toFixed ? Number(Number(p.estimated_weight_g ?? 0).toFixed(1)) : Number(p.estimated_weight_g ?? 0),
+          status: p.status === "HARVEST_READY" ? "HARVEST READY" : "NOT READY",
+          imageUri:
+            p.image_url ||
+            "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=60",
+        }));
 
       setPlants(mapped);
     } catch (e: any) {

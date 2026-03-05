@@ -277,7 +277,15 @@ export default function GrowthPredictionResultsScreen() {
         if (!mounted) return;
 
         const cleaned = list
-          .filter((p) => p?.plant_id)
+          .filter((p) => {
+            // ✅ Block p04/P04 from appearing in dropdown
+            if (!p?.plant_id) return false;
+            if (String(p.plant_id).toLowerCase() === "p04") {
+              console.log('🚫 Filtering out p04 from plant picker');
+              return false;
+            }
+            return true;
+          })
           .map((p) => ({
             plant_id: String(p.plant_id),
             zone_id: p.zone_id ?? "z01",
