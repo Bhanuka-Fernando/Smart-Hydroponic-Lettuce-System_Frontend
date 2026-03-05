@@ -120,14 +120,19 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
 
   const retake = () => setCapturedUri(null);
 
-  // ✅ captured_at-based progression
+  // ✅ time-based progression sensor sample
   const onUseLastSensor = async () => {
     try {
       setBusy(true);
 
       const pid = (lockedPlantId ?? plantId)?.trim();
+      if (!pid) {
+        Alert.alert("Missing", "Enter Plant ID (ex: P-001).");
+        return;
+      }
+
       const sample = await getSimSample({
-        plant_id: pid ? pid : undefined,
+        plant_id: pid,
         mode: "time",
       });
 
@@ -149,14 +154,19 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
     }
   };
 
-  // ✅ captured_at-based progression + dataset image preview
+  // ✅ time-based progression + dataset image
   const onSimulateCamera = async () => {
     try {
       setBusy(true);
 
       const pid = (lockedPlantId ?? plantId)?.trim();
+      if (!pid) {
+        Alert.alert("Missing", "Enter Plant ID (ex: P-001).");
+        return;
+      }
+
       const sample = await getSimSample({
-        plant_id: pid ? pid : undefined,
+        plant_id: pid,
         mode: "time",
       });
 
@@ -165,12 +175,14 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
       if (!isPlantLocked && sample.plant_id) setPlantId(sample.plant_id);
 
       if (!sample.image_url) {
-        Alert.alert("No Image", "No matching image found in backend sim_images folder.");
+        Alert.alert(
+          "No Image",
+          "No matching image found in backend sim_images folder."
+        );
         return;
       }
 
-      const fullUrl = `${SPOILAGE_BASE_URL}${sample.image_url}`;
-      setCapturedUri(fullUrl);
+      setCapturedUri(`${SPOILAGE_BASE_URL}${sample.image_url}`);
 
       Alert.alert(
         "Simulated Camera",
@@ -208,7 +220,10 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         plant_id: pid,
       });
 
-      navigation.navigate("SpoilageConfirm", {
+      // prevent memory crashes: clear camera preview + replace screen
+      setCapturedUri(null);
+
+      navigation.replace("SpoilageConfirm", {
         imageUri: localUri,
         result,
         temperature,
@@ -301,11 +316,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
               <View style={{ height: 470 }} className="bg-black">
                 {capturedUri ? (
                   <View className="flex-1">
-                    <Image
-                      source={{ uri: capturedUri }}
-                      style={{ width: "100%", height: "100%" }}
-                      resizeMode="cover"
-                    />
+                    <Image source={{ uri: capturedUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
                     <View className="absolute top-3 right-3">
                       <TouchableOpacity
                         onPress={retake}
@@ -323,9 +334,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 ) : !camChecked ? (
                   <View className="flex-1 items-center justify-center">
                     <ActivityIndicator />
-                    <Text className="text-white mt-2 font-bold">
-                      Checking camera permission...
-                    </Text>
+                    <Text className="text-white mt-2 font-bold">Checking camera permission...</Text>
                   </View>
                 ) : !camGranted ? (
                   <View className="flex-1 items-center justify-center px-6">
@@ -335,48 +344,21 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                     <Text className="text-white/70 text-center mt-2">
                       Tap below to allow camera access.
                     </Text>
-
-                    <TouchableOpacity
-                      className="mt-4 bg-white px-4 py-2 rounded-full"
-                      onPress={requestPermission}
-                      activeOpacity={0.9}
-                    >
-                      <Text className="font-extrabold text-gray-900">
-                        Allow Camera
-                      </Text>
+                    <TouchableOpacity className="mt-4 bg-white px-4 py-2 rounded-full" onPress={requestPermission} activeOpacity={0.9}>
+                      <Text className="font-extrabold text-gray-900">Allow Camera</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
                   <View className="flex-1">
-                    <CameraView
-                      ref={cameraRef}
-                      style={{ flex: 1 }}
-                      facing={facing}
-                      enableTorch={torchOn}
-                    />
-
+                    <CameraView ref={cameraRef} style={{ flex: 1 }} facing={facing} enableTorch={torchOn} />
                     <View className="absolute top-0 left-0 right-0 p-4 flex-row items-center justify-between">
                       <View className="px-3 py-1 rounded-full bg-[#111827]/80">
-                        <Text className="text-[11px] font-bold text-white">
-                          ● LIVE VIEW
-                        </Text>
+                        <Text className="text-[11px] font-bold text-white">● LIVE VIEW</Text>
                       </View>
-
                       <View className="flex-row items-center">
                         <OverlayChip icon="thermometer-outline" text={tempText} />
                         <View className="w-2" />
                         <OverlayChip icon="water-outline" text={rhText} />
-                      </View>
-                    </View>
-
-                    <View className="absolute bottom-3 left-0 right-0 px-4">
-                      <View className="bg-[#0B1220]/70 rounded-[18px] px-4 py-3">
-                        <Text className="text-[12px] font-extrabold text-white">
-                          CAPTURE GUIDANCE
-                        </Text>
-                        <Text className="text-[12px] text-white/80 mt-1 leading-4">
-                          Top-down photo, full lettuce butt/center visible, good light
-                        </Text>
                       </View>
                     </View>
                   </View>
@@ -384,24 +366,16 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
               </View>
             </View>
 
-            {/* Buttons */}
             <View className="mt-3 flex-row justify-between">
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={onUseLastSensor}
                 disabled={busy}
                 className="bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                  width: "48%",
-                  opacity: busy ? 0.6 : 1,
-                }}
+                style={{ borderWidth: 1, borderColor: "#E5E7EB", width: "48%", opacity: busy ? 0.6 : 1 }}
               >
                 <Ionicons name="pulse-outline" size={16} color={PRIMARY} />
-                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
-                  Use Last Sensor
-                </Text>
+                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">Use Last Sensor</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -411,9 +385,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 style={{ borderWidth: 1, borderColor: "#E5E7EB", width: "48%" }}
               >
                 <Ionicons name="images-outline" size={16} color="#111827" />
-                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
-                  Gallery
-                </Text>
+                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">Gallery</Text>
               </TouchableOpacity>
             </View>
 
@@ -422,11 +394,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
               onPress={onSimulateCamera}
               disabled={busy}
               className="mt-3 bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
-              style={{
-                borderWidth: 1,
-                borderColor: "#E5E7EB",
-                opacity: busy ? 0.6 : 1,
-              }}
+              style={{ borderWidth: 1, borderColor: "#E5E7EB", opacity: busy ? 0.6 : 1 }}
             >
               <Ionicons name="camera-outline" size={16} color={PRIMARY} />
               <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
@@ -451,14 +419,10 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
               }}
             >
               <View className="flex-row items-center">
-                {busy ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
+                {busy ? <ActivityIndicator color="#fff" /> : (
                   <>
                     <Ionicons name="play" size={18} color="#fff" />
-                    <Text className="ml-2 text-[14px] font-extrabold text-white">
-                      Start Analysis
-                    </Text>
+                    <Text className="ml-2 text-[14px] font-extrabold text-white">Start Analysis</Text>
                   </>
                 )}
               </View>
@@ -466,11 +430,8 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
           </>
         ) : (
           <>
-            {/* GALLERY MODE */}
             <View className="mt-4 bg-white rounded-[20px] p-4 shadow-sm">
-              <Text className="text-[24px] font-extrabold text-gray-900">
-                Analyze Plant
-              </Text>
+              <Text className="text-[24px] font-extrabold text-gray-900">Analyze Plant</Text>
               <Text className="text-[12px] text-gray-500 mt-2 leading-4">
                 Upload a top-view leaf photo or simulate the camera using dataset images.
               </Text>
@@ -492,12 +453,8 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                     <View className="w-14 h-14 rounded-full bg-[#EAF4FF] items-center justify-center">
                       <Ionicons name="arrow-up" size={22} color={PRIMARY} />
                     </View>
-                    <Text className="mt-3 font-extrabold text-gray-900">
-                      Drop / Click to upload
-                    </Text>
-                    <Text className="text-[12px] text-gray-500 mt-1">
-                      Top-view leaf image
-                    </Text>
+                    <Text className="mt-3 font-extrabold text-gray-900">Drop / Click to upload</Text>
+                    <Text className="text-[12px] text-gray-500 mt-1">Top-view leaf image</Text>
                   </>
                 )}
               </View>
@@ -510,9 +467,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                   style={{ borderWidth: 1, borderColor: "#CBD5E1", width: "48%" }}
                 >
                   <Ionicons name="search-outline" size={18} color="#111827" />
-                  <Text className="ml-2 font-extrabold text-gray-900 text-[12px]">
-                    Upload Photo
-                  </Text>
+                  <Text className="ml-2 font-extrabold text-gray-900 text-[12px]">Upload Photo</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -522,9 +477,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                   style={{ borderWidth: 1, borderColor: "#CBD5E1", width: "48%" }}
                 >
                   <Ionicons name="camera-outline" size={18} color={PRIMARY} />
-                  <Text className="ml-2 font-extrabold text-gray-900 text-[12px]">
-                    Simulate Camera
-                  </Text>
+                  <Text className="ml-2 font-extrabold text-gray-900 text-[12px]">Simulate Camera</Text>
                 </TouchableOpacity>
               </View>
 
@@ -533,11 +486,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 onPress={onUseLastSensor}
                 disabled={busy}
                 className="mt-3 bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                  opacity: busy ? 0.6 : 1,
-                }}
+                style={{ borderWidth: 1, borderColor: "#E5E7EB", opacity: busy ? 0.6 : 1 }}
               >
                 <Ionicons name="pulse-outline" size={16} color={PRIMARY} />
                 <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
@@ -553,14 +502,10 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 style={{ backgroundColor: PRIMARY, height: 52, opacity: canStart ? 1 : 0.5 }}
               >
                 <View className="flex-row items-center">
-                  {busy ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
+                  {busy ? <ActivityIndicator color="#fff" /> : (
                     <>
                       <Ionicons name="play" size={18} color="#fff" />
-                      <Text className="ml-2 text-[14px] font-extrabold text-white">
-                        Start Analysis
-                      </Text>
+                      <Text className="ml-2 text-[14px] font-extrabold text-white">Start Analysis</Text>
                     </>
                   )}
                 </View>
@@ -601,11 +546,7 @@ function Segment({
         elevation: active ? 2 : 0,
       }}
     >
-      <Text
-        className={`text-[12.5px] font-extrabold ${
-          active ? "text-gray-900" : "text-gray-400"
-        }`}
-      >
+      <Text className={`text-[12.5px] font-extrabold ${active ? "text-gray-900" : "text-gray-400"}`}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -623,31 +564,6 @@ function OverlayChip({
     <View className="flex-row items-center px-3 py-1 rounded-full bg-[#111827]/80">
       <Ionicons name={icon} size={14} color="#fff" />
       <Text className="ml-1.5 text-[11px] font-bold text-white">{text}</Text>
-    </View>
-  );
-}
-
-function TipRow({
-  icon,
-  iconBg,
-  title,
-  desc,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  iconBg: string;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <View className="mt-3 bg-[#F8FAFC] rounded-[14px] px-4 py-3 flex-row">
-      <View className="w-9 h-9 rounded-[10px] items-center justify-center" style={{ backgroundColor: iconBg }}>
-        <Ionicons name={icon} size={16} color="#111827" />
-      </View>
-
-      <View className="ml-3 flex-1">
-        <Text className="font-extrabold text-gray-900">{title}</Text>
-        <Text className="text-[12px] text-gray-600 mt-1">{desc}</Text>
-      </View>
     </View>
   );
 }

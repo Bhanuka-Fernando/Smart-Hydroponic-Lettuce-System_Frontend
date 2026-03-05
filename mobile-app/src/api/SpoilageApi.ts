@@ -1,3 +1,4 @@
+// src/api/SpoilageApi.ts
 import axios from "axios";
 import { SPOILAGE_BASE_URL } from "../utils/constants";
 
@@ -6,12 +7,7 @@ const client = axios.create({
   timeout: 20000,
 });
 
-// ---- TYPES ----
-export type SpoilageStage =
-  | "fresh"
-  | "slightly_aged"
-  | "near_spoilage"
-  | "spoiled";
+export type SpoilageStage = "fresh" | "slightly_aged" | "near_spoilage" | "spoiled";
 
 export type StageProbs = {
   fresh: number;
@@ -53,28 +49,22 @@ export type SimSampleResponse = {
   temperature: number;
   humidity: number;
   label: SpoilageStage;
+  day_id?: number;
+  capture_date?: string | null;
   image_name?: string | null;
   image_url?: string | null;
   remaining_days: number;
-
-  // optional debug
   mode?: "random" | "time";
-  picked_label?: string | null;
   now?: string;
 };
 
 export type SimSampleParams = {
   plant_id?: string;
   label?: string;
-
-  // ✅ UPDATED
   mode?: "random" | "time";
-
-  // optional override for testing
   now_iso?: string;
 };
 
-// ---- HELPERS ----
 function makeFormData(input: {
   imageUri: string;
   temperature: number;
@@ -98,7 +88,6 @@ function makeFormData(input: {
   return form;
 }
 
-// ---- API ----
 export async function predictAll(input: {
   imageUri: string;
   temperature: number;
@@ -176,7 +165,6 @@ export async function getSimulationStatus() {
   return res.data;
 }
 
-// ✅ FIXED FUNCTION (no stray braces)
 export async function getSimSample(params?: SimSampleParams) {
   const res = await client.get<SimSampleResponse>("/sim/sample", { params });
   return res.data;
