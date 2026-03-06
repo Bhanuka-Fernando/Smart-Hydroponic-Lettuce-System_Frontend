@@ -1,5 +1,4 @@
-// src/screens/spoilage/SpoilageDetailsScreen.tsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -15,7 +14,12 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { SpoilageStackParamList } from "../../navigation/SpoilageNavigator";
 
 import { useSpoilagePolling } from "../../hooks/useSpoilagePolling";
-import { type SpoilagePredictionRow } from "../../api/SpoilageApi";
+import {
+  type SpoilagePredictionRow,
+  type RecheckReminderRow,
+  getSpoilageAlerts,
+  getRecheckReminders,
+} from "../../api/SpoilageApi";
 import { SPOILAGE_BASE_URL } from "../../utils/constants";
 
 type StatusFilter = "All Status" | "Monitoring" | "Warning" | "Critical";
@@ -30,12 +34,20 @@ type PredictionItem = {
   imageUrl?: string | null;
 };
 
+function isSimPlantId(id: string) {
+  return String(id || "").startsWith("SIM-");
+}
+
+function displayPlantId(id: string) {
+  return isSimPlantId(id) ? String(id).replace(/^SIM-/, "") : String(id);
+}
+
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
 function mapStageLabel(
-  stage: SpoilagePredictionRow["stage"]
+  stage: SpoilagePredictionRow["stage"] | RecheckReminderRow["stage"]
 ): PredictionItem["stageLabel"] {
   if (stage === "fresh") return "Fresh";
   if (stage === "slightly_aged") return "Slightly Aged";
@@ -57,53 +69,100 @@ function mapAction(stage: SpoilagePredictionRow["stage"]): string | undefined {
   return undefined;
 }
 
+function recheckActionText(item: RecheckReminderRow) {
+  if (item.stage === "spoiled") return "Take action now";
+  if (item.stage === "near_spoilage") return "Rescan now";
+  if (item.remaining_days <= 1) return "Rescan today";
+  return "Rescan tomorrow";
+}
+
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageDetails">;
 
 export default function SpoilageDetailsScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<StatusFilter>("All Status");
   const currentLocation = "Farm A - Chiller 3";
 
-  // 🔥 Reduce load to avoid OS kill (tune if you want)
   const { rows, loading, error, refresh: reloadNow } = useSpoilagePolling(10, 8000);
 
-  const predictions: PredictionItem[] = useMemo(() => {
-    return rows.map((r) => {
-      const stageLabel = mapStageLabel(r.stage);
-      const severity = mapSeverity(r.stage);
-      return {
-        id: String(r.id),
-        plantId: r.plant_id,
-        shelfLifeDays: Math.round(Number(r.remaining_days ?? 0)),
-        stageLabel,
-        severity,
-        actionText: mapAction(r.stage),
-        imageUrl: (r as any).image_url ?? null,
-      };
-    });
+  const [activeAlertCount, setActiveAlertCount] = useState(0);
+  const [recheckCount, setRecheckCount] = useState(0);
+  const [recheckItems, setRecheckItems] = useState<RecheckReminderRow[]>([]);
+
+  const loadExtras = async () => {
+    try {
+      const [alerts, rechecks] = await Promise.all([
+        getSpoilageAlerts({ acknowledged: false, limit: 100 }),
+        getRecheckReminders({ limit: 100, max_remaining_days: 3 }),
+      ]);
+
+      setActiveAlertCount(alerts.length);
+      setRecheckCount(rechecks.length);
+      setRecheckItems(rechecks);
+    } catch (e: any) {
+      console.log("Load extras error:", e?.message, e?.response?.data);
+    }
+  };
+
+  useEffect(() => {
+    loadExtras();
+    const unsub = navigation.addListener("focus", loadExtras);
+    return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const latestRows = useMemo(() => {
+    const seen = new Set<string>();
+    const out: SpoilagePredictionRow[] = [];
+    for (const r of rows) {
+      if (!seen.has(r.plant_id)) {
+        seen.add(r.plant_id);
+        out.push(r);
+      }
+    }
+    return out;
   }, [rows]);
+
+  const predictions: PredictionItem[] = useMemo(() => {
+    return latestRows.map((r) => ({
+      id: String(r.id),
+      plantId: r.plant_id,
+      shelfLifeDays: Math.round(Number(r.remaining_days ?? 0)),
+      stageLabel: mapStageLabel(r.stage),
+      severity: mapSeverity(r.stage),
+      actionText: mapAction(r.stage),
+      imageUrl: r.image_url ?? null,
+    }));
+  }, [latestRows]);
 
   const filtered: PredictionItem[] = useMemo(() => {
     if (filter === "All Status") return predictions;
-    if (filter === "Monitoring")
+    if (filter === "Monitoring") {
       return predictions.filter((p) => p.severity === "monitoring");
-    if (filter === "Warning")
+    }
+    if (filter === "Warning") {
       return predictions.filter((p) => p.severity === "warning");
+    }
     return predictions.filter((p) => p.severity === "critical");
   }, [filter, predictions]);
 
   const batchStats = useMemo(() => {
-    const fresh = rows.filter((r) => r.stage === "fresh").length;
-    const aged = rows.filter((r) => r.stage === "slightly_aged").length;
-    const risk = rows.filter((r) => r.stage === "near_spoilage").length;
-    const spoiled = rows.filter((r) => r.stage === "spoiled").length;
+    const fresh = latestRows.filter((r) => r.stage === "fresh").length;
+    const aged = latestRows.filter((r) => r.stage === "slightly_aged").length;
+    const risk = latestRows.filter((r) => r.stage === "near_spoilage").length;
+    const spoiled = latestRows.filter((r) => r.stage === "spoiled").length;
     return { fresh, aged, risk, spoiled };
-  }, [rows]);
+  }, [latestRows]);
 
-  const openSpoilageScan = () => navigation.navigate("SpoilageScan");
+  const openSpoilageScan = () =>
+    navigation.navigate("SpoilageScan", { demoMode: true });
+
+  const handleRefresh = async () => {
+    reloadNow();
+    await loadExtras();
+  };
 
   const ListHeader = (
     <>
-      {/* Header + Location */}
       <View className="px-4 pt-3 pb-3">
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
@@ -122,7 +181,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           </Text>
 
           <TouchableOpacity
-            onPress={reloadNow}
+            onPress={handleRefresh}
             activeOpacity={0.85}
             className="w-10 h-10 items-center justify-center"
           >
@@ -153,14 +212,12 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           </Text>
         ) : (
           <Text className="text-[11px] text-gray-500 font-semibold mt-2">
-            Live updates from DB (optimized)
+            Live updates from DB (latest per plant)
           </Text>
         )}
       </View>
 
-      {/* Body padding */}
       <View style={{ paddingHorizontal: 16 }}>
-        {/* Current Batch Status */}
         <View className="flex-row items-center justify-between mt-2 mb-2">
           <Text className="text-[14px] font-extrabold text-gray-900">
             Current Batch Status
@@ -182,7 +239,6 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           <StatPill label="Spoiled" value={batchStats.spoiled} tone="red" />
         </View>
 
-        {/* Scan Spoilage card */}
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={openSpoilageScan}
@@ -204,26 +260,89 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           </View>
         </TouchableOpacity>
 
-        {/* Two action buttons */}
         <View className="flex-row justify-between mt-3">
           <SmallActionCard
-            title="Batch Scan"
-            icon={<Ionicons name="layers-outline" size={18} color="#2563EB" />}
-            onPress={openSpoilageScan}
-          />
-          <SmallActionCard
-            title="Today's Alerts"
+            title={`Today's Alerts (${activeAlertCount})`}
             icon={<Ionicons name="warning-outline" size={18} color="#F59E0B" />}
             onPress={() => navigation.navigate("SpoilageAlerts")}
           />
+          <SmallActionCard
+            title={`Recheck Soon (${recheckCount})`}
+            icon={<Ionicons name="time-outline" size={18} color="#2563EB" />}
+            onPress={() =>
+              Alert.alert(
+                "Recheck Soon",
+                `${recheckCount} plants should be rescanned soon.`
+              )
+            }
+          />
         </View>
 
-        {/* Recent predictions */}
+        <Text className="text-[14px] font-extrabold text-gray-900 mt-5 mb-3">
+          Priority Recheck Queue
+        </Text>
+
+        {recheckItems.length === 0 ? (
+          <View className="bg-white rounded-[18px] px-4 py-4 shadow-sm">
+            <Text className="text-[12px] font-semibold text-gray-500">
+              No urgent rescans right now.
+            </Text>
+          </View>
+        ) : (
+          recheckItems.slice(0, 3).map((item) => (
+            <TouchableOpacity
+              key={`${item.plant_id}-${item.captured_at}`}
+              activeOpacity={0.9}
+              onPress={() =>
+                navigation.navigate("SpoilagePlantDetails", {
+                  plantId: item.plant_id,
+                })
+              }
+              className="bg-white rounded-[18px] px-4 py-4 shadow-sm mb-3"
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 pr-3">
+                  <Text className="text-[13px] font-extrabold text-gray-900">
+                    {displayPlantId(item.plant_id)}
+                    {isSimPlantId(item.plant_id) ? (
+                      <Text className="text-[11px] text-gray-400"> (Sim)</Text>
+                    ) : null}
+                  </Text>
+
+                  <Text className="text-[11px] text-gray-500 mt-1">
+                    Stage: {mapStageLabel(item.stage)} • Shelf Life:{" "}
+                    {Math.max(0, Math.round(item.remaining_days))} days
+                  </Text>
+
+                  <Text className="text-[11px] font-semibold text-[#1D4ED8] mt-2">
+                    {recheckActionText(item)}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() =>
+                    navigation.navigate("SpoilageScan", {
+                      plantId: item.plant_id,
+                      demoMode: false,
+                    })
+                  }
+                  className="px-4 py-2 rounded-full"
+                  style={{ backgroundColor: "#0046AD" }}
+                >
+                  <Text className="text-[11px] font-extrabold text-white">
+                    Rescan
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+
         <Text className="text-[14px] font-extrabold text-gray-900 mt-5 mb-3">
           Recent Predictions
         </Text>
 
-        {/* Filter chips */}
         <View className="flex-row mb-3">
           <Chip
             label="All Status"
@@ -254,7 +373,11 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
     <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
       <PredictionRow
         item={item}
-        onPress={() => Alert.alert("Open", `Open details for ${item.plantId}`)}
+        onPress={() =>
+          navigation.navigate("SpoilagePlantDetails", {
+            plantId: item.plantId,
+          })
+        }
       />
     </View>
   );
@@ -293,8 +416,6 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
     </SafeAreaView>
   );
 }
-
-/* ---------- UI components ---------- */
 
 function StatPill({
   label,
@@ -392,6 +513,8 @@ function PredictionRow({
   item: PredictionItem;
   onPress: () => void;
 }) {
+  const sim = isSimPlantId(item.plantId);
+
   const leftBar =
     item.severity === "monitoring"
       ? "bg-[#16A34A]"
@@ -439,7 +562,8 @@ function PredictionRow({
           <View className="flex-1 ml-3">
             <View className="flex-row items-center justify-between">
               <Text className="text-[13px] font-extrabold text-gray-900">
-                {item.plantId}
+                {displayPlantId(item.plantId)}
+                {sim ? <Text className="text-[11px] text-gray-400"> (Sim)</Text> : null}
               </Text>
 
               <View

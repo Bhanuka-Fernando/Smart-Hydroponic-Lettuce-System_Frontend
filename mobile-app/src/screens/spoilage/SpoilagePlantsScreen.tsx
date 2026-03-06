@@ -1,4 +1,3 @@
-// src/screens/spoilage/SpoilagePlantsScreen.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
@@ -22,7 +21,12 @@ import { SPOILAGE_BASE_URL } from "../../utils/constants";
 
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilagePlants">;
 
-type Filter = "All Plants" | "Fresh" | "Slightly Aged" | "Spoiled";
+type Filter =
+  | "All Plants"
+  | "Fresh"
+  | "Slightly Aged"
+  | "Near Spoilage"
+  | "Spoiled";
 
 type PlantItem = {
   id: string;
@@ -32,8 +36,16 @@ type PlantItem = {
   temperature: string;
   humidity: string;
   status: "FRESH" | "SLIGHTLY AGED" | "NEAR SPOILAGE" | "SPOILED";
-  imageUrl?: string | null; // db path "/uploads/..jpg" or "/sim-images/..jpg"
+  imageUrl?: string | null;
 };
+
+function isSimPlantId(id: string) {
+  return String(id || "").startsWith("SIM-");
+}
+
+function displayPlantId(id: string) {
+  return isSimPlantId(id) ? String(id).replace(/^SIM-/, "") : String(id);
+}
 
 function formatDay(iso: string) {
   const d = new Date(iso);
@@ -51,20 +63,31 @@ function mapStatus(stage: SpoilagePredictionRow["stage"]): PlantItem["status"] {
   return "SPOILED";
 }
 
+function storedRemainingDays(rawDays: number | null | undefined) {
+  return Math.max(0, Math.round(Number(rawDays ?? 0)));
+}
+
 export default function SpoilagePlantsScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<Filter>("All Plants");
-
   const [rows, setRows] = useState<SpoilagePredictionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     try {
       setLoading(true);
-
-      // ✅ FIX: reduce load (ScrollView+200+images can crash)
       const data = await getRecentPredictions(50);
 
-      setRows(data);
+      const seen = new Set<string>();
+      const latest: SpoilagePredictionRow[] = [];
+
+      for (const r of data) {
+        if (!seen.has(r.plant_id)) {
+          seen.add(r.plant_id);
+          latest.push(r);
+        }
+      }
+
+      setRows(latest);
     } catch (e: any) {
       console.log("Load plants error:", e?.message, e?.response?.data);
       Alert.alert("Error", e?.response?.data?.detail || "Failed to load plants");
@@ -74,32 +97,34 @@ export default function SpoilagePlantsScreen({ navigation }: Props) {
   };
 
   useEffect(() => {
-    // ✅ FIX: do not double-call too aggressively
     load();
     const unsub = navigation.addListener("focus", load);
     return unsub;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ Convert DB rows -> PlantItem list
   const plants: PlantItem[] = useMemo(() => {
     return rows.map((r) => ({
       id: String(r.id),
       plantId: r.plant_id,
       day: formatDay(r.captured_at),
-      remainingDays: Math.max(0, Math.round(Number(r.remaining_days ?? 0))),
+      remainingDays: storedRemainingDays(r.remaining_days),
       temperature: `${Math.round(Number(r.temperature ?? 0))}°C`,
       humidity: `${Math.round(Number(r.humidity ?? 0))}%`,
       status: mapStatus(r.stage),
-      imageUrl: (r as any).image_url ?? null,
+      imageUrl: r.image_url ?? null,
     }));
   }, [rows]);
 
   const filtered = useMemo(() => {
     if (filter === "All Plants") return plants;
     if (filter === "Fresh") return plants.filter((p) => p.status === "FRESH");
-    if (filter === "Slightly Aged")
+    if (filter === "Slightly Aged") {
       return plants.filter((p) => p.status === "SLIGHTLY AGED");
+    }
+    if (filter === "Near Spoilage") {
+      return plants.filter((p) => p.status === "NEAR SPOILAGE");
+    }
     return plants.filter((p) => p.status === "SPOILED");
   }, [filter, plants]);
 
@@ -122,11 +147,9 @@ export default function SpoilagePlantsScreen({ navigation }: Props) {
         contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
         ListHeaderComponent={
           <>
-            {/* Header */}
             <View className="flex-row items-center justify-between">
               <TouchableOpacity
                 onPress={() => {
-                  // ✅ FIX: don’t exit app if this is root
                   if (navigation.canGoBack()) navigation.goBack();
                   else navigation.navigate("SpoilageDetails");
                 }}
@@ -149,7 +172,6 @@ export default function SpoilagePlantsScreen({ navigation }: Props) {
               </TouchableOpacity>
             </View>
 
-            {/* Filter chips */}
             <View className="mt-3 bg-white rounded-full p-1 flex-row">
               <Chip
                 label="All Plants"
@@ -167,13 +189,17 @@ export default function SpoilagePlantsScreen({ navigation }: Props) {
                 onPress={() => setFilter("Slightly Aged")}
               />
               <Chip
+                label="Near Spoilage"
+                active={filter === "Near Spoilage"}
+                onPress={() => setFilter("Near Spoilage")}
+              />
+              <Chip
                 label="Spoiled"
                 active={filter === "Spoiled"}
                 onPress={() => setFilter("Spoiled")}
               />
             </View>
 
-            {/* Stats summary */}
             <View className="mt-4 bg-white rounded-[18px] p-4 shadow-sm">
               <Text className="text-[14px] font-extrabold text-gray-900">
                 Stats Summary
@@ -207,7 +233,6 @@ export default function SpoilagePlantsScreen({ navigation }: Props) {
               </View>
             </View>
 
-            {/* Loading / empty states */}
             {loading ? (
               <View className="py-10 items-center">
                 <ActivityIndicator />
@@ -230,11 +255,12 @@ export default function SpoilagePlantsScreen({ navigation }: Props) {
           <PlantCard
             plant={item}
             onPress={() =>
-              navigation.navigate("SpoilagePlantDetails", { plantId: item.plantId })
+              navigation.navigate("SpoilagePlantDetails", {
+                plantId: item.plantId,
+              })
             }
           />
         )}
-        // ✅ performance props
         initialNumToRender={8}
         maxToRenderPerBatch={8}
         windowSize={7}
@@ -301,6 +327,8 @@ function PlantCard({
   plant: PlantItem;
   onPress: () => void;
 }) {
+  const isSim = isSimPlantId(plant.plantId);
+
   const badgeBg =
     plant.status === "FRESH"
       ? "#E9FBEF"
@@ -319,8 +347,9 @@ function PlantCard({
       ? "#F59E0B"
       : "#DC2626";
 
-  // ✅ FIX: no cache-buster query param (prevents constant re-download)
-  const imgUri = plant.imageUrl ? `${SPOILAGE_BASE_URL}${plant.imageUrl}` : undefined;
+  const imgUri = plant.imageUrl
+    ? `${SPOILAGE_BASE_URL}${plant.imageUrl}`
+    : undefined;
 
   return (
     <TouchableOpacity
@@ -332,6 +361,8 @@ function PlantCard({
         <Image
           source={{ uri: imgUri }}
           style={{ width: 76, height: 76, borderRadius: 18 }}
+          resizeMode="cover"
+          resizeMethod="resize"
         />
       ) : (
         <View
@@ -351,8 +382,10 @@ function PlantCard({
       <View className="flex-1 ml-4">
         <View className="flex-row items-center justify-between">
           <Text className="text-[14px] font-extrabold text-gray-900">
-            {plant.plantId}
+            {displayPlantId(plant.plantId)}
+            {isSim ? " (Sim)" : ""}
           </Text>
+
           <View
             className="px-3 py-1 rounded-full"
             style={{ backgroundColor: badgeBg }}

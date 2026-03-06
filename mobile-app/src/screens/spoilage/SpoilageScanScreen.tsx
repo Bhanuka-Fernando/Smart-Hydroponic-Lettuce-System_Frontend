@@ -1,4 +1,3 @@
-// src/screens/spoilage/SpoilageScanScreen.tsx
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -23,7 +22,6 @@ import {
   useCameraPermissions,
 } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
-
 import * as FileSystem from "expo-file-system/legacy";
 
 import { predictAll, getSimSample } from "../../api/SpoilageApi";
@@ -31,8 +29,49 @@ import { SPOILAGE_BASE_URL } from "../../utils/constants";
 
 const PRIMARY = "#0046AD";
 
+const DEMO_DAY_OPTIONS = [
+  { label: "Day 0", daysAhead: 0 },
+  { label: "Day 1", daysAhead: 1 },
+  { label: "Day 3", daysAhead: 3 },
+  { label: "Day 6", daysAhead: 6 },
+] as const;
+
+function buildDemoIso(daysAhead: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  return d.toISOString();
+}
+
+function formatLocalDateTime(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+
+  let h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12;
+  h = h === 0 ? 12 : h;
+
+  return `${yyyy}.${mm}.${dd} • ${h}:${m} ${ampm}`;
+}
+
 type Mode = "Camera" | "Gallery";
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageScan">;
+
+const stripSim = (id: string) => (id ? id.replace(/^SIM-/, "") : id);
+
+type SimLock = {
+  plantId: string;
+  imageUrl: string;
+  temperature: number;
+  humidity: number;
+  capturedAt: string;
+  sourceImageName?: string | null;
+};
 
 async function ensureLocalUri(uri: string) {
   if (uri.startsWith("file://")) return uri;
@@ -49,7 +88,16 @@ async function ensureLocalUri(uri: string) {
 export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [mode, setMode] = useState<Mode>("Camera");
 
-  const lockedPlantId = route.params?.plantId?.trim();
+  const rawLockedPlantId = route.params?.plantId?.trim();
+  const demoMode = route.params?.demoMode ?? true;
+
+  const isLockedSimStream =
+    !!rawLockedPlantId && rawLockedPlantId.startsWith("SIM-");
+
+  const lockedPlantId = rawLockedPlantId
+    ? stripSim(rawLockedPlantId)
+    : undefined;
+
   const isPlantLocked = !!lockedPlantId;
 
   const cameraRef = useRef<CameraViewRef | null>(null);
@@ -61,12 +109,19 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [torchOn, setTorchOn] = useState(false);
 
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
+  const [capturedAt, setCapturedAt] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [temperature, setTemperature] = useState<number>(6.5);
   const [humidity, setHumidity] = useState<number>(91.0);
 
   const [plantId, setPlantId] = useState<string>(lockedPlantId ?? "P-001");
+  const [simLock, setSimLock] = useState<SimLock | null>(null);
+
+  const [demoTimeIndex, setDemoTimeIndex] = useState(0);
+  const selectedDemoLabel = DEMO_DAY_OPTIONS[demoTimeIndex]?.label;
+  const selectedDemoDaysAhead = DEMO_DAY_OPTIONS[demoTimeIndex]?.daysAhead ?? 0;
+  const selectedDemoTime = buildDemoIso(selectedDemoDaysAhead);
 
   useEffect(() => {
     if (lockedPlantId) setPlantId(lockedPlantId);
@@ -77,8 +132,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     if (!permission) requestPermission();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [permission, requestPermission]);
 
   const pickFromGallery = async () => {
     try {
@@ -93,7 +147,11 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         quality: 1,
       });
 
-      if (!res.canceled) setCapturedUri(res.assets[0].uri);
+      if (!res.canceled) {
+        setCapturedUri(res.assets[0].uri);
+        setCapturedAt(new Date().toISOString());
+        setSimLock(null);
+      }
     } catch (e) {
       console.log("Gallery error:", e);
       Alert.alert("Error", "Could not open gallery.");
@@ -109,7 +167,12 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         quality: 1,
         skipProcessing: true,
       });
-      if (photo?.uri) setCapturedUri(photo.uri);
+
+      if (photo?.uri) {
+        setCapturedUri(photo.uri);
+        setCapturedAt(new Date().toISOString());
+        setSimLock(null);
+      }
     } catch (e) {
       console.log("Camera error:", e);
       Alert.alert("Camera", "Failed to capture photo.");
@@ -118,33 +181,44 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
     }
   };
 
-  const retake = () => setCapturedUri(null);
+  const retake = () => {
+    setCapturedUri(null);
+    setCapturedAt(null);
+    setSimLock(null);
+  };
 
-  // ✅ time-based progression sensor sample
   const onUseLastSensor = async () => {
     try {
       setBusy(true);
 
-      const pid = (lockedPlantId ?? plantId)?.trim();
-      if (!pid) {
+      const pidForSimRequest = (rawLockedPlantId ?? plantId)?.trim() || "";
+      const pidForDisplay = stripSim(pidForSimRequest);
+
+      if (!pidForDisplay) {
         Alert.alert("Missing", "Enter Plant ID (ex: P-001).");
         return;
       }
 
       const sample = await getSimSample({
-        plant_id: pid,
+        plant_id: pidForSimRequest,
         mode: "time",
+        now_iso: demoMode ? selectedDemoTime : new Date().toISOString(),
       });
 
-      setTemperature(Number(sample.temperature));
-      setHumidity(Number(sample.humidity));
-      if (!isPlantLocked && sample.plant_id) setPlantId(sample.plant_id);
+      if (!simLock) {
+        setTemperature(Number(sample.temperature));
+        setHumidity(Number(sample.humidity));
+      }
+
+      if (!isPlantLocked && sample.plant_id) {
+        setPlantId(stripSim(sample.plant_id));
+      }
 
       Alert.alert(
         "Sensor Updated",
-        `Plant ${sample.plant_id ?? pid ?? "-"} • Temp ${Number(sample.temperature).toFixed(
-          1
-        )}°C • RH ${Number(sample.humidity).toFixed(0)}%`
+        `Plant ${stripSim(sample.plant_id ?? pidForDisplay ?? "-")} • Temp ${Number(
+          sample.temperature
+        ).toFixed(1)}°C • RH ${Number(sample.humidity).toFixed(0)}%`
       );
     } catch (e: any) {
       console.log("Sim sample error:", e?.message, e?.response?.data);
@@ -154,25 +228,27 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
     }
   };
 
-  // ✅ time-based progression + dataset image
   const onSimulateCamera = async () => {
     try {
       setBusy(true);
 
-      const pid = (lockedPlantId ?? plantId)?.trim();
-      if (!pid) {
+      const pidForSimRequest = (rawLockedPlantId ?? plantId)?.trim() || "";
+      const pidForDisplay = stripSim(pidForSimRequest);
+
+      if (!pidForDisplay) {
         Alert.alert("Missing", "Enter Plant ID (ex: P-001).");
         return;
       }
 
-      const sample = await getSimSample({
-        plant_id: pid,
-        mode: "time",
-      });
+      const effectiveNowIso = demoMode
+        ? selectedDemoTime
+        : new Date().toISOString();
 
-      setTemperature(Number(sample.temperature));
-      setHumidity(Number(sample.humidity));
-      if (!isPlantLocked && sample.plant_id) setPlantId(sample.plant_id);
+      const sample = await getSimSample({
+        plant_id: pidForSimRequest,
+        mode: "time",
+        now_iso: effectiveNowIso,
+      });
 
       if (!sample.image_url) {
         Alert.alert(
@@ -182,12 +258,43 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         return;
       }
 
-      setCapturedUri(`${SPOILAGE_BASE_URL}${sample.image_url}`);
+      const fullUrl = `${SPOILAGE_BASE_URL}${sample.image_url}`;
+      const t = Number(sample.temperature);
+      const h = Number(sample.humidity);
+      const simCapturedAt = effectiveNowIso;
 
-      Alert.alert(
-        "Simulated Camera",
-        `Loaded ${sample.image_name ?? "image"} (Plant ${sample.plant_id ?? pid ?? "-"})`
-      );
+      setCapturedUri(fullUrl);
+      setCapturedAt(simCapturedAt);
+      setTemperature(t);
+      setHumidity(h);
+
+      setSimLock({
+        plantId: pidForDisplay,
+        imageUrl: fullUrl,
+        temperature: t,
+        humidity: h,
+        capturedAt: simCapturedAt,
+        sourceImageName: sample.image_name ?? null,
+      });
+
+      if (demoMode) {
+        Alert.alert(
+          "Simulated Camera",
+          `Plant: ${pidForDisplay}
+Day: ${selectedDemoLabel}
+Time: ${formatLocalDateTime(simCapturedAt)}
+CSV Label: ${sample.label}
+Image: ${sample.image_name ?? "none"}`
+        );
+      } else {
+        Alert.alert(
+          "Simulated Camera",
+          `Plant: ${pidForDisplay}
+Time: ${formatLocalDateTime(simCapturedAt)}
+CSV Label: ${sample.label}
+Image: ${sample.image_name ?? "none"}`
+        );
+      }
     } catch (e: any) {
       console.log("Simulate error:", e?.message, e?.response?.data);
       Alert.alert("Error", "Failed to simulate camera from dataset images");
@@ -202,8 +309,8 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
       return;
     }
 
-    const pid = (lockedPlantId ?? plantId)?.trim();
-    if (!pid) {
+    const pidClean = stripSim((lockedPlantId ?? plantId)?.trim() || "");
+    if (!pidClean) {
       Alert.alert("Missing", "Enter Plant ID (ex: P-001).");
       return;
     }
@@ -211,24 +318,46 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
     try {
       setBusy(true);
 
+      if (simLock && capturedUri === simLock.imageUrl) {
+        setTemperature(simLock.temperature);
+        setHumidity(simLock.humidity);
+      }
+
       const localUri = await ensureLocalUri(capturedUri);
+
+      const isSim = !!simLock && capturedUri === simLock.imageUrl;
+      const pidToSave =
+        isSim || isLockedSimStream ? `SIM-${pidClean}` : pidClean;
+
+      const usedTemp = isSim ? simLock!.temperature : temperature;
+      const usedHumidity = isSim ? simLock!.humidity : humidity;
+
+      const usedCapturedAt = isSim
+        ? demoMode
+          ? selectedDemoTime ?? simLock!.capturedAt
+          : new Date().toISOString()
+        : capturedAt ?? new Date().toISOString();
 
       const result = await predictAll({
         imageUri: localUri,
-        temperature,
-        humidity,
-        plant_id: pid,
+        temperature: usedTemp,
+        humidity: usedHumidity,
+        plant_id: pidToSave,
+        captured_at: usedCapturedAt,
+        sim_source_image: isSim ? simLock?.sourceImageName ?? undefined : undefined,
       });
 
-      // prevent memory crashes: clear camera preview + replace screen
       setCapturedUri(null);
+      setCapturedAt(null);
+      setSimLock(null);
 
       navigation.replace("SpoilageConfirm", {
         imageUri: localUri,
         result,
-        temperature,
-        humidity,
-        plantId: pid,
+        temperature: usedTemp,
+        humidity: usedHumidity,
+        plantId: pidClean,
+        isSim: isSim || isLockedSimStream,
       } as any);
     } catch (e: any) {
       console.log("Predict error:", e?.message, e?.response?.data);
@@ -246,7 +375,6 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 18 }}
       >
-        {/* Header */}
         <View className="pt-3 pb-2 flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -257,7 +385,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
           </TouchableOpacity>
 
           <Text className="text-[16px] font-extrabold text-gray-900">
-            Scan Spoilage
+            {demoMode ? "Scan Spoilage (Demo)" : "Scan Spoilage"}
           </Text>
 
           <TouchableOpacity
@@ -270,21 +398,30 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* Segmented Tabs */}
         <View className="mt-2 bg-white rounded-full p-1 flex-row">
-          <Segment label="Camera" active={mode === "Camera"} onPress={() => setMode("Camera")} />
-          <Segment label="Gallery" active={mode === "Gallery"} onPress={() => setMode("Gallery")} />
+          <Segment
+            label="Camera"
+            active={mode === "Camera"}
+            onPress={() => setMode("Camera")}
+          />
+          <Segment
+            label="Gallery"
+            active={mode === "Gallery"}
+            onPress={() => setMode("Gallery")}
+          />
         </View>
 
-        {/* Plant ID */}
         {isPlantLocked ? (
           <View
             className="mt-4 bg-white rounded-[16px] px-4 py-3 shadow-sm"
             style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
           >
-            <Text className="text-[12px] font-extrabold text-gray-700">Plant ID</Text>
+            <Text className="text-[12px] font-extrabold text-gray-700">
+              Plant ID
+            </Text>
             <Text className="mt-2 text-[14px] font-extrabold text-gray-900">
               {lockedPlantId}
+              {isLockedSimStream ? " (Sim)" : ""}
             </Text>
             <Text className="text-[11px] text-gray-500 mt-1">
               Selected from plant list
@@ -295,10 +432,12 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
             className="mt-4 bg-white rounded-[16px] px-4 py-3 shadow-sm"
             style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
           >
-            <Text className="text-[12px] font-extrabold text-gray-700">Plant ID</Text>
+            <Text className="text-[12px] font-extrabold text-gray-700">
+              Plant ID
+            </Text>
             <TextInput
               value={plantId}
-              onChangeText={setPlantId}
+              onChangeText={(t) => setPlantId(stripSim(t))}
               placeholder="P-001"
               autoCapitalize="characters"
               className="mt-2 text-[14px] font-bold text-gray-900"
@@ -309,14 +448,61 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
           </View>
         )}
 
-        {/* CAMERA MODE */}
+        {demoMode ? (
+          <View
+            className="mt-4 bg-white rounded-[16px] px-4 py-3 shadow-sm"
+            style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
+          >
+            <Text className="text-[12px] font-extrabold text-gray-700">
+              Demo Time Progression
+            </Text>
+            <Text className="text-[11px] text-gray-500 mt-1">
+              Use this only for panel/demo validation.
+            </Text>
+
+            <View className="flex-row mt-3 flex-wrap">
+              {DEMO_DAY_OPTIONS.map((item, index) => {
+                const active = index === demoTimeIndex;
+                return (
+                  <TouchableOpacity
+                    key={item.label}
+                    activeOpacity={0.9}
+                    onPress={() => setDemoTimeIndex(index)}
+                    className="mr-2 mb-2 px-4 py-2 rounded-full"
+                    style={{
+                      backgroundColor: active ? PRIMARY : "#FFFFFF",
+                      borderWidth: 1,
+                      borderColor: active ? PRIMARY : "#E5E7EB",
+                    }}
+                  >
+                    <Text
+                      className="text-[11px] font-extrabold"
+                      style={{ color: active ? "#FFFFFF" : "#374151" }}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text className="text-[11px] text-gray-500 mt-1">
+              Selected: {selectedDemoLabel} • {formatLocalDateTime(selectedDemoTime)}
+            </Text>
+          </View>
+        ) : null}
+
         {mode === "Camera" ? (
           <>
             <View className="mt-4 rounded-[22px] overflow-hidden bg-white shadow-sm">
               <View style={{ height: 470 }} className="bg-black">
                 {capturedUri ? (
                   <View className="flex-1">
-                    <Image source={{ uri: capturedUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                    <Image
+                      source={{ uri: capturedUri }}
+                      style={{ width: "100%", height: "100%" }}
+                      resizeMode="cover"
+                    />
                     <View className="absolute top-3 right-3">
                       <TouchableOpacity
                         onPress={retake}
@@ -334,7 +520,9 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 ) : !camChecked ? (
                   <View className="flex-1 items-center justify-center">
                     <ActivityIndicator />
-                    <Text className="text-white mt-2 font-bold">Checking camera permission...</Text>
+                    <Text className="text-white mt-2 font-bold">
+                      Checking camera permission...
+                    </Text>
                   </View>
                 ) : !camGranted ? (
                   <View className="flex-1 items-center justify-center px-6">
@@ -344,22 +532,70 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                     <Text className="text-white/70 text-center mt-2">
                       Tap below to allow camera access.
                     </Text>
-                    <TouchableOpacity className="mt-4 bg-white px-4 py-2 rounded-full" onPress={requestPermission} activeOpacity={0.9}>
-                      <Text className="font-extrabold text-gray-900">Allow Camera</Text>
+                    <TouchableOpacity
+                      className="mt-4 bg-white px-4 py-2 rounded-full"
+                      onPress={requestPermission}
+                      activeOpacity={0.9}
+                    >
+                      <Text className="font-extrabold text-gray-900">
+                        Allow Camera
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
                   <View className="flex-1">
-                    <CameraView ref={cameraRef} style={{ flex: 1 }} facing={facing} enableTorch={torchOn} />
+                    <CameraView
+                      ref={cameraRef}
+                      style={{ flex: 1 }}
+                      facing={facing}
+                      enableTorch={torchOn}
+                    />
                     <View className="absolute top-0 left-0 right-0 p-4 flex-row items-center justify-between">
                       <View className="px-3 py-1 rounded-full bg-[#111827]/80">
-                        <Text className="text-[11px] font-bold text-white">● LIVE VIEW</Text>
+                        <Text className="text-[11px] font-bold text-white">
+                          ● LIVE VIEW
+                        </Text>
                       </View>
                       <View className="flex-row items-center">
-                        <OverlayChip icon="thermometer-outline" text={tempText} />
+                        <OverlayChip
+                          icon="thermometer-outline"
+                          text={tempText}
+                        />
                         <View className="w-2" />
                         <OverlayChip icon="water-outline" text={rhText} />
                       </View>
+                    </View>
+
+                    <View className="absolute bottom-5 left-0 right-0 items-center">
+                      <TouchableOpacity
+                        onPress={takePhoto}
+                        activeOpacity={0.9}
+                        disabled={busy}
+                        style={{
+                          width: 74,
+                          height: 74,
+                          borderRadius: 37,
+                          backgroundColor: "#fff",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderWidth: 6,
+                          borderColor: "#D1D5DB",
+                          opacity: busy ? 0.6 : 1,
+                        }}
+                      >
+                        {busy ? (
+                          <ActivityIndicator color={PRIMARY} />
+                        ) : (
+                          <View
+                            style={{
+                              width: 52,
+                              height: 52,
+                              borderRadius: 26,
+                              backgroundColor: PRIMARY,
+                            }}
+                          />
+                        )}
+                      </TouchableOpacity>
                     </View>
                   </View>
                 )}
@@ -372,20 +608,33 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 onPress={onUseLastSensor}
                 disabled={busy}
                 className="bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
-                style={{ borderWidth: 1, borderColor: "#E5E7EB", width: "48%", opacity: busy ? 0.6 : 1 }}
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  width: "48%",
+                  opacity: busy ? 0.6 : 1,
+                }}
               >
                 <Ionicons name="pulse-outline" size={16} color={PRIMARY} />
-                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">Use Last Sensor</Text>
+                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
+                  Use Last Sensor
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => setMode("Gallery")}
                 className="bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
-                style={{ borderWidth: 1, borderColor: "#E5E7EB", width: "48%" }}
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  width: "48%",
+                }}
               >
                 <Ionicons name="images-outline" size={16} color="#111827" />
-                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">Gallery</Text>
+                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
+                  Gallery
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -394,7 +643,11 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
               onPress={onSimulateCamera}
               disabled={busy}
               className="mt-3 bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
-              style={{ borderWidth: 1, borderColor: "#E5E7EB", opacity: busy ? 0.6 : 1 }}
+              style={{
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+                opacity: busy ? 0.6 : 1,
+              }}
             >
               <Ionicons name="camera-outline" size={16} color={PRIMARY} />
               <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
@@ -419,10 +672,14 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
               }}
             >
               <View className="flex-row items-center">
-                {busy ? <ActivityIndicator color="#fff" /> : (
+                {busy ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
                   <>
                     <Ionicons name="play" size={18} color="#fff" />
-                    <Text className="ml-2 text-[14px] font-extrabold text-white">Start Analysis</Text>
+                    <Text className="ml-2 text-[14px] font-extrabold text-white">
+                      Start Analysis
+                    </Text>
                   </>
                 )}
               </View>
@@ -431,9 +688,12 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         ) : (
           <>
             <View className="mt-4 bg-white rounded-[20px] p-4 shadow-sm">
-              <Text className="text-[24px] font-extrabold text-gray-900">Analyze Plant</Text>
+              <Text className="text-[24px] font-extrabold text-gray-900">
+                Analyze Plant
+              </Text>
               <Text className="text-[12px] text-gray-500 mt-2 leading-4">
-                Upload a top-view leaf photo or simulate the camera using dataset images.
+                Upload a top-view leaf photo or simulate the camera using
+                dataset images.
               </Text>
 
               <View
@@ -447,14 +707,22 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 }}
               >
                 {capturedUri ? (
-                  <Image source={{ uri: capturedUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                  <Image
+                    source={{ uri: capturedUri }}
+                    style={{ width: "100%", height: "100%" }}
+                    resizeMode="cover"
+                  />
                 ) : (
                   <>
                     <View className="w-14 h-14 rounded-full bg-[#EAF4FF] items-center justify-center">
                       <Ionicons name="arrow-up" size={22} color={PRIMARY} />
                     </View>
-                    <Text className="mt-3 font-extrabold text-gray-900">Drop / Click to upload</Text>
-                    <Text className="text-[12px] text-gray-500 mt-1">Top-view leaf image</Text>
+                    <Text className="mt-3 font-extrabold text-gray-900">
+                      Drop / Click to upload
+                    </Text>
+                    <Text className="text-[12px] text-gray-500 mt-1">
+                      Top-view leaf image
+                    </Text>
                   </>
                 )}
               </View>
@@ -464,20 +732,32 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                   activeOpacity={0.9}
                   onPress={pickFromGallery}
                   className="bg-white rounded-[12px] px-4 py-3 flex-row items-center justify-center"
-                  style={{ borderWidth: 1, borderColor: "#CBD5E1", width: "48%" }}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: "#CBD5E1",
+                    width: "48%",
+                  }}
                 >
                   <Ionicons name="search-outline" size={18} color="#111827" />
-                  <Text className="ml-2 font-extrabold text-gray-900 text-[12px]">Upload Photo</Text>
+                  <Text className="ml-2 font-extrabold text-gray-900 text-[12px]">
+                    Upload Photo
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={onSimulateCamera}
                   className="bg-white rounded-[12px] px-4 py-3 flex-row items-center justify-center"
-                  style={{ borderWidth: 1, borderColor: "#CBD5E1", width: "48%" }}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: "#CBD5E1",
+                    width: "48%",
+                  }}
                 >
                   <Ionicons name="camera-outline" size={18} color={PRIMARY} />
-                  <Text className="ml-2 font-extrabold text-gray-900 text-[12px]">Simulate Camera</Text>
+                  <Text className="ml-2 font-extrabold text-gray-900 text-[12px]">
+                    Simulate Camera
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -486,7 +766,11 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 onPress={onUseLastSensor}
                 disabled={busy}
                 className="mt-3 bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
-                style={{ borderWidth: 1, borderColor: "#E5E7EB", opacity: busy ? 0.6 : 1 }}
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  opacity: busy ? 0.6 : 1,
+                }}
               >
                 <Ionicons name="pulse-outline" size={16} color={PRIMARY} />
                 <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
@@ -499,13 +783,21 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 onPress={startAnalysis}
                 disabled={!canStart}
                 className="mt-4 rounded-[12px] items-center justify-center"
-                style={{ backgroundColor: PRIMARY, height: 52, opacity: canStart ? 1 : 0.5 }}
+                style={{
+                  backgroundColor: PRIMARY,
+                  height: 52,
+                  opacity: canStart ? 1 : 0.5,
+                }}
               >
                 <View className="flex-row items-center">
-                  {busy ? <ActivityIndicator color="#fff" /> : (
+                  {busy ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
                     <>
                       <Ionicons name="play" size={18} color="#fff" />
-                      <Text className="ml-2 text-[14px] font-extrabold text-white">Start Analysis</Text>
+                      <Text className="ml-2 text-[14px] font-extrabold text-white">
+                        Start Analysis
+                      </Text>
                     </>
                   )}
                 </View>
@@ -519,8 +811,6 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
     </SafeAreaView>
   );
 }
-
-/* ---------- small components ---------- */
 
 function Segment({
   label,
@@ -546,7 +836,11 @@ function Segment({
         elevation: active ? 2 : 0,
       }}
     >
-      <Text className={`text-[12.5px] font-extrabold ${active ? "text-gray-900" : "text-gray-400"}`}>
+      <Text
+        className={`text-[12.5px] font-extrabold ${
+          active ? "text-gray-900" : "text-gray-400"
+        }`}
+      >
         {label}
       </Text>
     </TouchableOpacity>
