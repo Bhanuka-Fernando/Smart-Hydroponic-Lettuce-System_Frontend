@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -67,12 +67,12 @@ function SelectionPill({
   return (
     <Pressable
       onPress={onPress}
-      className={`px-4 py-2 rounded-full items-center justify-center ${
-        selected ? "bg-[#E8EEF8]" : "bg-transparent"
+      className={`px-4 py-2.5 rounded-full items-center justify-center my-1 ${
+        selected ? "bg-[#003B8F]" : "bg-transparent"
       }`}
-      style={{ minWidth: 58 }}
+      style={{ minWidth: 64 }}
     >
-      <Text className={`text-[16px] font-extrabold ${selected ? "text-gray-900" : "text-gray-400"}`}>
+      <Text className={`text-[15px] font-extrabold ${selected ? "text-white" : "text-gray-400"}`}>
         {label}
       </Text>
     </Pressable>
@@ -97,24 +97,27 @@ export default function ScheduleTimeSlotsScreen() {
   const [minute, setMinute] = useState(0);
   const [meridiem, setMeridiem] = useState<"AM" | "PM">("AM");
 
+  // Use ref to always have current slots in the interval callback
+  const slotsRef = useRef(slots);
+  useEffect(() => {
+    slotsRef.current = slots;
+  }, [slots]);
+
   const capacityText = useMemo(
     () => `${Math.min(slots.length, MAX_SLOTS)} of ${MAX_SLOTS} capacity`,
     [slots.length]
   );
 
   const hours = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
-  const minutes = useMemo(() => {
-    const m: number[] = [];
-    for (let i = 0; i < 60; i += 5) m.push(i);
-    return m;
-  }, []);
+  // ✅ Changed to include ALL minutes (0-59)
+  const minutes = useMemo(() => Array.from({ length: 60 }, (_, i) => i), []);
 
   // Load saved slots on mount
   useEffect(() => {
     loadSlots();
   }, []);
 
-  // Start background scheduler
+  // ✅ Fixed: Start background scheduler with ref to avoid stale closure
   useEffect(() => {
     const interval = setInterval(() => {
       checkAndExecuteSchedules();
@@ -124,7 +127,7 @@ export default function ScheduleTimeSlotsScreen() {
     checkAndExecuteSchedules();
 
     return () => clearInterval(interval);
-  }, [slots]);
+  }, []); // Empty dependency array - use ref for current slots
 
   const loadSlots = async () => {
     try {
@@ -132,6 +135,7 @@ export default function ScheduleTimeSlotsScreen() {
       if (saved) {
         const parsed = JSON.parse(saved);
         setSlots(parsed);
+        slotsRef.current = parsed; // Update ref immediately
       }
     } catch (error) {
       console.error("Failed to load schedules:", error);
@@ -141,6 +145,7 @@ export default function ScheduleTimeSlotsScreen() {
   const saveSlots = async (newSlots: Slot[]) => {
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSlots));
+      slotsRef.current = newSlots; // Update ref immediately
     } catch (error) {
       console.error("Failed to save schedules:", error);
     }
@@ -164,13 +169,16 @@ export default function ScheduleTimeSlotsScreen() {
       // Update last check time
       await AsyncStorage.setItem(LAST_CHECK_KEY, now.toISOString());
 
+      // ✅ Use ref to get current slots
+      const currentSlots = slotsRef.current;
+
       // Check each enabled slot
-      for (const slot of slots) {
+      for (const slot of currentSlots) {
         if (!slot.enabled) continue;
 
         // Check if current time matches slot time (within 1 minute tolerance)
         if (slot.hour24 === currentHour && slot.minute === currentMinute) {
-          console.log(`Executing schedule: ${slot.name} at ${slot.timeLabel}`);
+          console.log(`⏰ Executing schedule: ${slot.name} at ${slot.timeLabel}`);
           await fetchAndUpdateSensors(slot.name);
         }
       }
@@ -211,9 +219,6 @@ export default function ScheduleTimeSlotsScreen() {
       }
 
       console.log(`✅ Sensors updated from schedule: ${slotName}`);
-
-      // Optional: Show a silent notification (you can add react-native-push-notification later)
-      // For now, just log it
     } catch (error) {
       console.error(`Failed to fetch sensors for schedule ${slotName}:`, error);
     }
@@ -441,15 +446,15 @@ export default function ScheduleTimeSlotsScreen() {
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable
           onPress={() => setOpen(false)}
-          className="flex-1 bg-black/30 items-center justify-center px-5"
+          className="flex-1 bg-black/40 items-center justify-center px-5"
         >
           <Pressable
             onPress={() => {}}
-            className="w-full bg-white rounded-[22px] overflow-hidden"
+            className="w-full bg-white rounded-[22px] overflow-hidden max-w-md"
           >
             {/* Modal top bar */}
             <View className="px-5 pt-5 pb-3 border-b border-gray-100 flex-row items-center justify-between">
-              <Text className="text-[11px] font-extrabold text-gray-400 tracking-[1px]">
+              <Text className="text-[12px] font-extrabold text-gray-900 tracking-[0.6px]">
                 {editingSlotId ? "EDIT SCHEDULE" : "NEW SCHEDULE"}
               </Text>
               <TouchableOpacity
@@ -477,58 +482,64 @@ export default function ScheduleTimeSlotsScreen() {
               </View>
 
               {/* Time picker */}
-              <Text className="text-[13px] font-extrabold text-gray-900 mt-5 mb-2">
+              <Text className="text-[13px] font-extrabold text-gray-900 mt-5 mb-3">
                 Select Time
               </Text>
 
-              <View className="flex-row justify-between">
+              {/* ✅ Improved time picker layout */}
+              <View className="flex-row bg-[#F8FAFC] rounded-[16px] p-2" style={{ height: 220 }}>
                 {/* Hours */}
                 <View className="flex-1 items-center">
-                  <View className="w-full">
-                    <ScrollView
-                      style={{ maxHeight: 180 }}
-                      showsVerticalScrollIndicator={false}
-                      contentContainerStyle={{ alignItems: "center", paddingBottom: 6 }}
-                    >
-                      {hours.map((h) => (
-                        <SelectionPill
-                          key={`h-${h}`}
-                          label={pad2(h)}
-                          selected={hour === h}
-                          onPress={() => setHour(h)}
-                        />
-                      ))}
-                    </ScrollView>
-                  </View>
+                  <Text className="text-[11px] font-extrabold text-gray-500 mb-2">HOUR</Text>
+                  <ScrollView
+                    style={{ flex: 1, width: "100%" }}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ alignItems: "center", paddingVertical: 4 }}
+                  >
+                    {hours.map((h) => (
+                      <SelectionPill
+                        key={`h-${h}`}
+                        label={pad2(h)}
+                        selected={hour === h}
+                        onPress={() => setHour(h)}
+                      />
+                    ))}
+                  </ScrollView>
                 </View>
+
+                {/* Divider */}
+                <View className="w-px bg-gray-200 mx-2" />
 
                 {/* Minutes */}
                 <View className="flex-1 items-center">
-                  <View className="w-full">
-                    <ScrollView
-                      style={{ maxHeight: 180 }}
-                      showsVerticalScrollIndicator={false}
-                      contentContainerStyle={{ alignItems: "center", paddingBottom: 6 }}
-                    >
-                      {minutes.map((m) => (
-                        <SelectionPill
-                          key={`m-${m}`}
-                          label={pad2(m)}
-                          selected={minute === m}
-                          onPress={() => setMinute(m)}
-                        />
-                      ))}
-                    </ScrollView>
-                  </View>
+                  <Text className="text-[11px] font-extrabold text-gray-500 mb-2">MIN</Text>
+                  <ScrollView
+                    style={{ flex: 1, width: "100%" }}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ alignItems: "center", paddingVertical: 4 }}
+                  >
+                    {minutes.map((m) => (
+                      <SelectionPill
+                        key={`m-${m}`}
+                        label={pad2(m)}
+                        selected={minute === m}
+                        onPress={() => setMinute(m)}
+                      />
+                    ))}
+                  </ScrollView>
                 </View>
 
+                {/* Divider */}
+                <View className="w-px bg-gray-200 mx-2" />
+
                 {/* AM/PM */}
-                <View className="flex-1 items-center">
+                <View className="flex-1 items-center justify-center">
                   <SelectionPill
                     label="AM"
                     selected={meridiem === "AM"}
                     onPress={() => setMeridiem("AM")}
                   />
+                  <View className="h-2" />
                   <SelectionPill
                     label="PM"
                     selected={meridiem === "PM"}
