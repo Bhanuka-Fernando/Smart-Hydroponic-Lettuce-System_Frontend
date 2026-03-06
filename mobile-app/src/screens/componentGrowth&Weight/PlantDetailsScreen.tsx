@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import Svg, { Path, Circle, Line, Text as SvgText } from "react-native-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -21,8 +21,8 @@ type HistoryItem = {
   ts: number;
   dateLabel: string;
   ageDays?: number;
-  weightG: number; // actual
-  predG: number; // predicted
+  weightG: number;
+  predG: number;
   kind: "scan" | "prediction";
 };
 
@@ -30,6 +30,7 @@ type RouteParams = { plant_id: string };
 
 const START_W_KEY = (plantId: string) => `plant_start_weight_g:${String(plantId).toLowerCase()}`;
 const CURRENT_W_KEY = (plantId: string) => `plant_current_weight_g:${String(plantId).toLowerCase()}`;
+const SCANS_KEY = (plantId: string) => `plant_scans:${String(plantId).toLowerCase()}`;
 
 async function getCachedStartWeight(plantId: string): Promise<number | null> {
   try {
@@ -58,11 +59,91 @@ async function setCachedStartWeightIfMissing(plantId: string, w: number) {
     if (!Number.isFinite(w) || w <= 0) return;
     const key = START_W_KEY(plantId);
     const existing = await AsyncStorage.getItem(key);
-    if (existing) return; // do not overwrite
+    if (existing) return;
     await AsyncStorage.setItem(key, String(w));
   } catch {
     // ignore
   }
+}
+
+async function getCachedScans(plantId: string): Promise<any[]> {
+  try {
+    const v = await AsyncStorage.getItem(SCANS_KEY(plantId));
+    if (!v) return [];
+
+    const parsed = JSON.parse(v);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function addScanToCache(plantId: string, scanData: any) {
+  try {
+    const existing = await getCachedScans(plantId);
+
+    const now = Date.now();
+    const newScan = {
+      id: `${String(plantId).toLowerCase()}-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      ts: now,
+      created_at: new Date(now).toISOString(),
+      weight_g: Number(
+        scanData?.weight_g ??
+          scanData?.weight_est_g ??
+          scanData?.estimated_weight_g ??
+          scanData?.actual_weight_g ??
+          scanData?.weight ??
+          0
+      ),
+      age_days: scanData?.age_days ?? scanData?.plant_age_days ?? scanData?.age ?? undefined,
+      plant_id: String(plantId).toLowerCase(),
+    };
+
+    const merged = [...existing, newScan].sort((a, b) => {
+      const ta = Number(a?.ts ?? new Date(a?.created_at ?? 0).getTime() ?? 0);
+      const tb = Number(b?.ts ?? new Date(b?.created_at ?? 0).getTime() ?? 0);
+      return ta - tb;
+    });
+
+    await AsyncStorage.setItem(SCANS_KEY(plantId), JSON.stringify(merged));
+    console.log("✅ Saved scan to cache:", newScan);
+    console.log("✅ Total cached scans:", merged.length);
+  } catch (e) {
+    console.error("Error saving scan to cache:", e);
+  }
+}
+
+function parseTs(x: any) {
+  if (typeof x === "number" && Number.isFinite(x)) return x;
+  const d = new Date(x);
+  const t = d.getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function prettyDayLabel(ts: number) {
+  const d = new Date(ts);
+  return d.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "2-digit",
+  });
+}
+
+function buildHistoryKey(item: {
+  kind: "scan" | "prediction";
+  ts: number;
+  ageDays?: number;
+  weightG: number;
+  predG: number;
+}) {
+  const roundedTs = Math.floor((item.ts || 0) / 1000);
+  return [
+    item.kind,
+    roundedTs,
+    item.ageDays ?? "na",
+    Number(item.weightG).toFixed(2),
+    Number(item.predG).toFixed(2),
+  ].join("|");
 }
 
 function TopStat({
@@ -85,7 +166,9 @@ function TopStat({
         </Text>
       </View>
       <Text className="text-[18px] font-extrabold text-gray-900 mt-2">{value}</Text>
-      {subValue ? <Text className="text-[10px] font-bold text-green-600 mt-1">{subValue}</Text> : null}
+      {subValue ? (
+        <Text className="text-[10px] font-bold text-green-600 mt-1">{subValue}</Text>
+      ) : null}
     </View>
   );
 }
@@ -124,30 +207,42 @@ function HistoryRow({ item, highlight }: { item: HistoryItem; highlight?: boolea
       } px-4 py-3 mb-3`}
     >
       <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center">
+        <View className="flex-row items-center flex-1 pr-3">
           <View
             className={`w-9 h-9 rounded-full ${
               highlight ? "bg-[#EAF4FF]" : "bg-[#EEF2F7]"
             } items-center justify-center`}
           >
             <Ionicons
-              name={highlight ? "checkmark-circle-outline" : isPred ? "analytics-outline" : "camera-outline"}
+              name={
+                highlight
+                  ? "checkmark-circle-outline"
+                  : isPred
+                  ? "analytics-outline"
+                  : "camera-outline"
+              }
               size={18}
               color={highlight ? "#003B8F" : "#64748B"}
             />
           </View>
 
-          <View className="ml-3">
+          <View className="ml-3 flex-1">
             <Text className="text-[12px] font-extrabold text-gray-900">
               {item.dateLabel}
               {item.ageDays != null ? `  •  Age ${item.ageDays}d` : ""}
             </Text>
-            <Text className="text-[10px] font-bold text-gray-500 mt-1">Pred: {item.predG.toFixed(2)}g</Text>
+            <Text className="text-[10px] font-bold text-gray-500 mt-1">
+              {item.kind === "scan"
+                ? `Actual: ${item.weightG.toFixed(2)}g`
+                : `Pred: ${item.predG.toFixed(2)}g`}
+            </Text>
           </View>
         </View>
 
         <View className="items-end">
-          <Text className="text-[14px] font-extrabold text-gray-900">{item.weightG.toFixed(2)}g</Text>
+          <Text className="text-[14px] font-extrabold text-gray-900">
+            {(isPred ? item.predG : item.weightG).toFixed(2)}g
+          </Text>
 
           <View className={`mt-2 px-3 py-1 rounded-full self-end ${isPred ? "bg-[#EEF2F7]" : "bg-[#EAF4FF]"}`}>
             <Text className={`text-[10px] font-extrabold ${isPred ? "text-gray-600" : "text-[#003B8F]"}`}>
@@ -158,17 +253,6 @@ function HistoryRow({ item, highlight }: { item: HistoryItem; highlight?: boolea
       </View>
     </View>
   );
-}
-
-function parseTs(x: any) {
-  const d = new Date(x);
-  const t = d.getTime();
-  return Number.isFinite(t) ? t : 0;
-}
-
-function prettyDayLabel(ts: number) {
-  const d = new Date(ts);
-  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "2-digit" });
 }
 
 function GrowthTrendChart({
@@ -193,7 +277,7 @@ function GrowthTrendChart({
 
   const scaleX = (i: number) => pad + (i * (w - pad * 2)) / Math.max(1, labels.length - 1);
   const scaleY = (v: number) => {
-    if (!Number.isFinite(v)) return h - pad; // drop NaNs to bottom (won't be drawn anyway)
+    if (!Number.isFinite(v)) return h - pad;
     if (max === min) return h / 2;
     const t = (v - min) / (max - min);
     return h - pad - t * (h - pad * 2);
@@ -255,19 +339,42 @@ export default function PlantDetailsScreen() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
 
-  // ✅ cached start weight override (first-ever scan)
   const [startOverride, setStartOverride] = useState<number | null>(null);
-  const [currentOverride, setCurrentOverride] = useState<number | null>(null); // NEW
+  const [currentOverride, setCurrentOverride] = useState<number | null>(null);
+  const [cachedScans, setCachedScans] = useState<any[]>([]);
 
   useEffect(() => {
     if (!plant_id) return;
+
     (async () => {
       const cachedStart = await getCachedStartWeight(plant_id);
       const cachedCurrent = await getCachedCurrentWeight(plant_id);
+      const scans = await getCachedScans(plant_id);
+
       setStartOverride(cachedStart);
       setCurrentOverride(cachedCurrent);
+      setCachedScans(scans);
     })();
   }, [plant_id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      (async () => {
+        if (!plant_id) return;
+        const scans = await getCachedScans(plant_id);
+        if (active) {
+          setCachedScans(scans);
+          console.log("📱 Loaded cached scans on focus:", scans.length, scans);
+        }
+      })();
+
+      return () => {
+        active = false;
+      };
+    }, [plant_id])
+  );
 
   useEffect(() => {
     if (!plant_id) return;
@@ -285,9 +392,9 @@ export default function PlantDetailsScreen() {
     })();
   }, [plant_id, range, accessToken]);
 
-  // If backend returns a valid start weight and we don't have cached start yet, lock it in.
   useEffect(() => {
     if (!plant_id) return;
+
     const backendStart = Number(data?.start_weight_g ?? 0);
     if (startOverride == null && Number.isFinite(backendStart) && backendStart > 0) {
       (async () => {
@@ -310,68 +417,179 @@ export default function PlantDetailsScreen() {
     const plantedOn = data?.planted_on ?? "Planted --";
     const ageDays = Number(data?.age_days ?? 0);
 
-    // Backend values
     const backendStartWeight = fmt2(data?.start_weight_g ?? 0);
     const backendCurrentWeight = fmt2(data?.current_weight_g ?? 0);
 
-    console.log("🔝 Backend top-level:", {
-      start_weight_g: backendStartWeight,
-      current_weight_g: backendCurrentWeight,
+    const rawItems: HistoryItem[] = [];
+
+    console.log("📱 Processing cached scans:", cachedScans.length);
+
+    cachedScans.forEach((s: any, idx: number) => {
+      const ts = parseTs(s?.ts || s?.created_at || s?.captured_at || s?.time || s?.date);
+      const age = s?.plant_age_days ?? s?.age_days ?? s?.age ?? undefined;
+      const w = fmt2(
+        s?.weight_est_g ??
+          s?.weight_g ??
+          s?.actual_weight_g ??
+          s?.weight ??
+          s?.estimated_weight_g ??
+          0
+      );
+
+      if (w > 0) {
+        rawItems.push({
+          id: `cached-scan-${s?.id ?? idx}-${ts}`,
+          ts: ts || Date.now() - idx,
+          dateLabel: prettyDayLabel(ts || Date.now()),
+          ageDays: age != null ? Number(age) : undefined,
+          weightG: w,
+          predG: w,
+          kind: "scan",
+        });
+      }
     });
 
-    // Build history
-    const items: HistoryItem[] = [];
-
     const scans = Array.isArray(data?.scans) ? data.scans : [];
-    for (const s of scans) {
-      const ts = parseTs(s?.ts || s?.created_at || s?.captured_at || s?.time);
-      const age = s?.plant_age_days ?? s?.age_days ?? undefined;
-      const w = fmt2(s?.weight_est_g ?? s?.weight_g ?? s?.actual_weight_g ?? 0);
-      items.push({
-        id: `scan-${s?.id ?? ts}`,
-        ts,
-        dateLabel: prettyDayLabel(ts) || "Scan",
-        ageDays: age != null ? Number(age) : undefined,
-        weightG: w,
-        predG: fmt2(s?.predicted_g ?? s?.predicted_weight_g ?? 0),
-        kind: "scan",
-      });
-    }
+    console.log("📸 Total backend scans found:", scans.length);
+
+    scans.forEach((s: any, idx: number) => {
+      const ts = parseTs(s?.ts || s?.created_at || s?.captured_at || s?.time || s?.date);
+      const age = s?.plant_age_days ?? s?.age_days ?? s?.age ?? undefined;
+      const w = fmt2(
+        s?.weight_est_g ??
+          s?.weight_g ??
+          s?.actual_weight_g ??
+          s?.weight ??
+          s?.estimated_weight_g ??
+          0
+      );
+      const predW = fmt2(s?.predicted_g ?? s?.predicted_weight_g ?? s?.prediction ?? 0);
+
+      if (w > 0) {
+        rawItems.push({
+          id: `scan-${s?.id ?? idx}-${ts}`,
+          ts: ts || Date.now() - idx,
+          dateLabel: prettyDayLabel(ts || Date.now()),
+          ageDays: age != null ? Number(age) : undefined,
+          weightG: w,
+          predG: predW > 0 ? predW : w,
+          kind: "scan",
+        });
+      }
+    });
 
     const preds = Array.isArray(data?.growth_predictions) ? data.growth_predictions : [];
+    console.log("🔮 Total predictions found:", preds.length);
+
+    const predsByAgeAndLabel = new Map<string, any>();
+
     for (const p of preds) {
+      const age = p?.age_days ?? p?.plant_age_days;
+      const dateLabel = String(p?.date_label ?? "").toLowerCase();
+      const isFuturePrediction = dateLabel.includes("tomorrow") || (age != null && age > ageDays);
+
+      if (isFuturePrediction) {
+        const key = `${age}-${p?.date_label ?? ""}`;
+        const existing = predsByAgeAndLabel.get(key);
+        const currentCreatedAt = parseTs(p?.created_at || p?.ts || p?.date);
+
+        if (!existing || parseTs(existing?.created_at || existing?.ts || existing?.date) < currentCreatedAt) {
+          predsByAgeAndLabel.set(key, p);
+        }
+      }
+    }
+
+    for (const p of predsByAgeAndLabel.values()) {
       const ts = parseTs(p?.created_at || p?.ts || p?.time || p?.date);
-      const age = p?.age_days ?? p?.plant_age_days ?? undefined;
       const predW = fmt2(p?.predicted_weight_g ?? p?.predicted_g ?? 0);
-      items.push({
-        id: `pred-${p?.id ?? ts}`,
-        ts,
-        dateLabel: p?.date_label ?? (prettyDayLabel(ts) || "Prediction"),
-        ageDays: age != null ? Number(age) : undefined,
-        weightG: 0,
-        predG: predW,
-        kind: "prediction",
-      });
-    }
+      let age = p?.age_days ?? p?.plant_age_days;
+      const dateLabel = String(p?.date_label ?? "").toLowerCase();
 
-    // fallback "history"
-    const fallbackHistory = Array.isArray(data?.history) ? data.history : [];
-    if (items.length === 0 && fallbackHistory.length > 0) {
-      fallbackHistory.forEach((h: any, idx: number) => {
-        const ts = parseTs(h?.ts || h?.created_at || h?.date || Date.now() - idx * 1000);
-        items.push({
-          id: `h-${idx}`,
-          ts,
-          dateLabel: h?.date_label ?? h?.date ?? prettyDayLabel(ts),
-          ageDays: h?.age_days ?? undefined,
-          weightG: h?.actual_weight_g == null ? 0 : fmt2(h.actual_weight_g),
-          predG: h?.predicted_weight_g == null ? 0 : fmt2(h.predicted_weight_g),
-          kind: h?.kind === "scan" ? "scan" : "prediction",
+      if (dateLabel.includes("tomorrow") && age === ageDays) {
+        age = ageDays + 1;
+      }
+
+      if (predW > 0) {
+        rawItems.push({
+          id: `pred-${p?.id ?? ts}`,
+          ts: ts || Date.now(),
+          dateLabel: p?.date_label ?? prettyDayLabel(ts || Date.now()),
+          ageDays: age != null ? Number(age) : undefined,
+          weightG: predW,
+          predG: predW,
+          kind: "prediction",
         });
-      });
+      }
     }
 
-    console.log("📊 Total items parsed:", items.length);
+    const fallbackHistory = Array.isArray(data?.history) ? data.history : [];
+    console.log("📜 Total history items found:", fallbackHistory.length);
+
+    fallbackHistory.forEach((h: any, idx: number) => {
+      let age = h?.age_days ?? undefined;
+      const dateLabel = String(h?.date_label ?? "").toLowerCase();
+
+      const isActualScan =
+        (h?.actual_weight_g != null && Number(h?.actual_weight_g) > 0) ||
+        h?.status === "Scanned" ||
+        h?.type === "scan";
+
+      const isFuturePrediction = dateLabel.includes("tomorrow") || (age != null && age > ageDays);
+
+      if (!isActualScan && !isFuturePrediction) return;
+
+      if (dateLabel.includes("tomorrow") && age === ageDays) {
+        age = ageDays + 1;
+      }
+
+      const ts = parseTs(h?.ts || h?.created_at || h?.date);
+      const actualW = fmt2(h?.actual_weight_g ?? h?.weight_g ?? 0);
+      const predW = fmt2(h?.predicted_weight_g ?? h?.prediction ?? 0);
+      const kind: "scan" | "prediction" = isActualScan ? "scan" : "prediction";
+
+      const finalWeight = kind === "scan" ? actualW : predW;
+
+      if (finalWeight > 0) {
+        rawItems.push({
+          id: `hist-${h?.id ?? idx}-${ts}`,
+          ts: ts || Date.now() - idx,
+          dateLabel: h?.date_label ?? h?.date ?? prettyDayLabel(ts || Date.now()),
+          ageDays: age != null ? Number(age) : undefined,
+          weightG: finalWeight,
+          predG: predW > 0 ? predW : finalWeight,
+          kind,
+        });
+      }
+    });
+
+    const dedupedMap = new Map<string, HistoryItem>();
+
+    for (const item of rawItems) {
+      const key = buildHistoryKey(item);
+      const existing = dedupedMap.get(key);
+
+      if (!existing) {
+        dedupedMap.set(key, item);
+      } else {
+        if (item.id.startsWith("cached-scan")) {
+          dedupedMap.set(key, item);
+        }
+      }
+    }
+
+    const items = Array.from(dedupedMap.values());
+
+    console.log(
+      "📊 Final merged items:",
+      items.map((i) => ({
+        id: i.id,
+        kind: i.kind,
+        age: i.ageDays,
+        weight: i.weightG,
+        ts: i.ts,
+        label: i.dateLabel,
+      }))
+    );
 
     const sortedAsc = [...items].sort((a, b) => a.ts - b.ts);
     const sortedDesc = [...items].sort((a, b) => b.ts - a.ts);
@@ -379,13 +597,9 @@ export default function PlantDetailsScreen() {
     const scanPoints = sortedAsc.filter((x) => x.kind === "scan" && x.weightG > 0);
     const predPoints = sortedAsc.filter((x) => x.kind === "prediction" && x.predG > 0);
 
-    console.log("📈 Scan points:", scanPoints.map((s) => ({ w: s.weightG, age: s.ageDays })));
-
-    // ✅ ONLY use actual scanned weights for START and CURRENT
     const startFromCache = startOverride != null && Number.isFinite(startOverride) ? startOverride : 0;
     const currentFromCache = currentOverride != null && Number.isFinite(currentOverride) ? currentOverride : 0;
 
-    // START: Use cached first scan, then backend, then first scan in history, else 0
     const startWeightG =
       startFromCache > 0
         ? fmt2(startFromCache)
@@ -395,7 +609,6 @@ export default function PlantDetailsScreen() {
         ? scanPoints[0].weightG
         : 0;
 
-    // CURRENT: Use cached current scan, then backend, then last scan in history, else 0
     const currentWeightG =
       currentFromCache > 0
         ? fmt2(currentFromCache)
@@ -405,12 +618,8 @@ export default function PlantDetailsScreen() {
         ? scanPoints[scanPoints.length - 1].weightG
         : 0;
 
-    // Predicted value (not used in START/CURRENT, only for display elsewhere if needed)
     const predictedToday = predPoints.length > 0 ? predPoints[predPoints.length - 1].predG : 0;
 
-    console.log("📊 Final weights:", { START: startWeightG, CURRENT: currentWeightG, PREDICTED: predictedToday });
-
-    // Chart series
     const chartLabels: string[] = [];
     const actualSeries: number[] = [];
     const predictedSeries: number[] = [];
@@ -422,12 +631,9 @@ export default function PlantDetailsScreen() {
     });
 
     predPoints.forEach((p) => {
-      const alreadyHasScanAtSameTime = scanPoints.some((s) => Math.abs(s.ts - p.ts) < 60000);
-      if (!alreadyHasScanAtSameTime) {
-        chartLabels.push(p.ageDays != null ? `D${p.ageDays}` : "Pred");
-        actualSeries.push(NaN);
-        predictedSeries.push(p.predG);
-      }
+      chartLabels.push(p.ageDays != null ? `D${p.ageDays}` : "Pred");
+      actualSeries.push(NaN);
+      predictedSeries.push(p.predG);
     });
 
     const growthPctLabel =
@@ -447,7 +653,7 @@ export default function PlantDetailsScreen() {
       historyDesc: sortedDesc,
       chart: { labels: chartLabels, actual: actualSeries, predicted: predictedSeries },
     };
-  }, [data, plant_id, startOverride, currentOverride]); // include currentOverride
+  }, [data, plant_id, startOverride, currentOverride, cachedScans]);
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
@@ -524,3 +730,5 @@ export default function PlantDetailsScreen() {
     </SafeAreaView>
   );
 }
+
+export { addScanToCache };
