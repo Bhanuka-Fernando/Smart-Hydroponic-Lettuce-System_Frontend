@@ -153,6 +153,35 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
     return { fresh, aged, risk, spoiled };
   }, [latestRows]);
 
+  const totalPlants = latestRows.length;
+  const riskPlants = batchStats.risk + batchStats.spoiled;
+  const healthyPlants = batchStats.fresh + batchStats.aged;
+
+  const riskPercent =
+    totalPlants > 0 ? Math.round((riskPlants / totalPlants) * 100) : 0;
+
+  const shelfLifeSummary = useMemo(() => {
+    const nums = latestRows
+      .map((r) => Number(r.remaining_days ?? 0))
+      .filter((n) => !Number.isNaN(n));
+
+    if (!nums.length) {
+      return { low: 0, medium: 0, good: 0 };
+    }
+
+    let low = 0;
+    let medium = 0;
+    let good = 0;
+
+    nums.forEach((n) => {
+      if (n <= 1) low += 1;
+      else if (n <= 3) medium += 1;
+      else good += 1;
+    });
+
+    return { low, medium, good };
+  }, [latestRows]);
+
   const openSpoilageScan = () =>
     navigation.navigate("SpoilageScan", { demoMode: true });
 
@@ -163,12 +192,11 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
 
   const ListHeader = (
     <>
-      <View className="px-4 pt-3 pb-3">
+      <View className="px-4 pt-3 pb-2">
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => {
               if (navigation.canGoBack()) navigation.goBack();
-              else navigation.navigate("SpoilageDetails");
             }}
             activeOpacity={0.8}
             className="w-10 h-10 items-center justify-center rounded-full bg-white"
@@ -178,7 +206,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           </TouchableOpacity>
 
           <Text className="text-[16px] font-extrabold text-gray-900">
-            Spoilage Details
+            Spoilage Dashboard
           </Text>
 
           <TouchableOpacity
@@ -191,33 +219,83 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
-        <View className="mt-4 bg-[#0B1220] rounded-[22px] px-4 py-4">
+        <View
+          className="mt-4 rounded-[24px] px-4 py-4 bg-white"
+          style={{ borderWidth: 1, borderColor: "#E6EEF8" }}
+        >
           <View className="flex-row items-start justify-between">
             <View className="flex-1 pr-3">
-              <Text className="text-[11px] text-white/60 font-semibold">
+              <Text className="text-[11px] text-[#6B7280] font-semibold">
                 CURRENT LOCATION
               </Text>
               <View className="flex-row items-center mt-1">
-                <Text className="text-[16px] font-extrabold text-white">
+                <Text className="text-[17px] font-extrabold text-gray-900">
                   {currentLocation}
                 </Text>
                 <Ionicons
                   name="chevron-down"
                   size={15}
-                  color="#CBD5E1"
+                  color="#94A3B8"
                   style={{ marginLeft: 6 }}
                 />
               </View>
 
-              <Text className="text-[12px] text-white/75 mt-3 leading-5">
-                Monitor spoilage risk, check urgent plants, and rescan only the
+              <Text className="text-[12px] text-gray-500 mt-3 leading-5">
+                Monitor spoilage risk, review urgent plants, and rescan only the
                 ones that need attention.
               </Text>
             </View>
 
-            <View className="w-12 h-12 rounded-full bg-[#16A34A] items-center justify-center">
-              <Ionicons name="leaf-outline" size={22} color="#fff" />
+            <View className="w-14 h-14 rounded-full bg-[#EAF4FF] items-center justify-center">
+              <Ionicons name="business-outline" size={24} color="#0046AD" />
             </View>
+          </View>
+
+          <View className="flex-row mt-4">
+            <HeroMetricLight
+              label="Tracked Plants"
+              value={totalPlants}
+              valueColor="#111827"
+              bg="#F8FAFC"
+            />
+            <View className="w-3" />
+            <HeroMetricLight
+              label="Risk Plants"
+              value={riskPlants}
+              valueColor={riskPlants > 0 ? "#DC2626" : "#111827"}
+              bg="#FFF7ED"
+            />
+          </View>
+
+          <View className="mt-4">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-[12px] font-bold text-gray-700">
+                Current Risk Level
+              </Text>
+              <Text className="text-[12px] font-extrabold text-gray-900">
+                {riskPercent}%
+              </Text>
+            </View>
+
+            <View className="h-3 rounded-full bg-[#E5E7EB] overflow-hidden">
+              <View
+                style={{
+                  width: `${riskPercent}%`,
+                  height: "100%",
+                  backgroundColor:
+                    riskPercent >= 60
+                      ? "#DC2626"
+                      : riskPercent >= 30
+                      ? "#F59E0B"
+                      : "#16A34A",
+                }}
+              />
+            </View>
+
+            <Text className="text-[11px] text-gray-500 mt-2">
+              {healthyPlants} healthy/aged plants • {riskPlants} plants needing
+              attention
+            </Text>
           </View>
         </View>
 
@@ -234,9 +312,9 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
       </View>
 
       <View style={{ paddingHorizontal: 16 }}>
-        <View className="flex-row items-center justify-between mt-1 mb-3">
+        <View className="flex-row items-center justify-between mt-2 mb-3">
           <Text className="text-[14px] font-extrabold text-gray-900">
-            Current Batch Status
+            Batch Overview
           </Text>
           <TouchableOpacity
             activeOpacity={0.8}
@@ -255,13 +333,47 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           <StatPill label="Spoiled" value={batchStats.spoiled} tone="red" />
         </View>
 
+        <View className="mt-4 bg-white rounded-[20px] px-4 py-4 shadow-sm">
+          <Text className="text-[13px] font-extrabold text-gray-900">
+            Shelf-Life Summary
+          </Text>
+          <Text className="text-[11px] text-gray-500 mt-1">
+            Latest estimated remaining days across tracked plants
+          </Text>
+
+          <View className="flex-row justify-between mt-4">
+            <ShelfLifeMiniCard
+              label="Low"
+              value={shelfLifeSummary.low}
+              subtitle="≤ 1 day"
+              bg="#FEF2F2"
+              text="#DC2626"
+              icon="alert-circle-outline"
+            />
+            <ShelfLifeMiniCard
+              label="Medium"
+              value={shelfLifeSummary.medium}
+              subtitle="2 - 3 days"
+              bg="#FFF7ED"
+              text="#F59E0B"
+              icon="time-outline"
+            />
+            <ShelfLifeMiniCard
+              label="Good"
+              value={shelfLifeSummary.good}
+              subtitle="> 3 days"
+              bg="#ECFDF5"
+              text="#16A34A"
+              icon="checkmark-circle-outline"
+            />
+          </View>
+        </View>
+
         <TouchableOpacity
           activeOpacity={0.92}
           onPress={openSpoilageScan}
           className="mt-4 rounded-[22px] px-4 py-4 shadow-sm"
-          style={{
-            backgroundColor: "#0B1220",
-          }}
+          style={{ backgroundColor: "#0B1220" }}
         >
           <View className="flex-row items-center justify-between">
             <View className="flex-1 pr-3">
@@ -271,10 +383,24 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
               <Text className="text-white/70 text-[12px] mt-1">
                 Analyze single plant health
               </Text>
+
+              <View className="mt-3 flex-row items-center">
+                <View className="px-3 py-1 rounded-full bg-white/10">
+                  <Text className="text-[10px] font-bold text-white/90">
+                    Demo Scan
+                  </Text>
+                </View>
+                <View className="w-2" />
+                <View className="px-3 py-1 rounded-full bg-white/10">
+                  <Text className="text-[10px] font-bold text-white/90">
+                    Stage + Shelf Life
+                  </Text>
+                </View>
+              </View>
             </View>
 
-            <View className="w-12 h-12 rounded-full bg-[#16A34A] items-center justify-center">
-              <Ionicons name="scan" size={22} color="#fff" />
+            <View className="w-14 h-14 rounded-full bg-[#16A34A] items-center justify-center">
+              <Ionicons name="scan" size={24} color="#fff" />
             </View>
           </View>
         </TouchableOpacity>
@@ -283,12 +409,14 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           <SmallActionCard
             title="Today's Alerts"
             value={activeAlertCount}
+            tone="amber"
             icon={<Ionicons name="warning-outline" size={18} color="#F59E0B" />}
             onPress={() => navigation.navigate("SpoilageAlerts")}
           />
           <SmallActionCard
             title="Recheck Soon"
             value={recheckCount}
+            tone="blue"
             icon={<Ionicons name="time-outline" size={18} color="#2563EB" />}
             onPress={() =>
               Alert.alert(
@@ -297,6 +425,40 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
               )
             }
           />
+        </View>
+
+        <View className="mt-4 bg-white rounded-[20px] px-4 py-4 shadow-sm">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-[13px] font-extrabold text-gray-900">
+              Urgency Summary
+            </Text>
+            <Text className="text-[11px] text-gray-500 font-semibold">
+              Quick priority guide
+            </Text>
+          </View>
+
+          <View className="mt-4">
+            <UrgencyRow
+              color="#DC2626"
+              title="Critical"
+              subtitle={`${batchStats.spoiled} plants require immediate action`}
+              bg="#FEF2F2"
+            />
+            <View className="h-3" />
+            <UrgencyRow
+              color="#F59E0B"
+              title="Warning"
+              subtitle={`${batchStats.risk} plants are nearing spoilage`}
+              bg="#FFF7ED"
+            />
+            <View className="h-3" />
+            <UrgencyRow
+              color="#16A34A"
+              title="Monitoring"
+              subtitle={`${batchStats.fresh + batchStats.aged} plants currently stable`}
+              bg="#ECFDF5"
+            />
+          </View>
         </View>
 
         <View className="flex-row items-center justify-between mt-6 mb-3">
@@ -311,11 +473,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
         </View>
 
         {recheckItems.length === 0 ? (
-          <View className="bg-white rounded-[18px] px-4 py-4 shadow-sm">
-            <Text className="text-[12px] font-semibold text-gray-500">
-              No urgent rescans right now.
-            </Text>
-          </View>
+          <EmptyPanel text="No urgent rescans right now." />
         ) : (
           recheckItems.slice(0, 3).map((item) => (
             <TouchableOpacity
@@ -326,27 +484,56 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
                   plantId: item.plant_id,
                 })
               }
-              className="bg-white rounded-[18px] px-4 py-4 shadow-sm mb-3"
+              className="bg-white rounded-[20px] px-4 py-4 shadow-sm mb-3"
             >
               <View className="flex-row items-center justify-between">
                 <View className="flex-1 pr-3">
                   <View className="flex-row items-center">
-                    <Text className="text-[13px] font-extrabold text-gray-900">
-                      {displayPlantId(item.plant_id)}
-                    </Text>
-                    {isSimPlantId(item.plant_id) ? (
-                      <Text className="text-[11px] text-gray-400 ml-1">
-                        (Sim)
+                    <View
+                      className="w-9 h-9 rounded-full items-center justify-center mr-3"
+                      style={{
+                        backgroundColor:
+                          item.stage === "spoiled"
+                            ? "#FEE2E2"
+                            : item.stage === "near_spoilage"
+                            ? "#FFF7ED"
+                            : "#EFF6FF",
+                      }}
+                    >
+                      <Ionicons
+                        name={
+                          item.stage === "spoiled"
+                            ? "alert-circle-outline"
+                            : item.stage === "near_spoilage"
+                            ? "warning-outline"
+                            : "time-outline"
+                        }
+                        size={18}
+                        color={
+                          item.stage === "spoiled"
+                            ? "#DC2626"
+                            : item.stage === "near_spoilage"
+                            ? "#F59E0B"
+                            : "#2563EB"
+                        }
+                      />
+                    </View>
+
+                    <View className="flex-1">
+                      <Text className="text-[13px] font-extrabold text-gray-900">
+                        {displayPlantId(item.plant_id)}
+                        {isSimPlantId(item.plant_id) ? (
+                          <Text className="text-[11px] text-gray-400"> (Sim)</Text>
+                        ) : null}
                       </Text>
-                    ) : null}
+                      <Text className="text-[11px] text-gray-500 mt-1">
+                        Stage: {mapStageLabel(item.stage)} • Shelf Life:{" "}
+                        {Math.max(0, Math.round(item.remaining_days))} days
+                      </Text>
+                    </View>
                   </View>
 
-                  <Text className="text-[11px] text-gray-500 mt-1">
-                    Stage: {mapStageLabel(item.stage)} • Shelf Life:{" "}
-                    {Math.max(0, Math.round(item.remaining_days))} days
-                  </Text>
-
-                  <Text className="text-[11px] font-semibold text-[#1D4ED8] mt-2">
+                  <Text className="text-[11px] font-semibold text-[#1D4ED8] mt-3">
                     {recheckActionText(item)}
                   </Text>
                 </View>
@@ -425,7 +612,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator />
           <Text className="mt-2 text-[12px] text-gray-500 font-semibold">
-            Loading...
+            Loading dashboard...
           </Text>
         </View>
       ) : (
@@ -454,6 +641,33 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
   );
 }
 
+function HeroMetricLight({
+  label,
+  value,
+  valueColor,
+  bg,
+}: {
+  label: string;
+  value: number;
+  valueColor: string;
+  bg: string;
+}) {
+  return (
+    <View
+      className="flex-1 rounded-[18px] px-4 py-3"
+      style={{ backgroundColor: bg }}
+    >
+      <Text className="text-[11px] font-semibold text-gray-500">{label}</Text>
+      <Text
+        className="text-[20px] font-extrabold mt-1"
+        style={{ color: valueColor }}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 function StatPill({
   label,
   value,
@@ -465,25 +679,30 @@ function StatPill({
 }) {
   const bg =
     tone === "green"
-      ? "bg-[#E9FBEF]"
+      ? "#E9FBEF"
       : tone === "yellow"
-      ? "bg-[#FEF9C3]"
+      ? "#FEF9C3"
       : tone === "orange"
-      ? "bg-[#FFF6E5]"
-      : "bg-[#FEE2E2]";
+      ? "#FFF6E5"
+      : "#FEE2E2";
 
   const num =
     tone === "green"
-      ? "text-[#16A34A]"
+      ? "#16A34A"
       : tone === "yellow"
-      ? "text-[#CA8A04]"
+      ? "#CA8A04"
       : tone === "orange"
-      ? "text-[#F59E0B]"
-      : "text-[#DC2626]";
+      ? "#F59E0B"
+      : "#DC2626";
 
   return (
-    <View className={`w-[23%] rounded-[16px] ${bg} py-3 items-center`}>
-      <Text className={`text-[16px] font-extrabold ${num}`}>{value}</Text>
+    <View
+      className="w-[23%] rounded-[18px] py-3 items-center"
+      style={{ backgroundColor: bg }}
+    >
+      <Text className="text-[16px] font-extrabold" style={{ color: num }}>
+        {value}
+      </Text>
       <Text className="text-[11px] text-gray-700 font-semibold mt-1">
         {label}
       </Text>
@@ -491,34 +710,105 @@ function StatPill({
   );
 }
 
+function ShelfLifeMiniCard({
+  label,
+  value,
+  subtitle,
+  bg,
+  text,
+  icon,
+}: {
+  label: string;
+  value: number;
+  subtitle: string;
+  bg: string;
+  text: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View
+      className="w-[31%] rounded-[18px] px-3 py-3"
+      style={{ backgroundColor: bg }}
+    >
+      <View className="flex-row items-center justify-between">
+        <Ionicons name={icon} size={16} color={text} />
+        <Text className="text-[18px] font-extrabold" style={{ color: text }}>
+          {value}
+        </Text>
+      </View>
+      <Text className="text-[12px] font-extrabold text-gray-900 mt-3">
+        {label}
+      </Text>
+      <Text className="text-[10px] text-gray-500 mt-1">{subtitle}</Text>
+    </View>
+  );
+}
+
 function SmallActionCard({
   title,
   value,
+  tone,
   icon,
   onPress,
 }: {
   title: string;
   value: number;
+  tone: "amber" | "blue";
   icon: React.ReactNode;
   onPress: () => void;
 }) {
+  const iconBg = tone === "amber" ? "#FFF7ED" : "#EFF6FF";
+  const border = tone === "amber" ? "#FED7AA" : "#BFDBFE";
+
   return (
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={onPress}
-      className="bg-white w-[48%] rounded-[18px] px-4 py-4 shadow-sm"
+      className="w-[48%] rounded-[18px] px-4 py-4 shadow-sm bg-white"
+      style={{ borderWidth: 1, borderColor: border }}
     >
       <View className="flex-row items-center justify-between">
-        <View className="w-10 h-10 rounded-full bg-[#EEF2FF] items-center justify-center">
+        <View
+          className="w-10 h-10 rounded-full items-center justify-center"
+          style={{ backgroundColor: iconBg }}
+        >
           {icon}
         </View>
-        <Text className="text-[18px] font-extrabold text-gray-900">{value}</Text>
+        <Text className="text-[20px] font-extrabold text-gray-900">{value}</Text>
       </View>
 
       <Text className="text-[12px] font-extrabold text-gray-900 mt-3">
         {title}
       </Text>
     </TouchableOpacity>
+  );
+}
+
+function UrgencyRow({
+  color,
+  title,
+  subtitle,
+  bg,
+}: {
+  color: string;
+  title: string;
+  subtitle: string;
+  bg: string;
+}) {
+  return (
+    <View
+      className="rounded-[16px] px-4 py-3 flex-row items-center"
+      style={{ backgroundColor: bg }}
+    >
+      <View
+        className="w-3 h-3 rounded-full mr-3"
+        style={{ backgroundColor: color }}
+      />
+      <View className="flex-1">
+        <Text className="text-[12px] font-extrabold text-gray-900">{title}</Text>
+        <Text className="text-[11px] text-gray-500 mt-1">{subtitle}</Text>
+      </View>
+    </View>
   );
 }
 
@@ -535,19 +825,28 @@ function Chip({
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={onPress}
-      className={`mr-2 px-3 py-2 rounded-full ${
-        active ? "bg-[#111827]" : "bg-white"
-      }`}
-      style={{ borderWidth: active ? 0 : 1, borderColor: "#E5E7EB" }}
+      className="mr-2 px-3 py-2 rounded-full"
+      style={{
+        backgroundColor: active ? "#111827" : "#FFFFFF",
+        borderWidth: active ? 0 : 1,
+        borderColor: "#E5E7EB",
+      }}
     >
       <Text
-        className={`text-[12px] font-semibold ${
-          active ? "text-white" : "text-gray-700"
-        }`}
+        className="text-[12px] font-semibold"
+        style={{ color: active ? "#FFFFFF" : "#374151" }}
       >
         {label}
       </Text>
     </TouchableOpacity>
+  );
+}
+
+function EmptyPanel({ text }: { text: string }) {
+  return (
+    <View className="bg-white rounded-[18px] px-4 py-4 shadow-sm">
+      <Text className="text-[12px] font-semibold text-gray-500">{text}</Text>
+    </View>
   );
 }
 
@@ -562,10 +861,10 @@ function PredictionRow({
 
   const leftBar =
     item.severity === "monitoring"
-      ? "bg-[#16A34A]"
+      ? "#16A34A"
       : item.severity === "warning"
-      ? "bg-[#F59E0B]"
-      : "bg-[#DC2626]";
+      ? "#F59E0B"
+      : "#DC2626";
 
   const badge = (() => {
     if (item.stageLabel === "Fresh")
@@ -588,13 +887,13 @@ function PredictionRow({
       className="bg-white rounded-[18px] overflow-hidden shadow-sm"
     >
       <View className="flex-row">
-        <View className={`w-1.5 ${leftBar}`} />
+        <View style={{ width: 6, backgroundColor: leftBar }} />
 
         <View className="flex-1 px-3 py-3 flex-row items-center">
           {imgUri ? (
             <Image
               source={{ uri: imgUri }}
-              style={{ width: 48, height: 48, borderRadius: 14 }}
+              style={{ width: 50, height: 50, borderRadius: 14 }}
               resizeMode="cover"
               resizeMethod="resize"
             />
