@@ -1,11 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   Image,
-  TextInput,
   ActivityIndicator,
   Alert,
 } from "react-native";
@@ -14,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { SpoilageStackParamList } from "../../navigation/SpoilageNavigator";
 
-import { predictAll, type SpoilagePredictResponse } from "../../api/SpoilageApi";
+import type { SpoilagePredictResponse } from "../../api/SpoilageApi";
 
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageConfirm">;
 
@@ -41,61 +40,25 @@ function confidenceFromProbs(p?: any) {
 }
 
 export default function SpoilageConfirmScreen({ navigation, route }: Props) {
-  const { imageUri } = route.params;
+  // ✅ Expect these from SpoilageScanScreen
+  const { imageUri, result, temperature, humidity, plantId } = route.params as any as {
+    imageUri: string;
+    result: SpoilagePredictResponse;
+    temperature: number;
+    humidity: number;
+    plantId: string;
+  };
 
-  // ✅ manual inputs (no simulation)
-  const [plantId, setPlantId] = useState("");
-  const [temperature, setTemperature] = useState("");
-  const [humidity, setHumidity] = useState("");
+  const conf = useMemo(() => confidenceFromProbs(result?.stage_probs), [result]);
+  const tempText = Number.isFinite(temperature) ? `${temperature}°C` : "--";
+  const humText = Number.isFinite(humidity) ? `${humidity}%` : "--";
 
-  const [loading, setLoading] = useState(false);
-
-  // ✅ real model output (filled after predict)
-  const [pred, setPred] = useState<SpoilagePredictResponse | null>(null);
-
-  const preview = useMemo(() => {
-    const t = Number(temperature);
-    const h = Number(humidity);
-    return {
-      tempText: Number.isFinite(t) ? `${t}°C` : "--",
-      humText: Number.isFinite(h) ? `${h}%` : "--",
-    };
-  }, [temperature, humidity]);
-
-  const conf = useMemo(() => confidenceFromProbs(pred?.stage_probs), [pred]);
-  const showPred = !!pred;
-
-  const onPredict = async () => {
-    if (!imageUri) return Alert.alert("Missing", "No image found.");
-    if (!plantId.trim()) return Alert.alert("Missing", "Enter Plant ID.");
-
-    const t = Number(temperature);
-    const h = Number(humidity);
-    if (!Number.isFinite(t) || !Number.isFinite(h)) {
-      return Alert.alert("Invalid", "Temperature/Humidity must be valid numbers.");
+  const onViewResults = () => {
+    if (!result) {
+      Alert.alert("Missing", "No prediction result found.");
+      return;
     }
-
-    try {
-      setLoading(true);
-
-      const result = await predictAll({
-        imageUri,
-        temperature: t,
-        humidity: h,
-        plant_id: plantId.trim(),
-      });
-
-      // ✅ update confirm UI with real stage + confidence
-      setPred(result);
-
-      // ✅ then navigate to remaining days screen
-      navigation.navigate("SpoilageShelfLifeResult", { imageUri, result });
-    } catch (e: any) {
-      console.log("Predict error:", e?.message, e?.response?.data);
-      Alert.alert("Error", e?.response?.data?.detail || "Prediction failed");
-    } finally {
-      setLoading(false);
-    }
+    navigation.navigate("SpoilageShelfLifeResult", { imageUri, result } as any);
   };
 
   return (
@@ -137,8 +100,8 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
             )}
           </View>
 
-          {/* confidence pill (only after prediction) */}
-          {showPred && conf !== null ? (
+          {/* confidence pill */}
+          {conf !== null ? (
             <View className="absolute top-3 right-3">
               <View
                 className="px-3 py-1 rounded-full bg-white/95 flex-row items-center"
@@ -152,78 +115,35 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
             </View>
           ) : null}
 
-          {/* Stage details (only after prediction, like your screenshot) */}
-          {showPred ? (
-            <View className="p-4">
-              <View className="flex-row items-center justify-between">
-                <View>
-                  <Text className="text-[10px] font-semibold text-gray-500">
-                    AI DETECTED STAGE
-                  </Text>
-                  <Text className="text-[16px] font-extrabold text-gray-900 mt-1">
-                    {stageTitle(pred.stage)}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => Alert.alert("Report", "Add report flow later.")}
-                >
-                  <Text className="text-[12px] font-semibold text-[#2563EB]">
-                    Report wrong
-                  </Text>
-                </TouchableOpacity>
+          {/* Stage details */}
+          <View className="p-4">
+            <View className="flex-row items-center justify-between">
+              <View>
+                <Text className="text-[10px] font-semibold text-gray-500">
+                  AI DETECTED STAGE
+                </Text>
+                <Text className="text-[16px] font-extrabold text-gray-900 mt-1">
+                  {stageTitle(result.stage)}
+                </Text>
               </View>
 
-              <Text className="text-[12px] text-gray-600 mt-2 leading-4">
-                {stageDesc(pred.stage)}
-              </Text>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => Alert.alert("Report", "Add report flow later.")}
+              >
+                <Text className="text-[12px] font-semibold text-[#2563EB]">
+                  Report wrong
+                </Text>
+              </TouchableOpacity>
             </View>
-          ) : null}
-        </View>
 
-        {/* Inputs (needed before prediction) */}
-        <View className="mt-4 bg-white rounded-[18px] p-4 shadow-sm">
-          <Text className="text-[12px] font-extrabold text-gray-900">
-            Confirm Inputs
-          </Text>
-
-          <View className="mt-3">
-            <Text className="text-[11px] text-gray-500 font-semibold">Plant ID</Text>
-            <TextInput
-              value={plantId}
-              onChangeText={setPlantId}
-              autoCapitalize="characters"
-              placeholder="P-001"
-              className="mt-2 px-3 py-3 rounded-xl bg-[#F4F6FA] text-gray-900"
-            />
-          </View>
-
-          <View className="mt-3 flex-row">
-            <View className="flex-1 mr-2">
-              <Text className="text-[11px] text-gray-500 font-semibold">Temperature</Text>
-              <TextInput
-                value={temperature}
-                onChangeText={setTemperature}
-                keyboardType="numeric"
-                placeholder="26"
-                className="mt-2 px-3 py-3 rounded-xl bg-[#F4F6FA] text-gray-900"
-              />
-            </View>
-            <View className="flex-1 ml-2">
-              <Text className="text-[11px] text-gray-500 font-semibold">Humidity</Text>
-              <TextInput
-                value={humidity}
-                onChangeText={setHumidity}
-                keyboardType="numeric"
-                placeholder="85"
-                className="mt-2 px-3 py-3 rounded-xl bg-[#F4F6FA] text-gray-900"
-              />
-            </View>
+            <Text className="text-[12px] text-gray-600 mt-2 leading-4">
+              {stageDesc(result.stage)}
+            </Text>
           </View>
         </View>
 
-        {/* Environmental Data (like screenshot) */}
+        {/* Environmental Data */}
         <Text className="text-[14px] font-extrabold text-gray-900 mt-5 mb-3">
           Environmental Data
         </Text>
@@ -232,20 +152,20 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
           <MiniStat
             icon="thermometer-outline"
             label="Temperature"
-            value={preview.tempText}
+            value={tempText}
             iconBg="#FFF2E6"
             iconColor="#F59E0B"
           />
           <MiniStat
             icon="water-outline"
             label="Humidity"
-            value={preview.humText}
+            value={humText}
             iconBg="#EAF4FF"
             iconColor="#2563EB"
           />
         </View>
 
-        {/* Batch Details (like screenshot) */}
+        {/* Batch Details */}
         <Text className="text-[14px] font-extrabold text-gray-900 mt-5 mb-3">
           Batch Details
         </Text>
@@ -266,28 +186,22 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
           <Text className="font-extrabold text-gray-900">Retake</Text>
         </TouchableOpacity>
 
-        {/* Predict Shelf Life */}
+        {/* View Results */}
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={onPredict}
-          disabled={loading}
+          onPress={onViewResults}
           className="mt-4 rounded-[12px] items-center justify-center"
           style={{
             backgroundColor: "#0046AD",
             height: 54,
-            opacity: loading ? 0.7 : 1,
           }}
         >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <View className="flex-row items-center">
-              <Ionicons name="sparkles" size={18} color="#fff" />
-              <Text className="ml-2 text-[14px] font-extrabold text-white">
-                Predict Shelf Life
-              </Text>
-            </View>
-          )}
+          <View className="flex-row items-center">
+            <Ionicons name="sparkles" size={18} color="#fff" />
+            <Text className="ml-2 text-[14px] font-extrabold text-white">
+              View Results
+            </Text>
+          </View>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -308,7 +222,10 @@ function MiniStat({
   iconColor: string;
 }) {
   return (
-    <View className="bg-white rounded-[18px] px-4 py-4 shadow-sm" style={{ width: "48%" }}>
+    <View
+      className="bg-white rounded-[18px] px-4 py-4 shadow-sm"
+      style={{ width: "48%" }}
+    >
       <View className="flex-row items-center">
         <View
           className="w-9 h-9 rounded-[14px] items-center justify-center"

@@ -1,6 +1,7 @@
 import React from "react";
 import { View, ActivityIndicator } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { NavigatorScreenParams } from "@react-navigation/native";
 
 import { useAuth } from "../auth/useAuth";
 import AuthNavigator from "./AuthNavigator";
