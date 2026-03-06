@@ -17,6 +17,8 @@ import Svg, { Path, Circle, Line, Text as SvgText } from "react-native-svg";
 import { useAuth } from "../../auth/useAuth";
 import { saveGrowthPrediction } from "../../api/growthApi";
 import { getPlants } from "../../api/plantsApi";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { addScanToCache } from "../componentGrowth&Weight/PlantDetailsScreen";
 
 type RouteParams = {
   dateLabel?: string;
@@ -27,14 +29,22 @@ type RouteParams = {
   labels?: string[];
   actual?: number[];
   predicted?: number[];
+  analyzedWeight?: number;
 };
 
 type PlantListItem = {
   plant_id: string;
+  listKey: string;
   zone_id?: string;
   planted_at?: string | null;
   latest_age_days?: number | null;
 };
+
+const normalizePlantId = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^[^a-z0-9_-]+/i, "");
 
 function StatCard({
   title,
@@ -192,6 +202,7 @@ function parseISODateOnly(iso?: string | null) {
   if (isNaN(d.getTime())) return null;
   return d;
 }
+
 function diffDays(from: Date, to: Date) {
   const ms = 1000 * 60 * 60 * 24;
   const a = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime();
@@ -237,8 +248,12 @@ export default function GrowthPredictionResultsScreen() {
     const predicted = toNumArray(params.predicted, labels.length);
 
     const L = labels.length;
-    const actualFixed = actual.slice(0, L).concat(new Array(Math.max(0, L - actual.length)).fill(actual[0] ?? 0));
-    const predFixed = predicted.slice(0, L).concat(new Array(Math.max(0, L - predicted.length)).fill(predicted[0] ?? 0));
+    const actualFixed = actual
+      .slice(0, L)
+      .concat(new Array(Math.max(0, L - actual.length)).fill(actual[0] ?? 0));
+    const predFixed = predicted
+      .slice(0, L)
+      .concat(new Array(Math.max(0, L - predicted.length)).fill(predicted[0] ?? 0));
 
     const changePct =
       params.changePct != null
@@ -259,7 +274,6 @@ export default function GrowthPredictionResultsScreen() {
     };
   }, [params]);
 
-  // ✅ determine if plant exists
   const isExistingPlant = useMemo(() => {
     const id = plantId.trim().toLowerCase();
     if (!id) return false;
@@ -276,14 +290,31 @@ export default function GrowthPredictionResultsScreen() {
         const list: PlantListItem[] = Array.isArray(res) ? res : (res as any)?.plants ?? [];
         if (!mounted) return;
 
+        const seen = new Set<string>();
+
         const cleaned = list
-          .filter((p) => p?.plant_id)
-          .map((p) => ({
-            plant_id: String(p.plant_id),
-            zone_id: p.zone_id ?? "z01",
-            planted_at: p.planted_at ?? null,
-            latest_age_days: (p as any).latest_age_days ?? (p as any).age_days ?? null,
-          }))
+          .reduce<PlantListItem[]>((acc, p, index) => {
+            if (!p?.plant_id) return acc;
+
+            const normalizedId = normalizePlantId(p.plant_id);
+            if (!normalizedId) return acc;
+
+            if (normalizedId === "p04") return acc;
+            if (seen.has(normalizedId)) return acc;
+            seen.add(normalizedId);
+
+            const cleanId = String(p.plant_id).trim().replace(/^[^a-z0-9_-]+/i, "");
+
+            acc.push({
+              plant_id: cleanId || normalizedId.toUpperCase(),
+              listKey: `${normalizedId}-${index}`,
+              zone_id: p.zone_id ?? "z01",
+              planted_at: p.planted_at ?? null,
+              latest_age_days: (p as any).latest_age_days ?? (p as any).age_days ?? null,
+            });
+
+            return acc;
+          }, [])
           .sort((a, b) => a.plant_id.localeCompare(b.plant_id));
 
         setPlants(cleaned);
@@ -329,15 +360,15 @@ export default function GrowthPredictionResultsScreen() {
       return;
     }
 
-    // ✅ if plant already exists -> tomorrow forecast age = today+1
-    // ✅ if new plant -> first time saving -> do NOT add 1
     const savedAge = isExistingPlant ? todayAge + 1 : todayAge;
 
     try {
       setSaving(true);
 
+      const cleanPlantId = plantId.trim();
+
       const payload = {
-        plant_id: plantId.trim(),
+        plant_id: cleanPlantId,
         zone_id: "z01",
         age_days: savedAge,
         date_label: model.dateLabel,
@@ -353,6 +384,29 @@ export default function GrowthPredictionResultsScreen() {
       };
 
       await saveGrowthPrediction({ token: accessToken, payload });
+
+      const analyzedWeight = Number(params.analyzedWeight ?? model.actual?.[0] ?? 0);
+
+      await cacheAnalysisWeights(cleanPlantId, analyzedWeight);
+
+      if (Number.isFinite(analyzedWeight) && analyzedWeight > 0) {
+        await addScanToCache(cleanPlantId, {
+          weight_g: analyzedWeight,
+          age_days: todayAge,
+        });
+
+        console.log("✅ Actual scan saved to cache", {
+          plant_id: cleanPlantId,
+          weight_g: analyzedWeight,
+          age_days: todayAge,
+        });
+      } else {
+        console.log("❌ Skipped addScanToCache: invalid analyzedWeight", {
+          analyzedWeight,
+          paramsAnalyzedWeight: params.analyzedWeight,
+          modelActual0: model.actual?.[0],
+        });
+      }
 
       Alert.alert("Success", `Saved (Age ${savedAge} days).`, [
         { text: "OK", onPress: () => navigation.navigate("PlantLists") },
@@ -375,7 +429,11 @@ export default function GrowthPredictionResultsScreen() {
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       <View className="px-4 pt-2 pb-3">
         <View className="flex-row items-center justify-between">
-          <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.85} className="w-10 h-10 items-center justify-center">
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.85}
+            className="w-10 h-10 items-center justify-center"
+          >
             <Ionicons name="chevron-back" size={22} color="#111827" />
           </TouchableOpacity>
           <Text className="text-[13px] font-extrabold text-gray-900">Prediction Results</Text>
@@ -383,25 +441,57 @@ export default function GrowthPredictionResultsScreen() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}>
-        <Text className="text-[18px] font-extrabold text-gray-900 text-center mt-2">Forecast for Tomorrow</Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="never"
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
+      >
+        <Text className="text-[18px] font-extrabold text-gray-900 text-center mt-2">
+          Forecast for Tomorrow
+        </Text>
         <Text className="text-[11px] text-gray-500 text-center mt-2">{model.dateLabel}</Text>
 
         <View className="mt-5">
-          <StatCard title="PREDICTED WEIGHT" value={fmt(model.predictedWeight)} unit="g" changePct={model.changePct} rightIcon={<Ionicons name="leaf-outline" size={18} color="#16A34A" />} />
+          <StatCard
+            title="PREDICTED WEIGHT"
+            value={fmt(model.predictedWeight)}
+            unit="g"
+            changePct={model.changePct}
+            rightIcon={<Ionicons name="leaf-outline" size={18} color="#16A34A" />}
+          />
         </View>
 
         <View className="flex-row mt-3" style={{ gap: 12 }}>
           <View className="flex-1">
-            <StatCard title="PREDICTED AREA" value={fmt(model.predictedArea)} unit="cm²" changePct={model.changePct} rightIcon={<Ionicons name="resize-outline" size={18} color="#16A34A" />} />
+            <StatCard
+              title="PREDICTED AREA"
+              value={fmt(model.predictedArea)}
+              unit="cm²"
+              changePct={model.changePct}
+              rightIcon={<Ionicons name="resize-outline" size={18} color="#16A34A" />}
+            />
           </View>
           <View className="flex-1">
-            <StatCard title="DIAMETER" value={fmt(model.predictedDiameter)} unit="cm" changePct={model.changePct} rightIcon={<View className="w-6 h-6 rounded-full bg-[#E9FBEF] items-center justify-center"><View className="w-3 h-3 rounded-full border-2 border-[#16A34A]" /></View>} />
+            <StatCard
+              title="DIAMETER"
+              value={fmt(model.predictedDiameter)}
+              unit="cm"
+              changePct={model.changePct}
+              rightIcon={
+                <View className="w-6 h-6 rounded-full bg-[#E9FBEF] items-center justify-center">
+                  <View className="w-3 h-3 rounded-full border-2 border-[#16A34A]" />
+                </View>
+              }
+            />
           </View>
         </View>
 
         <View className="mt-4">
-          <GrowthTrendChart labels={model.labels} actual={model.actual} predicted={model.predicted} />
+          <GrowthTrendChart
+            labels={model.labels}
+            actual={model.actual}
+            predicted={model.predicted}
+          />
         </View>
 
         <View className="mt-4 bg-white rounded-[16px] border border-gray-100 px-4 py-4">
@@ -449,7 +539,13 @@ export default function GrowthPredictionResultsScreen() {
         </View>
 
         <View className="px-4 pb-4 bg-[#F4F6FA]">
-          <TouchableOpacity activeOpacity={0.9} onPress={onSave} disabled={saving} className="bg-[#003B8F] rounded-[16px] py-4 items-center justify-center flex-row" style={{ opacity: saving ? 0.6 : 1 }}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={onSave}
+            disabled={saving}
+            className="bg-[#003B8F] rounded-[16px] py-4 items-center justify-center flex-row"
+            style={{ opacity: saving ? 0.6 : 1 }}
+          >
             {saving ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
@@ -480,7 +576,12 @@ export default function GrowthPredictionResultsScreen() {
                   </View>
                 ) : (
                   plants.map((p) => (
-                    <TouchableOpacity key={p.plant_id} activeOpacity={0.9} onPress={() => onSelectPlant(p)} className="py-3 border-b border-gray-100 flex-row items-center justify-between">
+                    <TouchableOpacity
+                      key={p.listKey}
+                      activeOpacity={0.9}
+                      onPress={() => onSelectPlant(p)}
+                      className="py-3 border-b border-gray-100 flex-row items-center justify-between"
+                    >
                       <View>
                         <Text className="text-[12px] font-extrabold text-gray-900">{p.plant_id}</Text>
                         <Text className="text-[10px] text-gray-500 mt-1">
@@ -502,4 +603,21 @@ export default function GrowthPredictionResultsScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+const START_W_KEY = (plantId: string) => `plant_start_weight_g:${String(plantId).toLowerCase()}`;
+const CURRENT_W_KEY = (plantId: string) => `plant_current_weight_g:${String(plantId).toLowerCase()}`;
+
+async function cacheAnalysisWeights(plantId: string, currentWeightG: number) {
+  if (!Number.isFinite(currentWeightG) || currentWeightG <= 0) return;
+
+  const startKey = START_W_KEY(plantId);
+  const currentKey = CURRENT_W_KEY(plantId);
+
+  await AsyncStorage.setItem(currentKey, String(currentWeightG));
+
+  const existingStart = await AsyncStorage.getItem(startKey);
+  if (!existingStart) {
+    await AsyncStorage.setItem(startKey, String(currentWeightG));
+  }
 }
