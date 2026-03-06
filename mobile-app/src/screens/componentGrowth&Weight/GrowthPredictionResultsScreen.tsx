@@ -9,6 +9,10 @@ import {
   TextInput,
   Modal,
   Pressable,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -51,35 +55,37 @@ function StatCard({
   value,
   unit,
   changePct,
-  rightIcon,
+  icon,
 }: {
   title: string;
   value: string;
   unit?: string;
   changePct: number;
-  rightIcon?: React.ReactNode;
+  icon: keyof typeof Ionicons.glyphMap;
 }) {
   return (
-    <View className="bg-white rounded-[16px] border border-gray-100 px-4 py-4">
-      <View className="flex-row items-start justify-between">
-        <Text className="text-[10px] font-extrabold text-gray-500 tracking-[0.5px]">
+    <View className="bg-white rounded-2xl p-4 border border-gray-100">
+      <View className="flex-row items-center justify-between mb-3">
+        <Text className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">
           {title}
         </Text>
-        {rightIcon ? rightIcon : <View />}
+        <View className="w-8 h-8 rounded-full bg-[#EAF4FF] items-center justify-center">
+          <Ionicons name={icon} size={16} color="#003B8F" />
+        </View>
       </View>
 
-      <View className="flex-row items-end mt-2">
-        <Text className="text-[20px] font-extrabold text-gray-900">{value}</Text>
-        {unit ? (
-          <Text className="text-[12px] font-bold text-gray-500 ml-1 mb-[2px]">
+      <View className="flex-row items-end mb-2">
+        <Text className="text-[22px] font-extrabold text-gray-900">{value}</Text>
+        {unit && (
+          <Text className="text-[12px] font-bold text-gray-500 ml-1 mb-1">
             {unit}
           </Text>
-        ) : null}
+        )}
       </View>
 
-      <View className="mt-3 self-start px-2.5 py-1 rounded-full bg-[#E9FBEF] flex-row items-center">
-        <Ionicons name="trending-up" size={14} color="#16A34A" />
-        <Text className="ml-1 text-[10px] font-extrabold text-[#16A34A]">
+      <View className="self-start px-2.5 py-1 rounded-full bg-green-100 flex-row items-center">
+        <Ionicons name="trending-up" size={12} color="#16A34A" />
+        <Text className="ml-1 text-[10px] font-extrabold text-green-700">
           +{changePct.toFixed(1)}%
         </Text>
       </View>
@@ -97,8 +103,8 @@ function GrowthTrendChart({
   predicted: number[];
 }) {
   const w = 320;
-  const h = 170;
-  const pad = 22;
+  const h = 160;
+  const pad = 20;
 
   const all = [...actual, ...predicted].filter((x) => Number.isFinite(x));
   const min = all.length ? Math.min(...all) : 0;
@@ -123,18 +129,18 @@ function GrowthTrendChart({
   const lastIdx = labels.length - 1;
 
   return (
-    <View className="bg-white rounded-[16px] border border-[#003B8F] px-4 py-4">
-      <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-[12px] font-extrabold text-gray-900">Growth Trend</Text>
+    <View className="bg-white rounded-2xl p-4 border border-gray-100">
+      <View className="flex-row items-center justify-between mb-4">
+        <Text className="text-[13px] font-extrabold text-gray-900">Growth Trend</Text>
 
-        <View className="flex-row items-center">
-          <View className="flex-row items-center mr-3">
-            <View className="w-2 h-2 rounded-full bg-[#111827]" />
-            <Text className="ml-2 text-[10px] font-bold text-gray-600">Actual</Text>
+        <View className="flex-row items-center" style={{ gap: 12 }}>
+          <View className="flex-row items-center">
+            <View className="w-2 h-2 rounded-full bg-gray-900" />
+            <Text className="ml-1.5 text-[10px] font-bold text-gray-600">Actual</Text>
           </View>
           <View className="flex-row items-center">
             <View className="w-2 h-2 rounded-full bg-[#003B8F]" />
-            <Text className="ml-2 text-[10px] font-bold text-gray-600">Predicted</Text>
+            <Text className="ml-1.5 text-[10px] font-bold text-gray-600">Predicted</Text>
           </View>
         </View>
       </View>
@@ -149,42 +155,43 @@ function GrowthTrendChart({
               y1={y}
               x2={w - pad}
               y2={y}
-              stroke="#D8E3FF"
+              stroke="#E5E7EB"
               strokeWidth={1}
             />
           );
         })}
 
         <Path d={pathActual} stroke="#111827" strokeWidth={3} fill="none" />
-        <Path d={pathPred} stroke="#003B8F" strokeWidth={3} fill="none" strokeDasharray="6 6" />
+        <Path d={pathPred} stroke="#003B8F" strokeWidth={3} fill="none" strokeDasharray="5 5" />
 
         {actual.map((v, i) => (
-          <Circle key={`a-${i}`} cx={scaleX(i)} cy={scaleY(v)} r={3} fill="#111827" />
+          <Circle key={`a-${i}`} cx={scaleX(i)} cy={scaleY(v)} r={4} fill="#111827" />
         ))}
         {predicted.map((v, i) => (
-          <Circle key={`p-${i}`} cx={scaleX(i)} cy={scaleY(v)} r={3} fill="#003B8F" />
+          <Circle key={`p-${i}`} cx={scaleX(i)} cy={scaleY(v)} r={4} fill="#003B8F" />
         ))}
 
-        {labels.length > 0 ? (
+        {labels.length > 0 && (
           <>
             <Circle
               cx={scaleX(lastIdx)}
               cy={scaleY(predicted[lastIdx])}
-              r={7}
+              r={8}
               stroke="#003B8F"
               strokeWidth={3}
               fill="white"
             />
-            <Circle cx={scaleX(lastIdx)} cy={scaleY(predicted[lastIdx])} r={3} fill="#003B8F" />
+            <Circle cx={scaleX(lastIdx)} cy={scaleY(predicted[lastIdx])} r={4} fill="#003B8F" />
           </>
-        ) : null}
+        )}
 
         {labels.map((t, i) => (
           <SvgText
             key={`x-${i}`}
             x={scaleX(i)}
             y={h - 4}
-            fontSize="9"
+            fontSize="10"
+            fontWeight="600"
             fill="#6B7280"
             textAnchor="middle"
           >
@@ -400,15 +407,9 @@ export default function GrowthPredictionResultsScreen() {
           weight_g: analyzedWeight,
           age_days: todayAge,
         });
-      } else {
-        console.log("❌ Skipped addScanToCache: invalid analyzedWeight", {
-          analyzedWeight,
-          paramsAnalyzedWeight: params.analyzedWeight,
-          modelActual0: model.actual?.[0],
-        });
       }
 
-      Alert.alert("Success", `Saved (Age ${savedAge} days).`, [
+      Alert.alert("Success", `Prediction saved successfully (Age ${savedAge} days).`, [
         { text: "OK", onPress: () => navigation.navigate("PlantLists") },
       ]);
     } catch (error: any) {
@@ -426,187 +427,279 @@ export default function GrowthPredictionResultsScreen() {
   }, [plantAge, isExistingPlant]);
 
   return (
-    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
-      <View className="px-4 pt-2 pb-3">
+    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F8FAFC]">
+      {/* Header */}
+      <View className="px-4 py-3 bg-[#F8FAFC]">
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            activeOpacity={0.85}
-            className="w-10 h-10 items-center justify-center"
+            activeOpacity={0.7}
+            className="w-9 h-9 items-center justify-center"
           >
-            <Ionicons name="chevron-back" size={22} color="#111827" />
+            <Ionicons name="chevron-back" size={24} color="#111827" />
           </TouchableOpacity>
-          <Text className="text-[13px] font-extrabold text-gray-900">Prediction Results</Text>
-          <View className="w-10 h-10" />
+
+          <Text className="text-[15px] font-bold text-gray-900">Prediction Results</Text>
+          
+          <View className="w-9 h-9" />
         </View>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentInsetAdjustmentBehavior="never"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        <Text className="text-[18px] font-extrabold text-gray-900 text-center mt-2">
-          Forecast for Tomorrow
-        </Text>
-        <Text className="text-[11px] text-gray-500 text-center mt-2">{model.dateLabel}</Text>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Forecast Header */}
+            <View className="mb-4">
+              <Text className="text-[20px] font-extrabold text-gray-900 text-left">
+                Growth Forecast
+              </Text>
+              <Text className="text-[11px] font-semibold text-gray-500 text-left mt-1">
+                Predicted for {model.dateLabel}
+              </Text>
+            </View>
 
-        <View className="mt-5">
-          <StatCard
-            title="PREDICTED WEIGHT"
-            value={fmt(model.predictedWeight)}
-            unit="g"
-            changePct={model.changePct}
-            rightIcon={<Ionicons name="leaf-outline" size={18} color="#16A34A" />}
-          />
-        </View>
+            {/* Main Weight Card */}
+            <View className="mb-3">
+              <StatCard
+                title="PREDICTED WEIGHT"
+                value={fmt(model.predictedWeight)}
+                unit="g"
+                changePct={model.changePct}
+                icon="leaf-outline"
+              />
+            </View>
 
-        <View className="flex-row mt-3" style={{ gap: 12 }}>
-          <View className="flex-1">
-            <StatCard
-              title="PREDICTED AREA"
-              value={fmt(model.predictedArea)}
-              unit="cm²"
-              changePct={model.changePct}
-              rightIcon={<Ionicons name="resize-outline" size={18} color="#16A34A" />}
-            />
-          </View>
-          <View className="flex-1">
-            <StatCard
-              title="DIAMETER"
-              value={fmt(model.predictedDiameter)}
-              unit="cm"
-              changePct={model.changePct}
-              rightIcon={
-                <View className="w-6 h-6 rounded-full bg-[#E9FBEF] items-center justify-center">
-                  <View className="w-3 h-3 rounded-full border-2 border-[#16A34A]" />
+            {/* Secondary Stats */}
+            <View className="flex-row mb-3" style={{ gap: 12 }}>
+              <View className="flex-1">
+                <StatCard
+                  title="AREA"
+                  value={fmt(model.predictedArea)}
+                  unit="cm²"
+                  changePct={model.changePct}
+                  icon="expand-outline"
+                />
+              </View>
+              <View className="flex-1">
+                <StatCard
+                  title="DIAMETER"
+                  value={fmt(model.predictedDiameter)}
+                  unit="cm"
+                  changePct={model.changePct}
+                  icon="resize-outline"
+                />
+              </View>
+            </View>
+
+            {/* Growth Chart */}
+            <View className="mb-4">
+              <GrowthTrendChart
+                labels={model.labels}
+                actual={model.actual}
+                predicted={model.predicted}
+              />
+            </View>
+
+            {/* Plant Information */}
+            <View className="bg-white rounded-2xl p-4 border border-gray-100 mb-3">
+              <View className="flex-row items-center mb-4">
+                <View className="w-8 h-8 rounded-full bg-[#EAF4FF] items-center justify-center mr-2">
+                  <Ionicons name="information-circle-outline" size={18} color="#003B8F" />
                 </View>
-              }
-            />
-          </View>
-        </View>
+                <Text className="text-[13px] font-extrabold text-gray-900">Plant Information</Text>
+              </View>
 
-        <View className="mt-4">
-          <GrowthTrendChart
-            labels={model.labels}
-            actual={model.actual}
-            predicted={model.predicted}
-          />
-        </View>
+              {/* Plant ID Input */}
+              <Text className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider mb-2">
+                PLANT ID
+              </Text>
 
-        <View className="mt-4 bg-white rounded-[16px] border border-gray-100 px-4 py-4">
-          <View className="flex-row items-center">
-            <Ionicons name="sparkles-outline" size={18} color="#003B8F" />
-            <Text className="ml-2 text-[12px] font-extrabold text-gray-900">Plant Information</Text>
-          </View>
-
-          <Text className="text-[10px] font-extrabold text-gray-500 mb-1 mt-4">PLANT ID</Text>
-
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => setPickerOpen(true)}
-            className="bg-[#F6F8FC] rounded-[12px] px-3 py-3 flex-row items-center justify-between border border-gray-100"
-          >
-            <Text className="text-[12px] font-semibold text-gray-900">
-              {plantId ? plantId : loadingPlants ? "Loading plants..." : "Select a saved plant (or type below)"}
-            </Text>
-            <Ionicons name="chevron-down" size={18} color="#6B7280" />
-          </TouchableOpacity>
-
-          <TextInput
-            value={plantId}
-            onChangeText={setPlantId}
-            placeholder="Or enter a new Plant ID (e.g., P001)"
-            placeholderTextColor="#9CA3AF"
-            className="bg-[#F6F8FC] rounded-[12px] px-3 py-3 text-[12px] font-semibold text-gray-900 mt-3"
-          />
-
-          <Text className="text-[10px] font-extrabold text-gray-500 mb-1 mt-4">
-            PLANT AGE ({isExistingPlant ? "TODAY" : "START"})
-          </Text>
-          <TextInput
-            value={plantAge}
-            onChangeText={setPlantAge}
-            placeholder={isExistingPlant ? "Auto-filled for saved plants" : "Enter start age (days)"}
-            placeholderTextColor="#9CA3AF"
-            keyboardType="number-pad"
-            className="bg-[#F6F8FC] rounded-[12px] px-3 py-3 text-[12px] font-semibold text-gray-900"
-          />
-
-          <Text className="text-[10px] text-gray-500 mt-2">
-            Saved age will be: {savedAgePreview} days
-          </Text>
-        </View>
-
-        <View className="px-4 pb-4 bg-[#F4F6FA]">
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={onSave}
-            disabled={saving}
-            className="bg-[#003B8F] rounded-[16px] py-4 items-center justify-center flex-row"
-            style={{ opacity: saving ? 0.6 : 1 }}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Ionicons name="save-outline" size={18} color="#FFFFFF" />
-                <Text className="ml-2 text-[12px] font-extrabold text-white">Save</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <Modal visible={pickerOpen} transparent animationType="fade">
-          <Pressable className="flex-1 bg-black/40" onPress={() => setPickerOpen(false)} />
-          <View className="absolute left-0 right-0 bottom-0 bg-white rounded-t-[18px] px-4 pt-3 pb-6">
-            <View className="flex-row items-center justify-between">
-              <Text className="text-[12px] font-extrabold text-gray-900">Select Plant</Text>
-              <TouchableOpacity onPress={() => setPickerOpen(false)}>
-                <Ionicons name="close" size={20} color="#111827" />
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => setPickerOpen(true)}
+                className="bg-[#F8FAFC] rounded-xl px-4 py-3.5 flex-row items-center justify-between border border-gray-200 mb-3"
+              >
+                <Text
+                  className={`text-[13px] font-semibold ${
+                    plantId ? "text-gray-900" : "text-gray-400"
+                  }`}
+                >
+                  {plantId
+                    ? plantId
+                    : loadingPlants
+                    ? "Loading plants..."
+                    : "Tap to select saved plant"}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#6B7280" />
               </TouchableOpacity>
+
+              <TextInput
+                value={plantId}
+                onChangeText={setPlantId}
+                placeholder="Or enter new Plant ID (e.g., P001)"
+                placeholderTextColor="#9CA3AF"
+                className="bg-[#F8FAFC] rounded-xl px-4 py-3.5 text-[13px] font-semibold text-gray-900 border border-gray-200 mb-4"
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+
+              {/* Plant Age Input */}
+              <Text className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider mb-2">
+                PLANT AGE ({isExistingPlant ? "TODAY" : "START"})
+              </Text>
+              
+              <TextInput
+                value={plantAge}
+                onChangeText={setPlantAge}
+                placeholder={
+                  isExistingPlant
+                    ? "Auto-filled for saved plants"
+                    : "Enter start age (days)"
+                }
+                placeholderTextColor="#9CA3AF"
+                keyboardType="number-pad"
+                className="bg-[#F8FAFC] rounded-xl px-4 py-3.5 text-[13px] font-semibold text-gray-900 border border-gray-200"
+              />
+
+              {/* Age Preview */}
+              <View className="mt-3 px-3 py-2 rounded-xl bg-[#EAF4FF]">
+                <Text className="text-[11px] font-bold text-[#003B8F]">
+                  Saved age will be: {savedAgePreview} days
+                </Text>
+              </View>
             </View>
 
-            <View className="mt-3 max-h-[320px]">
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {plants.length === 0 ? (
-                  <View className="py-6 items-center">
-                    <Ionicons name="leaf-outline" size={22} color="#9CA3AF" />
-                    <Text className="text-[11px] text-gray-500 mt-2">No saved plants yet.</Text>
-                  </View>
-                ) : (
-                  plants.map((p) => (
-                    <TouchableOpacity
-                      key={p.listKey}
-                      activeOpacity={0.9}
-                      onPress={() => onSelectPlant(p)}
-                      className="py-3 border-b border-gray-100 flex-row items-center justify-between"
-                    >
-                      <View>
-                        <Text className="text-[12px] font-extrabold text-gray-900">{p.plant_id}</Text>
-                        <Text className="text-[10px] text-gray-500 mt-1">
-                          {p.planted_at
-                            ? `Planted: ${new Date(p.planted_at).toLocaleDateString()}`
-                            : p.latest_age_days != null
-                            ? `Last known age: ${p.latest_age_days} days`
-                            : "Age info not available"}
-                        </Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-                    </TouchableOpacity>
-                  ))
-                )}
-              </ScrollView>
+            {/* Save Button */}
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={onSave}
+              disabled={saving}
+              className="bg-[#003B8F] rounded-2xl py-4 items-center justify-center flex-row"
+              style={{ opacity: saving ? 0.6 : 1 }}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="save-outline" size={20} color="#FFFFFF" />
+                  <Text className="ml-2 text-[14px] font-extrabold text-white">
+                    Save Prediction
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
+
+      {/* Plant Picker Modal - Improved Design */}
+      <Modal visible={pickerOpen} transparent animationType="slide">
+        <View className="flex-1 bg-black/50 justify-end">
+          <Pressable 
+            className="flex-1" 
+            onPress={() => setPickerOpen(false)} 
+          />
+          
+          <View className="bg-white rounded-t-[28px]" style={{ maxHeight: '75%' }}>
+            {/* Modal Header */}
+            <View className="px-5 pt-5 pb-3 border-b border-gray-100">
+              <View className="flex-row items-center justify-between mb-1">
+                <Text className="text-[17px] font-extrabold text-gray-900">
+                  Select Plant
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setPickerOpen(false)}
+                  className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={20} color="#111827" />
+                </TouchableOpacity>
+              </View>
+              <Text className="text-[12px] font-semibold text-gray-500">
+                Choose from your saved plants
+              </Text>
             </View>
+
+            {/* Plant List */}
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 }}
+            >
+              {plants.length === 0 ? (
+                <View className="py-16 items-center">
+                  <View className="w-20 h-20 rounded-full bg-gray-100 items-center justify-center mb-4">
+                    <Ionicons name="leaf-outline" size={32} color="#9CA3AF" />
+                  </View>
+                  <Text className="text-[14px] font-extrabold text-gray-900 mb-1">
+                    No Plants Yet
+                  </Text>
+                  <Text className="text-[12px] font-semibold text-gray-500 text-center">
+                    You haven't saved any plants yet.{"\n"}Add your first plant to get started!
+                  </Text>
+                </View>
+              ) : (
+                plants.map((p, index) => (
+                  <TouchableOpacity
+                    key={p.listKey}
+                    activeOpacity={0.9}
+                    onPress={() => onSelectPlant(p)}
+                    className="bg-white rounded-2xl p-4 mb-3 border border-gray-100"
+                  >
+                    <View className="flex-row items-center">
+                      {/* Plant Icon */}
+                      <View className="w-12 h-12 rounded-full bg-[#EAF4FF] items-center justify-center mr-3">
+                        <Ionicons name="leaf" size={22} color="#003B8F" />
+                      </View>
+
+                      {/* Plant Details */}
+                      <View className="flex-1">
+                        <Text className="text-[14px] font-extrabold text-gray-900 mb-1">
+                          {p.plant_id}
+                        </Text>
+                        <View className="flex-row items-center">
+                          <Ionicons name="calendar-outline" size={12} color="#6B7280" />
+                          <Text className="text-[11px] font-semibold text-gray-500 ml-1">
+                            {p.planted_at
+                              ? new Date(p.planted_at).toLocaleDateString('en-US', { 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })
+                              : p.latest_age_days != null
+                              ? `Day ${p.latest_age_days}`
+                              : "No age data"}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Arrow */}
+                      <View className="w-8 h-8 rounded-full bg-gray-50 items-center justify-center">
+                        <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
           </View>
-        </Modal>
-      </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-const START_W_KEY = (plantId: string) => `plant_start_weight_g:${String(plantId).toLowerCase()}`;
-const CURRENT_W_KEY = (plantId: string) => `plant_current_weight_g:${String(plantId).toLowerCase()}`;
+const START_W_KEY = (plantId: string) =>
+  `plant_start_weight_g:${String(plantId).toLowerCase()}`;
+const CURRENT_W_KEY = (plantId: string) =>
+  `plant_current_weight_g:${String(plantId).toLowerCase()}`;
 
 async function cacheAnalysisWeights(plantId: string, currentWeightG: number) {
   if (!Number.isFinite(currentWeightG) || currentWeightG <= 0) return;
