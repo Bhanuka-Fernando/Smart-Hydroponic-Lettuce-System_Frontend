@@ -2,6 +2,7 @@ import React from "react";
 import { View, ActivityIndicator } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { NavigatorScreenParams } from "@react-navigation/native";
+import WaterQualityNavigator, { type WaterQualityStackParamList } from "./WaterQualityNavigator";
 
 import { useAuth } from "../auth/useAuth";
 import AuthNavigator from "./AuthNavigator";
@@ -16,6 +17,7 @@ export type RootStackParamList = {
 
   // ✅ UPDATED
   Spoilage: NavigatorScreenParams<SpoilageStackParamList>;
+  WaterQuality: NavigatorScreenParams<WaterQualityStackParamList>;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -40,6 +42,7 @@ export default function RootNavigator() {
       )}
 
       <Stack.Screen name="Spoilage" component={SpoilageNavigator} />
+      <Stack.Screen name="WaterQuality" component={WaterQualityNavigator} />
     </Stack.Navigator>
   );
 }
