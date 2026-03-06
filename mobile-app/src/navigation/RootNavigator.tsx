@@ -6,16 +6,16 @@ import { NavigatorScreenParams } from "@react-navigation/native";
 import { useAuth } from "../auth/useAuth";
 import AuthNavigator from "./AuthNavigator";
 import AppNavigator from "./AppNavigator";
-import SpoilageNavigator, {
-  type SpoilageStackParamList,
-} from "./SpoilageNavigator";
+import SpoilageNavigator from "./SpoilageNavigator";
+import WaterQualityNavigator from "./WaterQualityNavigator";
 
 export type RootStackParamList = {
   Auth: undefined;
   App: undefined;
+  Spoilage: undefined;
 
-  // ✅ UPDATED
-  Spoilage: NavigatorScreenParams<SpoilageStackParamList>;
+  // sachin--
+  WaterQuality: undefined; 
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -40,6 +40,10 @@ export default function RootNavigator() {
       )}
 
       <Stack.Screen name="Spoilage" component={SpoilageNavigator} />
+
+      {/* sachin- */}
+      <Stack.Screen name="WaterQuality" component={WaterQualityNavigator} />
+
     </Stack.Navigator>
   );
 }
