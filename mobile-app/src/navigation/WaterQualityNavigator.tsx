@@ -3,10 +3,12 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import WaterQualityDashboardScreen from "../screens/waterQuality/WaterQualityDashboardScreen";
 import WaterQualityHistoryScreen from "../screens/waterQuality/WaterQualityHistoryScreen";
+import WaterQualityChartsScreen from "../screens/waterQuality/WaterQualityChartsScreen";
 
 export type WaterQualityStackParamList = {
   WaterQualityDashboard: undefined;
   WaterQualityHistory: { tank_id: string };
+  WaterQualityCharts: { tank_id: string };
 };
 
 const Stack = createNativeStackNavigator<WaterQualityStackParamList>();
@@ -16,6 +18,7 @@ export default function WaterQualityNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="WaterQualityDashboard" component={WaterQualityDashboardScreen} />
       <Stack.Screen name="WaterQualityHistory" component={WaterQualityHistoryScreen} />
+      <Stack.Screen name="WaterQualityCharts" component={WaterQualityChartsScreen} />
     </Stack.Navigator>
   );
 }
