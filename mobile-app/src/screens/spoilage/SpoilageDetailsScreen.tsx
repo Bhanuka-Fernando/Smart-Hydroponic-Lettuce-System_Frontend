@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,6 +23,7 @@ import {
   getRecheckReminders,
 } from "../../api/SpoilageApi";
 import { SPOILAGE_BASE_URL } from "../../utils/constants";
+import { useAuth } from "../../auth/useAuth";
 
 type StatusFilter = "All Status" | "Monitoring" | "Warning" | "Critical";
 
@@ -81,8 +84,11 @@ type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageDetails">;
 export default function SpoilageDetailsScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<StatusFilter>("All Status");
   const currentLocation = "Farm A - Chiller 3";
+  const [profileOpen, setProfileOpen] = useState(false);
 
-  const { rows, loading, error, refresh: reloadNow } = useSpoilagePolling(10, 8000);
+  const { user, signOut } = useAuth();
+
+  const { rows, loading, error } = useSpoilagePolling(10, 8000);
 
   const [activeAlertCount, setActiveAlertCount] = useState(0);
   const [recheckCount, setRecheckCount] = useState(0);
@@ -185,9 +191,13 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
   const openSpoilageScan = () =>
     navigation.navigate("SpoilageScan", { demoMode: true });
 
-  const handleRefresh = async () => {
-    reloadNow();
-    await loadExtras();
+  const handleLogout = async () => {
+    try {
+      setProfileOpen(false);
+      await signOut();
+    } catch {
+      Alert.alert("Logout failed", "Please try again.");
+    }
   };
 
   const ListHeader = (
@@ -210,12 +220,27 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           </Text>
 
           <TouchableOpacity
-            onPress={handleRefresh}
             activeOpacity={0.85}
-            className="w-10 h-10 items-center justify-center rounded-full bg-white"
-            style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
+            onPress={() => setProfileOpen(true)}
+            className="relative"
           >
-            <Ionicons name="refresh" size={18} color="#111827" />
+            <Image
+              source={{ uri: "https://i.pravatar.cc/100?img=12" }}
+              style={{ width: 40, height: 40, borderRadius: 20 }}
+            />
+            <View
+              style={{
+                position: "absolute",
+                bottom: -1,
+                right: -1,
+                width: 12,
+                height: 12,
+                borderRadius: 6,
+                backgroundColor: "#22C55E",
+                borderWidth: 2,
+                borderColor: "#FFFFFF",
+              }}
+            />
           </TouchableOpacity>
         </View>
 
@@ -637,6 +662,59 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           updateCellsBatchingPeriod={50}
         />
       )}
+
+      <Modal
+        visible={profileOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setProfileOpen(false)}
+      >
+        <Pressable
+          className="flex-1 bg-black/40"
+          onPress={() => setProfileOpen(false)}
+        />
+
+        <View className="bg-white rounded-t-3xl px-5 pt-4 pb-6">
+          <View className="w-12 h-1.5 bg-gray-200 rounded-full self-center mb-4" />
+
+          <View className="flex-row items-center">
+            <Image
+              source={{ uri: "https://i.pravatar.cc/100?img=12" }}
+              style={{ width: 48, height: 48, borderRadius: 24 }}
+            />
+            <View className="ml-3 flex-1">
+              <Text className="text-[16px] font-extrabold text-gray-900">
+                {user?.name ?? "Farmer"}
+              </Text>
+              <Text className="text-[12px] text-gray-500 mt-0.5">
+                {user?.email ?? "farmer@example.com"}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setProfileOpen(false)}
+              className="w-9 h-9 rounded-full bg-[#F3F4F6] items-center justify-center"
+              activeOpacity={0.85}
+            >
+              <Ionicons name="close" size={18} color="#0F172A" />
+            </TouchableOpacity>
+          </View>
+
+          <View className="h-px bg-gray-100 my-4" />
+
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={handleLogout}
+            className="h-[52px] rounded-2xl bg-[#EF4444] items-center justify-center"
+          >
+            <View className="flex-row items-center">
+              <Ionicons name="log-out-outline" size={18} color="white" />
+              <Text className="text-white text-[14px] font-extrabold ml-2">
+                Log out
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

@@ -1,3 +1,4 @@
+// src/screens/spoilage/SpoilagePlantDetailsScreen.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
@@ -69,8 +70,16 @@ function badge(stage: SpoilagePredictionRow["stage"]) {
   return { bg: "#FEE2E2", text: "#DC2626", label: "Spoiled" };
 }
 
-function storedRemainingDays(rawDays: number | null | undefined) {
-  return Math.max(0, Math.round(Number(rawDays ?? 0)));
+function remainingDaysNow(rawDays: number, capturedAt?: string | null) {
+  const base = Number(rawDays ?? 0);
+
+  if (!capturedAt) return Math.max(0, Math.round(base));
+
+  const capturedMs = new Date(capturedAt).getTime();
+  if (Number.isNaN(capturedMs)) return Math.max(0, Math.round(base));
+
+  const elapsedDays = (Date.now() - capturedMs) / (1000 * 60 * 60 * 24);
+  return Math.max(0, Math.ceil(base - elapsedDays));
 }
 
 export default function SpoilagePlantDetailsScreen({
@@ -174,7 +183,10 @@ export default function SpoilagePlantDetailsScreen({
             <View className="flex-1 ml-4">
               <Mini
                 label="REMAINING DAYS"
-                value={`${storedRemainingDays(current.remaining_days)} days`}
+                value={`${remainingDaysNow(
+                  Number(current.remaining_days ?? 0),
+                  current.captured_at
+                )} days`}
               />
               <View style={{ height: 8 }} />
               <Mini
@@ -235,7 +247,8 @@ export default function SpoilagePlantDetailsScreen({
         </View>
 
         <Text className="text-[11px] text-gray-500 mt-2">
-          Remaining at scan: {storedRemainingDays(item.remaining_days)} days • Temp:{" "}
+          Remaining at scan:{" "}
+          {Math.max(0, Number(item.remaining_days ?? 0)).toFixed(0)} days • Temp:{" "}
           {Number(item.temperature ?? 0).toFixed(1)}°C • RH:{" "}
           {Math.round(Number(item.humidity ?? 0))}%
         </Text>

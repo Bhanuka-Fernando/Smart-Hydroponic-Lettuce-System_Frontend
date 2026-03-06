@@ -410,63 +410,78 @@ Image: ${sample.image_name ?? "none"}`
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 18 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
       >
         <View className="pt-3 pb-2 flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             activeOpacity={0.85}
-            className="w-10 h-10 items-center justify-center"
+            className="w-10 h-10 items-center justify-center rounded-full bg-white"
+            style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
           >
-            <Ionicons name="close" size={22} color="#111827" />
+            <Ionicons name="close" size={20} color="#111827" />
           </TouchableOpacity>
 
           <Text className="text-[16px] font-extrabold text-gray-900">
             {demoMode ? "Scan Spoilage (Demo)" : "Scan Spoilage"}
           </Text>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            className="w-7 h-7 rounded-full bg-white items-center justify-center"
+          <View
+            className="w-10 h-10 items-center justify-center rounded-full bg-white"
             style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
-            onPress={() => {}}
           >
-            <Ionicons name="help" size={16} color="#64748B" />
-          </TouchableOpacity>
+            <Ionicons name="scan-outline" size={18} color="#64748B" />
+          </View>
         </View>
 
-        <View className="mt-2 bg-white rounded-full p-1 flex-row">
-          <Segment
-            label="Camera"
-            active={mode === "Camera"}
-            onPress={() => setMode("Camera")}
-          />
-          <Segment
-            label="Gallery"
-            active={mode === "Gallery"}
-            onPress={() => setMode("Gallery")}
-          />
+        <View className="mt-3 bg-white rounded-[22px] p-4 shadow-sm">
+          <Text className="text-[15px] font-extrabold text-gray-900">
+            Capture or Upload
+          </Text>
+          <Text className="text-[12px] text-gray-500 mt-1">
+            Use the camera, upload a top-view image, or simulate with dataset images.
+          </Text>
+
+          <View className="mt-4 bg-[#F4F7FB] rounded-full p-1 flex-row">
+            <Segment
+              label="Camera"
+              active={mode === "Camera"}
+              onPress={() => setMode("Camera")}
+            />
+            <Segment
+              label="Gallery"
+              active={mode === "Gallery"}
+              onPress={() => setMode("Gallery")}
+            />
+          </View>
         </View>
 
         {isPlantLocked ? (
           <View
-            className="mt-4 bg-white rounded-[16px] px-4 py-3 shadow-sm"
+            className="mt-4 bg-white rounded-[18px] px-4 py-4 shadow-sm"
             style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
           >
             <Text className="text-[12px] font-extrabold text-gray-700">
               Plant ID
             </Text>
-            <Text className="mt-2 text-[14px] font-extrabold text-gray-900">
-              {lockedPlantId}
-              {isLockedSimStream ? " (Sim)" : ""}
-            </Text>
-            <Text className="text-[11px] text-gray-500 mt-1">
-              Selected from plant list
-            </Text>
+            <View className="flex-row items-center mt-2">
+              <View className="w-9 h-9 rounded-full bg-[#EAF4FF] items-center justify-center mr-3">
+                <Ionicons name="leaf-outline" size={18} color={PRIMARY} />
+              </View>
+              <View>
+                <Text className="text-[14px] font-extrabold text-gray-900">
+                  {lockedPlantId}
+                  {isLockedSimStream ? " (Sim)" : ""}
+                </Text>
+                <Text className="text-[11px] text-gray-500 mt-0.5">
+                  Selected from plant list
+                </Text>
+              </View>
+            </View>
           </View>
         ) : (
           <View
-            className="mt-4 bg-white rounded-[16px] px-4 py-3 shadow-sm"
+            className="mt-4 bg-white rounded-[18px] px-4 py-4 shadow-sm"
             style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
           >
             <Text className="text-[12px] font-extrabold text-gray-700">
@@ -487,17 +502,24 @@ Image: ${sample.image_name ?? "none"}`
 
         {demoMode ? (
           <View
-            className="mt-4 bg-white rounded-[16px] px-4 py-3 shadow-sm"
+            className="mt-4 bg-white rounded-[18px] px-4 py-4 shadow-sm"
             style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
           >
-            <Text className="text-[12px] font-extrabold text-gray-700">
-              Demo Time Progression
-            </Text>
-            <Text className="text-[11px] text-gray-500 mt-1">
-              Use this only for panel/demo validation.
-            </Text>
+            <View className="flex-row items-center">
+              <View className="w-9 h-9 rounded-full bg-[#FFF7ED] items-center justify-center mr-3">
+                <Ionicons name="time-outline" size={18} color="#F59E0B" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[12px] font-extrabold text-gray-700">
+                  Demo Time Progression
+                </Text>
+                <Text className="text-[11px] text-gray-500 mt-0.5">
+                  Use this only for panel/demo validation.
+                </Text>
+              </View>
+            </View>
 
-            <View className="flex-row mt-3 flex-wrap">
+            <View className="flex-row mt-4 flex-wrap">
               {DEMO_DAY_OPTIONS.map((item, index) => {
                 const active = index === demoTimeIndex;
                 return (
@@ -531,7 +553,7 @@ Image: ${sample.image_name ?? "none"}`
 
         {scanError ? (
           <View
-            className="mt-4 rounded-[16px] px-4 py-3"
+            className="mt-4 rounded-[18px] px-4 py-4"
             style={{
               backgroundColor: "#FEF2F2",
               borderWidth: 1,
@@ -554,8 +576,8 @@ Image: ${sample.image_name ?? "none"}`
 
         {mode === "Camera" ? (
           <>
-            <View className="mt-4 rounded-[22px] overflow-hidden bg-white shadow-sm">
-              <View style={{ height: 470 }} className="bg-black">
+            <View className="mt-4 rounded-[24px] overflow-hidden bg-white shadow-sm">
+              <View style={{ height: 490 }} className="bg-black">
                 {capturedUri ? (
                   <View className="flex-1">
                     <Image
@@ -610,12 +632,14 @@ Image: ${sample.image_name ?? "none"}`
                       facing={facing}
                       enableTorch={torchOn}
                     />
+
                     <View className="absolute top-0 left-0 right-0 p-4 flex-row items-center justify-between">
                       <View className="px-3 py-1 rounded-full bg-[#111827]/80">
                         <Text className="text-[11px] font-bold text-white">
                           ● LIVE VIEW
                         </Text>
                       </View>
+
                       <View className="flex-row items-center">
                         <OverlayChip
                           icon="thermometer-outline"
@@ -626,15 +650,39 @@ Image: ${sample.image_name ?? "none"}`
                       </View>
                     </View>
 
+                    <View className="absolute bottom-24 left-0 right-0 flex-row justify-center px-4">
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        onPress={() => setTorchOn((prev) => !prev)}
+                        className="w-11 h-11 rounded-full bg-black/55 items-center justify-center mr-3"
+                      >
+                        <Ionicons
+                          name={torchOn ? "flash" : "flash-off"}
+                          size={18}
+                          color="#fff"
+                        />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        onPress={() =>
+                          setFacing((prev) => (prev === "back" ? "front" : "back"))
+                        }
+                        className="w-11 h-11 rounded-full bg-black/55 items-center justify-center"
+                      >
+                        <Ionicons name="camera-reverse-outline" size={18} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+
                     <View className="absolute bottom-5 left-0 right-0 items-center">
                       <TouchableOpacity
                         onPress={takePhoto}
                         activeOpacity={0.9}
                         disabled={busy}
                         style={{
-                          width: 74,
-                          height: 74,
-                          borderRadius: 37,
+                          width: 78,
+                          height: 78,
+                          borderRadius: 39,
                           backgroundColor: "#fff",
                           alignItems: "center",
                           justifyContent: "center",
@@ -648,9 +696,9 @@ Image: ${sample.image_name ?? "none"}`
                         ) : (
                           <View
                             style={{
-                              width: 52,
-                              height: 52,
-                              borderRadius: 26,
+                              width: 54,
+                              height: 54,
+                              borderRadius: 27,
                               backgroundColor: PRIMARY,
                             }}
                           />
@@ -663,54 +711,36 @@ Image: ${sample.image_name ?? "none"}`
             </View>
 
             <View className="mt-3 flex-row justify-between">
-              <TouchableOpacity
-                activeOpacity={0.9}
+              <ActionButton
+                label="Use Last Sensor"
+                icon="pulse-outline"
+                color={PRIMARY}
                 onPress={onUseLastSensor}
                 disabled={busy}
-                className="bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                  width: "48%",
-                  opacity: busy ? 0.6 : 1,
-                }}
-              >
-                <Ionicons name="pulse-outline" size={16} color={PRIMARY} />
-                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
-                  Use Last Sensor
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.9}
+                width="48%"
+              />
+              <ActionButton
+                label="Gallery"
+                icon="images-outline"
+                color="#111827"
                 onPress={() => setMode("Gallery")}
-                className="bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                  width: "48%",
-                }}
-              >
-                <Ionicons name="images-outline" size={16} color="#111827" />
-                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
-                  Gallery
-                </Text>
-              </TouchableOpacity>
+                width="48%"
+              />
             </View>
 
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={onSimulateCamera}
               disabled={busy}
-              className="mt-3 bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
+              className="mt-3 bg-white rounded-[16px] px-5 py-4 flex-row items-center justify-center shadow-sm"
               style={{
                 borderWidth: 1,
                 borderColor: "#E5E7EB",
                 opacity: busy ? 0.6 : 1,
               }}
             >
-              <Ionicons name="camera-outline" size={16} color={PRIMARY} />
-              <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
+              <Ionicons name="camera-outline" size={17} color={PRIMARY} />
+              <Text className="ml-2 text-[13px] font-extrabold text-gray-900">
                 Simulate Camera (Dataset Image)
               </Text>
             </TouchableOpacity>
@@ -719,7 +749,7 @@ Image: ${sample.image_name ?? "none"}`
               activeOpacity={0.9}
               onPress={startAnalysis}
               disabled={!canStart}
-              className="mt-4 rounded-[14px] items-center justify-center"
+              className="mt-4 rounded-[16px] items-center justify-center"
               style={{
                 backgroundColor: PRIMARY,
                 height: 56,
@@ -747,13 +777,12 @@ Image: ${sample.image_name ?? "none"}`
           </>
         ) : (
           <>
-            <View className="mt-4 bg-white rounded-[20px] p-4 shadow-sm">
-              <Text className="text-[24px] font-extrabold text-gray-900">
+            <View className="mt-4 bg-white rounded-[22px] p-4 shadow-sm">
+              <Text className="text-[22px] font-extrabold text-gray-900">
                 Analyze Plant
               </Text>
-              <Text className="text-[12px] text-gray-500 mt-2 leading-4">
-                Upload a top-view leaf photo or simulate the camera using
-                dataset images.
+              <Text className="text-[12px] text-gray-500 mt-2 leading-5">
+                Upload a top-view leaf image or use a simulated dataset image for testing.
               </Text>
 
               <View
@@ -762,7 +791,7 @@ Image: ${sample.image_name ?? "none"}`
                   borderWidth: 2,
                   borderStyle: "dashed",
                   borderColor: "#7AA7E6",
-                  height: 190,
+                  height: 210,
                   overflow: "hidden",
                 }}
               >
@@ -775,13 +804,13 @@ Image: ${sample.image_name ?? "none"}`
                 ) : (
                   <>
                     <View className="w-14 h-14 rounded-full bg-[#EAF4FF] items-center justify-center">
-                      <Ionicons name="arrow-up" size={22} color={PRIMARY} />
+                      <Ionicons name="cloud-upload-outline" size={24} color={PRIMARY} />
                     </View>
                     <Text className="mt-3 font-extrabold text-gray-900">
-                      Drop / Click to upload
+                      Upload Image
                     </Text>
                     <Text className="text-[12px] text-gray-500 mt-1">
-                      Top-view leaf image
+                      Top-view lettuce image
                     </Text>
                   </>
                 )}
@@ -791,14 +820,14 @@ Image: ${sample.image_name ?? "none"}`
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={pickFromGallery}
-                  className="bg-white rounded-[12px] px-4 py-3 flex-row items-center justify-center"
+                  className="bg-white rounded-[14px] px-4 py-3 flex-row items-center justify-center"
                   style={{
                     borderWidth: 1,
                     borderColor: "#CBD5E1",
                     width: "48%",
                   }}
                 >
-                  <Ionicons name="search-outline" size={18} color="#111827" />
+                  <Ionicons name="images-outline" size={18} color="#111827" />
                   <Text className="ml-2 font-extrabold text-gray-900 text-[12px]">
                     Upload Photo
                   </Text>
@@ -807,7 +836,7 @@ Image: ${sample.image_name ?? "none"}`
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={onSimulateCamera}
-                  className="bg-white rounded-[12px] px-4 py-3 flex-row items-center justify-center"
+                  className="bg-white rounded-[14px] px-4 py-3 flex-row items-center justify-center"
                   style={{
                     borderWidth: 1,
                     borderColor: "#CBD5E1",
@@ -825,7 +854,7 @@ Image: ${sample.image_name ?? "none"}`
                 activeOpacity={0.9}
                 onPress={onUseLastSensor}
                 disabled={busy}
-                className="mt-3 bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
+                className="mt-3 bg-white rounded-[16px] px-5 py-4 flex-row items-center justify-center shadow-sm"
                 style={{
                   borderWidth: 1,
                   borderColor: "#E5E7EB",
@@ -842,10 +871,10 @@ Image: ${sample.image_name ?? "none"}`
                 activeOpacity={0.9}
                 onPress={startAnalysis}
                 disabled={!canStart}
-                className="mt-4 rounded-[12px] items-center justify-center"
+                className="mt-4 rounded-[16px] items-center justify-center"
                 style={{
                   backgroundColor: PRIMARY,
-                  height: 52,
+                  height: 54,
                   opacity: canStart ? 1 : 0.5,
                 }}
               >
@@ -885,7 +914,7 @@ function Segment({
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={onPress}
-      className={`flex-1 py-2 rounded-full items-center justify-center ${
+      className={`flex-1 py-3 rounded-full items-center justify-center ${
         active ? "bg-white" : "bg-transparent"
       }`}
       style={{
@@ -919,5 +948,41 @@ function OverlayChip({
       <Ionicons name={icon} size={14} color="#fff" />
       <Text className="ml-1.5 text-[11px] font-bold text-white">{text}</Text>
     </View>
+  );
+}
+
+function ActionButton({
+  label,
+  icon,
+  color,
+  onPress,
+  disabled,
+  width,
+}: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  onPress: () => void;
+  disabled?: boolean;
+  width: string;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      disabled={disabled}
+      className="bg-white rounded-[16px] px-5 py-4 flex-row items-center justify-center shadow-sm"
+      style={{
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        width: width as any,
+        opacity: disabled ? 0.6 : 1,
+      }}
+    >
+      <Ionicons name={icon} size={16} color={color} />
+      <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 }
