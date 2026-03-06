@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useAuth } from "../../auth/useAuth";
 import { estimateWeight } from "../../api/weightApi";
@@ -167,7 +168,6 @@ export default function GrowthForecastingScreen() {
       });
 
       setForecast(points);
-
       Alert.alert("Done", "Growth analysis completed.");
     } catch (e: any) {
       Alert.alert("Error", e?.message || "Failed to analyze.");
@@ -246,6 +246,7 @@ export default function GrowthForecastingScreen() {
       labels,
       actual,
       predicted,
+      analyzedWeight: wToday, // ✅ non-predicted weight from analysis
     });
   };
 
@@ -308,6 +309,7 @@ export default function GrowthForecastingScreen() {
       setLoading(false);
     }
   };
+
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
@@ -517,7 +519,7 @@ export default function GrowthForecastingScreen() {
           <StatRow
             iconName="barbell-outline"
             label="Weight"
-            value={today?.W_today_g != null ? `${Number(today.W_today_g).toFixed(1)} g` : "--"}
+            value={today?.W_today_g != null ? `${Number(today.W_today_g).toFixed(2)} g` : "--"}
           />
         </View>
 

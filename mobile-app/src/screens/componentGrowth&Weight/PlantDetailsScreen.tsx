@@ -29,10 +29,22 @@ type HistoryItem = {
 type RouteParams = { plant_id: string };
 
 const START_W_KEY = (plantId: string) => `plant_start_weight_g:${String(plantId).toLowerCase()}`;
+const CURRENT_W_KEY = (plantId: string) => `plant_current_weight_g:${String(plantId).toLowerCase()}`;
 
 async function getCachedStartWeight(plantId: string): Promise<number | null> {
   try {
     const v = await AsyncStorage.getItem(START_W_KEY(plantId));
+    if (!v) return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getCachedCurrentWeight(plantId: string): Promise<number | null> {
+  try {
+    const v = await AsyncStorage.getItem(CURRENT_W_KEY(plantId));
     if (!v) return null;
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? n : null;
@@ -245,15 +257,15 @@ export default function PlantDetailsScreen() {
 
   // ✅ cached start weight override (first-ever scan)
   const [startOverride, setStartOverride] = useState<number | null>(null);
+  const [currentOverride, setCurrentOverride] = useState<number | null>(null); // NEW
 
-  const zone_id = "z01";
-
-  // load cached start weight when plant changes
   useEffect(() => {
     if (!plant_id) return;
     (async () => {
-      const cached = await getCachedStartWeight(plant_id);
-      setStartOverride(cached);
+      const cachedStart = await getCachedStartWeight(plant_id);
+      const cachedCurrent = await getCachedCurrentWeight(plant_id);
+      setStartOverride(cachedStart);
+      setCurrentOverride(cachedCurrent);
     })();
   }, [plant_id]);
 
@@ -263,7 +275,7 @@ export default function PlantDetailsScreen() {
     (async () => {
       try {
         setLoading(true);
-        const res = await getPlantDetails({ token: accessToken, plant_id, zone_id, range } as any);
+        const res = await getPlantDetails({ token: accessToken, plant_id, range } as any);
         setData(res);
       } catch (e: any) {
         Alert.alert("Error", e?.message || "Failed to load plant details");
@@ -369,10 +381,11 @@ export default function PlantDetailsScreen() {
 
     console.log("📈 Scan points:", scanPoints.map((s) => ({ w: s.weightG, age: s.ageDays })));
 
-    // ✅ FINAL FIX:
-    // START = cached first scan (if available) else backendStart else first scan in history
+    // ✅ ONLY use actual scanned weights for START and CURRENT
     const startFromCache = startOverride != null && Number.isFinite(startOverride) ? startOverride : 0;
+    const currentFromCache = currentOverride != null && Number.isFinite(currentOverride) ? currentOverride : 0;
 
+    // START: Use cached first scan, then backend, then first scan in history, else 0
     const startWeightG =
       startFromCache > 0
         ? fmt2(startFromCache)
@@ -382,14 +395,17 @@ export default function PlantDetailsScreen() {
         ? scanPoints[0].weightG
         : 0;
 
-    // CURRENT = backend current (latest scan) else last scan in history
+    // CURRENT: Use cached current scan, then backend, then last scan in history, else 0
     const currentWeightG =
-      backendCurrentWeight > 0
+      currentFromCache > 0
+        ? fmt2(currentFromCache)
+        : backendCurrentWeight > 0
         ? backendCurrentWeight
         : scanPoints.length > 0
         ? scanPoints[scanPoints.length - 1].weightG
         : 0;
 
+    // Predicted value (not used in START/CURRENT, only for display elsewhere if needed)
     const predictedToday = predPoints.length > 0 ? predPoints[predPoints.length - 1].predG : 0;
 
     console.log("📊 Final weights:", { START: startWeightG, CURRENT: currentWeightG, PREDICTED: predictedToday });
@@ -431,7 +447,7 @@ export default function PlantDetailsScreen() {
       historyDesc: sortedDesc,
       chart: { labels: chartLabels, actual: actualSeries, predicted: predictedSeries },
     };
-  }, [data, plant_id, startOverride]);
+  }, [data, plant_id, startOverride, currentOverride]); // include currentOverride
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">

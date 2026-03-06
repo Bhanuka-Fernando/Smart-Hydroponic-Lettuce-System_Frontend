@@ -17,6 +17,7 @@ import Svg, { Path, Circle, Line, Text as SvgText } from "react-native-svg";
 import { useAuth } from "../../auth/useAuth";
 import { saveGrowthPrediction } from "../../api/growthApi";
 import { getPlants } from "../../api/plantsApi";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type RouteParams = {
   dateLabel?: string;
@@ -27,6 +28,7 @@ type RouteParams = {
   labels?: string[];
   actual?: number[];
   predicted?: number[];
+  analyzedWeight?: number; // ✅ add
 };
 
 type PlantListItem = {
@@ -356,8 +358,6 @@ export default function GrowthPredictionResultsScreen() {
       return;
     }
 
-    // ✅ if plant already exists -> tomorrow forecast age = today+1
-    // ✅ if new plant -> first time saving -> do NOT add 1
     const savedAge = isExistingPlant ? todayAge + 1 : todayAge;
 
     try {
@@ -380,6 +380,10 @@ export default function GrowthPredictionResultsScreen() {
       };
 
       await saveGrowthPrediction({ token: accessToken, payload });
+
+      // ✅ cache NON-predicted weight from GrowthForecasting for this selected plant
+      const analyzedWeight = Number(params.analyzedWeight ?? model.actual?.[0] ?? 0);
+      await cacheAnalysisWeights(plantId.trim(), analyzedWeight);
 
       Alert.alert("Success", `Saved (Age ${savedAge} days).`, [
         { text: "OK", onPress: () => navigation.navigate("PlantLists") },
@@ -534,4 +538,21 @@ export default function GrowthPredictionResultsScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+const START_W_KEY = (plantId: string) => `plant_start_weight_g:${String(plantId).toLowerCase()}`;
+const CURRENT_W_KEY = (plantId: string) => `plant_current_weight_g:${String(plantId).toLowerCase()}`;
+
+async function cacheAnalysisWeights(plantId: string, currentWeightG: number) {
+  if (!Number.isFinite(currentWeightG) || currentWeightG <= 0) return;
+
+  const startKey = START_W_KEY(plantId);
+  const currentKey = CURRENT_W_KEY(plantId);
+
+  await AsyncStorage.setItem(currentKey, String(currentWeightG)); // always update current
+
+  const existingStart = await AsyncStorage.getItem(startKey);
+  if (!existingStart) {
+    await AsyncStorage.setItem(startKey, String(currentWeightG)); // set once
+  }
 }
