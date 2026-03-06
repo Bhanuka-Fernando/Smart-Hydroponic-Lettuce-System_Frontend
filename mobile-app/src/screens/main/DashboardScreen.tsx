@@ -271,7 +271,7 @@ export default function DashboardScreen() {
                   subtitle="Monitor Sensor data"
                   iconBg="bg-[#E8F7FF]"
                   icon={<Ionicons name="water-outline" size={22} color="#0284C7" />}
-                  onPress={() => go("Scan")}
+                  onPress={() => (navigation.getParent() as any)?.navigate("WaterQuality")}
                 />
               </View>
             </View>
