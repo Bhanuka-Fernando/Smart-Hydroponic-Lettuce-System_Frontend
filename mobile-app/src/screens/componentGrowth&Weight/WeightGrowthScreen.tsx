@@ -132,6 +132,7 @@ type Slot = {
 };
 
 const STORAGE_KEY = '@schedule_time_slots';
+const LAST_AUTO_UPDATE_KEY = '@last_auto_update'; // ✅ New key
 
 function SlotRow({
   label,
@@ -184,17 +185,31 @@ export default function WeightGrowthScreen() {
 
   // Load schedules from AsyncStorage
   const [schedules, setSchedules] = useState<Slot[]>([]);
+  
+  // ✅ Track last auto update
+  const [lastAutoUpdate, setLastAutoUpdate] = useState<string | null>(null);
 
   useEffect(() => {
     loadSchedules();
+    loadLastAutoUpdate(); // ✅ Load last auto update time
 
     // Listen for navigation focus to reload schedules when returning from ScheduleTimeSlotsScreen
     const unsubscribe = navigation.addListener('focus', () => {
       loadSchedules();
+      loadLastAutoUpdate(); // ✅ Reload on focus
     });
 
     return unsubscribe;
   }, [navigation]);
+
+  // ✅ Poll for auto-update changes every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadLastAutoUpdate();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const loadSchedules = async () => {
     try {
@@ -209,6 +224,40 @@ export default function WeightGrowthScreen() {
       console.error("Failed to load schedules:", error);
       setSchedules([]);
     }
+  };
+
+  // ✅ Load last auto-update timestamp
+  const loadLastAutoUpdate = async () => {
+    try {
+      const timestamp = await AsyncStorage.getItem(LAST_AUTO_UPDATE_KEY);
+      setLastAutoUpdate(timestamp);
+    } catch (error) {
+      console.error("Failed to load last auto update:", error);
+    }
+  };
+
+  // ✅ Format last update time
+  const formatLastUpdate = (timestamp: string | null): string => {
+    if (!timestamp) return "Never";
+    
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins === 1) return "1 min ago";
+    if (diffMins < 60) return `${diffMins} mins ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours === 1) return "1 hour ago";
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
   };
 
   const handleToggleSchedule = async (id: string, value: boolean) => {
@@ -259,21 +308,36 @@ export default function WeightGrowthScreen() {
 
       // Optional: Ingest to ML backend
       try {
-        await axios.post(`${ML_BASE_URL}/infer/iot/ingest`, {
+        // ✅ Fixed payload format
+        const payload = {
           device_id: deviceSensors.device_id,
           zone_id: deviceSensors.zone_id,
           plant_id: "p04",
           ts: deviceSensors.timestamp,
-          airT: deviceSensors.temperature_c,
-          RH: deviceSensors.humidity_pct,
-          EC: deviceSensors.ec_ms_cm,
-          pH: deviceSensors.ph,
+          air_temp_c: deviceSensors.temperature_c,
+          humidity_pct: deviceSensors.humidity_pct,
+          ec_ms_cm: deviceSensors.ec_ms_cm,
+          ph: deviceSensors.ph,
+        };
+
+        await axios.post(`${ML_BASE_URL}/infer/iot/ingest`, payload, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
         });
-      } catch (e) {
-        console.warn("Failed to ingest sensor data to ML backend:", e);
+        
+        console.log("✅ ML backend ingested successfully");
+      } catch (e: any) {
+        console.warn("⚠️  Failed to ingest sensor data to ML backend:", {
+          status: e?.response?.status,
+          data: e?.response?.data,
+          message: e?.message,
+        });
       }
 
-      // Success - no alert shown
+      // ✅ Show success feedback
+      Alert.alert("✅ Updated", "Sensor readings refreshed successfully", [{ text: "OK" }]);
     } catch (error: any) {
       Alert.alert(
         "Update Failed",
@@ -375,6 +439,30 @@ export default function WeightGrowthScreen() {
             <Text className="text-[11px] font-bold text-gray-500">Recent Updates</Text>
           </View>
         </View>
+
+        {/* ✅ Last Auto Update Banner */}
+        {lastAutoUpdate && (
+          <View className="mt-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex-row items-center">
+            <View className="w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-3">
+              <Ionicons name="time" size={16} color="#1D4ED8" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-[11px] font-extrabold text-blue-900 mb-0.5">
+                Auto-updated by schedule
+              </Text>
+              <Text className="text-[10px] font-semibold text-blue-600">
+                {formatLastUpdate(lastAutoUpdate)}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={loadLastAutoUpdate}
+              activeOpacity={0.7}
+              className="w-7 h-7 rounded-full bg-blue-100 items-center justify-center"
+            >
+              <Ionicons name="refresh" size={14} color="#1D4ED8" />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Metrics 2x2 */}
         <View className="mt-6">

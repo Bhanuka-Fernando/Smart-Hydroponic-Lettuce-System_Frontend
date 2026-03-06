@@ -4,33 +4,33 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  Alert,
+  Pressable,
   Modal,
   TextInput,
-  Pressable,
-  Switch,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getDeviceSensors } from "../../api/deviceApi";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 import { useSensorReadings } from "../../context/SensorReadingsContext";
-import axios from 'axios';
-import { ML_BASE_URL } from '../../utils/constants';
+import { getDeviceSensors } from "../../api/deviceApi";
+import { ML_BASE_URL } from "../../utils/constants";
 
 type Slot = {
   id: string;
   name: string;
-  timeLabel: string; // "08:00 AM"
+  timeLabel: string;
   enabled: boolean;
-  hour24: number; // 0-23
-  minute: number; // 0-59
+  hour24: number;
+  minute: number;
 };
 
 const MAX_SLOTS = 6;
-const STORAGE_KEY = '@schedule_time_slots';
-const LAST_CHECK_KEY = '@last_schedule_check';
+const STORAGE_KEY = "@schedule_time_slots";
+const LAST_CHECK_KEY = "@last_schedule_check";
+const LAST_AUTO_UPDATE_KEY = "@last_auto_update";
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -83,11 +83,8 @@ export default function ScheduleTimeSlotsScreen() {
   const navigation = useNavigation<any>();
   const { setAll } = useSensorReadings();
 
-  const [slots, setSlots] = useState<Slot[]>([
-    { id: "1", name: "Morning", timeLabel: "08:00 AM", enabled: true, hour24: 8, minute: 0 },
-    { id: "2", name: "Afternoon", timeLabel: "01:00 PM", enabled: true, hour24: 13, minute: 0 },
-    { id: "3", name: "Evening", timeLabel: "08:00 PM", enabled: true, hour24: 20, minute: 0 },
-  ]);
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Modal state
   const [open, setOpen] = useState(false);
@@ -98,9 +95,11 @@ export default function ScheduleTimeSlotsScreen() {
   const [meridiem, setMeridiem] = useState<"AM" | "PM">("AM");
 
   // Use ref to always have current slots in the interval callback
-  const slotsRef = useRef(slots);
+  const slotsRef = useRef<Slot[]>([]);
+  
   useEffect(() => {
     slotsRef.current = slots;
+    console.log(`📝 Slots ref updated. Count: ${slots.length}`);
   }, [slots]);
 
   const capacityText = useMemo(
@@ -109,45 +108,71 @@ export default function ScheduleTimeSlotsScreen() {
   );
 
   const hours = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
-  // ✅ Changed to include ALL minutes (0-59)
   const minutes = useMemo(() => Array.from({ length: 60 }, (_, i) => i), []);
 
-  // Load saved slots on mount
+  // ✅ Load saved slots on mount
   useEffect(() => {
     loadSlots();
   }, []);
 
-  // ✅ Fixed: Start background scheduler with ref to avoid stale closure
+  // ✅ Start background scheduler
   useEffect(() => {
+    console.log("🚀 Starting background scheduler...");
+    
     const interval = setInterval(() => {
       checkAndExecuteSchedules();
     }, 60000); // Check every minute
 
     // Also check immediately on mount
-    checkAndExecuteSchedules();
+    setTimeout(() => {
+      checkAndExecuteSchedules();
+    }, 2000); // Small delay to ensure slots are loaded
 
-    return () => clearInterval(interval);
-  }, []); // Empty dependency array - use ref for current slots
+    return () => {
+      console.log("🛑 Stopping background scheduler...");
+      clearInterval(interval);
+    };
+  }, []);
 
   const loadSlots = async () => {
     try {
+      console.log("📥 Loading slots from AsyncStorage...");
       const saved = await AsyncStorage.getItem(STORAGE_KEY);
+      
       if (saved) {
-        const parsed = JSON.parse(saved);
+        const parsed = JSON.parse(saved) as Slot[];
+        console.log(`✅ Loaded ${parsed.length} slots:`, parsed.map(s => s.name));
         setSlots(parsed);
-        slotsRef.current = parsed; // Update ref immediately
+        slotsRef.current = parsed;
+      } else {
+        console.log("ℹ️  No saved slots found. Starting fresh.");
+        // Set default slots
+        const defaultSlots: Slot[] = [
+          { id: "1", name: "Morning", timeLabel: "08:00 AM", enabled: true, hour24: 8, minute: 0 },
+          { id: "2", name: "Afternoon", timeLabel: "01:00 PM", enabled: true, hour24: 13, minute: 0 },
+          { id: "3", name: "Evening", timeLabel: "08:00 PM", enabled: true, hour24: 20, minute: 0 },
+        ];
+        setSlots(defaultSlots);
+        slotsRef.current = defaultSlots;
+        await saveSlots(defaultSlots);
       }
     } catch (error) {
-      console.error("Failed to load schedules:", error);
+      console.error("❌ Failed to load schedules:", error);
+      Alert.alert("Error", "Failed to load schedules");
+    } finally {
+      setLoading(false);
     }
   };
 
   const saveSlots = async (newSlots: Slot[]) => {
     try {
+      console.log(`💾 Saving ${newSlots.length} slots to AsyncStorage...`);
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSlots));
-      slotsRef.current = newSlots; // Update ref immediately
+      slotsRef.current = newSlots;
+      console.log("✅ Slots saved successfully");
     } catch (error) {
-      console.error("Failed to save schedules:", error);
+      console.error("❌ Failed to save schedules:", error);
+      Alert.alert("Error", "Failed to save schedules");
     }
   };
 
@@ -157,40 +182,86 @@ export default function ScheduleTimeSlotsScreen() {
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
 
+      console.log("=".repeat(50));
+      console.log(`🕐 Schedule Check at ${now.toLocaleTimeString()}`);
+      console.log(`Current Time: ${currentHour}:${pad2(currentMinute)}`);
+      console.log(`Total Slots: ${slotsRef.current.length}`);
+      console.log(`Enabled Slots: ${slotsRef.current.filter((s) => s.enabled).length}`);
+
       // Get last check time
       const lastCheck = await AsyncStorage.getItem(LAST_CHECK_KEY);
       const lastCheckTime = lastCheck ? new Date(lastCheck) : null;
 
-      // Only execute if we haven't checked in the last minute
-      if (lastCheckTime && now.getTime() - lastCheckTime.getTime() < 60000) {
+      console.log(`Last Check: ${lastCheckTime?.toLocaleTimeString() || "Never"}`);
+
+      // Only execute if we haven't checked in the last 55 seconds
+      if (lastCheckTime && now.getTime() - lastCheckTime.getTime() < 55000) {
+        console.log("⏭️  Skipped - Too soon since last check");
+        console.log("=".repeat(50));
         return;
       }
 
       // Update last check time
       await AsyncStorage.setItem(LAST_CHECK_KEY, now.toISOString());
 
-      // ✅ Use ref to get current slots
-      const currentSlots = slotsRef.current;
-
       // Check each enabled slot
-      for (const slot of currentSlots) {
-        if (!slot.enabled) continue;
+      let foundMatch = false;
+      for (const slot of slotsRef.current) {
+        const slotTime = `${slot.hour24}:${pad2(slot.minute)}`;
+        const currentTime = `${currentHour}:${pad2(currentMinute)}`;
 
-        // Check if current time matches slot time (within 1 minute tolerance)
+        console.log(`\n📋 Checking Slot: ${slot.name}`);
+        console.log(`   - Schedule Time: ${slotTime} (${slot.timeLabel})`);
+        console.log(`   - Current Time:  ${currentTime}`);
+        console.log(`   - Enabled: ${slot.enabled ? "✅" : "❌"}`);
+
+        if (!slot.enabled) {
+          console.log(`   ⏭️  Skipped - Disabled`);
+          continue;
+        }
+
+        // Check if current time matches slot time
         if (slot.hour24 === currentHour && slot.minute === currentMinute) {
-          console.log(`⏰ Executing schedule: ${slot.name} at ${slot.timeLabel}`);
-          await fetchAndUpdateSensors(slot.name);
+          foundMatch = true;
+          console.log(`   🎯 MATCH FOUND!`);
+          console.log(`   ⏰ Executing schedule: ${slot.name} at ${slot.timeLabel}`);
+
+          try {
+            await fetchAndUpdateSensors(slot.name);
+            console.log(`   ✅ Successfully fetched sensors`);
+          } catch (error) {
+            console.error(`   ❌ Failed to fetch sensors:`, error);
+          }
+        } else {
+          console.log(`   ⏭️  No match - Different time`);
         }
       }
+
+      if (!foundMatch) {
+        console.log(`\n⚠️  No matching schedules found for ${currentHour}:${pad2(currentMinute)}`);
+      }
+
+      console.log("=".repeat(50));
     } catch (error) {
-      console.error("Schedule check failed:", error);
+      console.error("❌ Schedule check failed:", error);
     }
   };
 
   const fetchAndUpdateSensors = async (slotName: string) => {
     try {
+      console.log(`\n📡 Fetching sensors for schedule: ${slotName}`);
+
       const ZONE_ID = "z01";
+      console.log(`   - Calling device simulator at zone: ${ZONE_ID}`);
+
       const deviceSensors = await getDeviceSensors(ZONE_ID, "NORMAL");
+
+      console.log(`   - Received sensor data:`, {
+        temp: deviceSensors.temperature_c,
+        humidity: deviceSensors.humidity_pct,
+        ec: deviceSensors.ec_ms_cm,
+        ph: deviceSensors.ph,
+      });
 
       const mappedSensors = {
         airT: deviceSensors.temperature_c,
@@ -201,42 +272,79 @@ export default function ScheduleTimeSlotsScreen() {
 
       // Update sensor context
       setAll(mappedSensors);
+      console.log(`   ✅ Context updated`);
+
+      // ✅ Save timestamp of this auto-update
+      await AsyncStorage.setItem(LAST_AUTO_UPDATE_KEY, new Date().toISOString());
+      console.log(`   ✅ Auto-update timestamp saved`);
 
       // Ingest to ML backend
       try {
-        await axios.post(`${ML_BASE_URL}/infer/iot/ingest`, {
+        // ✅ Fixed payload format to match ML backend expectations
+        const payload = {
           device_id: deviceSensors.device_id,
           zone_id: deviceSensors.zone_id,
           plant_id: "p04",
           ts: deviceSensors.timestamp,
-          airT: deviceSensors.temperature_c,
-          RH: deviceSensors.humidity_pct,
-          EC: deviceSensors.ec_ms_cm,
-          pH: deviceSensors.ph,
+          // Use lowercase keys that match the ML backend schema
+          air_temp_c: deviceSensors.temperature_c,
+          humidity_pct: deviceSensors.humidity_pct,
+          ec_ms_cm: deviceSensors.ec_ms_cm,
+          ph: deviceSensors.ph,
+        };
+
+        console.log(`   - Sending to ML backend:`, payload);
+
+        const response = await axios.post(`${ML_BASE_URL}/infer/iot/ingest`, payload, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000, // 10 second timeout
         });
-      } catch (e) {
-        console.warn("Failed to ingest scheduled sensor data:", e);
+        
+        console.log(`   ✅ ML backend ingested successfully:`, response.data);
+      } catch (e: any) {
+        console.warn(`   ⚠️  ML backend ingest failed:`, {
+          status: e?.response?.status,
+          data: e?.response?.data,
+          message: e?.message,
+        });
+        // Don't throw - sensor update already succeeded
       }
 
-      console.log(`✅ Sensors updated from schedule: ${slotName}`);
+      console.log(`\n✅ ✅ ✅ Sensors successfully updated from schedule: ${slotName}`);
     } catch (error) {
-      console.error(`Failed to fetch sensors for schedule ${slotName}:`, error);
+      console.error(`❌ Failed to fetch sensors for schedule ${slotName}:`, error);
+      throw error;
     }
   };
 
-  const onToggleSlot = (id: string, value: boolean) => {
-    const updated = slots.map((s) => (s.id === id ? { ...s, enabled: value } : s));
+  const onToggleSlot = (id: string) => {
+    const updated = slots.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s));
     setSlots(updated);
     saveSlots(updated);
   };
 
   const onRemoveSlot = (id: string) => {
-    const updated = slots.filter((s) => s.id !== id);
-    setSlots(updated);
-    saveSlots(updated);
+    Alert.alert("Remove Schedule", "Are you sure you want to remove this schedule?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () => {
+          const updated = slots.filter((s) => s.id !== id);
+          setSlots(updated);
+          saveSlots(updated);
+        },
+      },
+    ]);
   };
 
   const openModal = () => {
+    if (slots.length >= MAX_SLOTS) {
+      Alert.alert("Capacity Reached", `You can only have ${MAX_SLOTS} time slots.`);
+      return;
+    }
     setEditingSlotId(null);
     setScheduleName("");
     setHour(8);
@@ -246,12 +354,12 @@ export default function ScheduleTimeSlotsScreen() {
   };
 
   const openEditModal = (slot: Slot) => {
-    const converted = convertTo12Hour(slot.hour24);
     setEditingSlotId(slot.id);
     setScheduleName(slot.name);
-    setHour(converted.hour);
+    const { hour: h, meridiem: m } = convertTo12Hour(slot.hour24);
+    setHour(h);
     setMinute(slot.minute);
-    setMeridiem(converted.meridiem);
+    setMeridiem(m);
     setOpen(true);
   };
 
@@ -272,10 +380,7 @@ export default function ScheduleTimeSlotsScreen() {
 
     // Prevent duplicate schedule times
     const hasConflict = slots.some(
-      (s) =>
-        s.id !== editingSlotId &&
-        s.hour24 === hour24 &&
-        s.minute === minute
+      (s) => s.id !== editingSlotId && s.hour24 === hour24 && s.minute === minute
     );
 
     if (hasConflict) {
@@ -310,149 +415,118 @@ export default function ScheduleTimeSlotsScreen() {
     );
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA] items-center justify-center">
+        <Text className="text-[14px] font-semibold text-gray-500">Loading schedules...</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       {/* Header */}
-      <View className="px-4 pt-2 pb-3 bg-[#F4F6FA]">
-        <View className="flex-row items-center justify-between">
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            className="w-10 h-10 items-center justify-center"
-            activeOpacity={0.85}
-          >
-            <Ionicons name="chevron-back" size={22} color="#111827" />
+      <View className="px-5 py-4 bg-white border-b border-gray-100">
+        <View className="flex-row items-center justify-between mb-2">
+          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
+            <Ionicons name="chevron-back" size={28} color="#1F2937" />
           </TouchableOpacity>
 
-          <Text className="text-[16px] font-extrabold text-gray-900">
-            Schedule Time Slots
-          </Text>
+          <View className="flex-1">
+            <Text className="text-[18px] font-extrabold text-gray-900">Schedule Time Slots</Text>
+            <Text className="text-[11px] font-semibold text-gray-500 mt-0.5">{capacityText}</Text>
+          </View>
 
-          <View className="w-10 h-10" />
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={async () => {
+              console.log("🧪 Manual test triggered");
+              await checkAndExecuteSchedules();
+            }}
+            className="w-10 h-10 rounded-full bg-orange-100 items-center justify-center"
+          >
+            <Ionicons name="flash" size={20} color="#EA580C" />
+          </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 }}
       >
-        {/* Info Banner */}
-        <View className="bg-[#EEF2FF] rounded-[16px] p-4 mt-2 flex-row">
-          <Ionicons name="information-circle" size={20} color="#4F46E5" />
-          <Text className="flex-1 ml-3 text-[11px] text-gray-700 leading-[16px]">
-            Sensor readings will be automatically fetched from the device simulator at each enabled time slot.
-          </Text>
-        </View>
+        {/* Slots */}
+        {slots.map((slot) => (
+          <View key={slot.id} className="bg-white rounded-2xl p-4 mb-3 border border-gray-100">
+            <View className="flex-row items-center justify-between mb-3">
+              <View className="flex-1">
+                <Text className="text-[15px] font-extrabold text-gray-900 mb-1">{slot.name}</Text>
+                <Text className="text-[12px] font-semibold text-gray-500">{slot.timeLabel}</Text>
+              </View>
 
-        {/* Section title row */}
-        <View className="flex-row items-center justify-between mt-6">
-          <Text className="text-[10px] font-extrabold text-gray-400 tracking-[1px]">
-            ACTIVE TIME SLOTS
-          </Text>
-          <Text className="text-[10px] font-extrabold text-green-600">
-            {capacityText}
-          </Text>
-        </View>
-
-        {/* Slot cards */}
-        <View className="mt-3">
-          {slots.map((slot) => (
-            <View
-              key={slot.id}
-              className="bg-white rounded-[18px] shadow-sm px-4 py-4 mb-4"
-            >
-              <View className="flex-row items-center justify-between">
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => onToggleSlot(slot.id)}
+                className={`px-4 py-2 rounded-full ${
+                  slot.enabled ? "bg-emerald-100" : "bg-gray-100"
+                }`}
+              >
                 <View className="flex-row items-center">
-                  <View className="w-10 h-10 rounded-full bg-[#EEF2FF] items-center justify-center mr-3">
-                    <Ionicons name="sunny-outline" size={18} color="#1D4ED8" />
-                  </View>
-                  <Text className="text-[14px] font-extrabold text-gray-900">
-                    {slot.name}
-                  </Text>
-                </View>
-
-                <View className="flex-row items-center">
-                  <Switch
-                    value={slot.enabled}
-                    onValueChange={(v) => onToggleSlot(slot.id, v)}
-                    trackColor={{ false: "#E5E7EB", true: "#93C5FD" }}
-                    thumbColor={slot.enabled ? "#1D4ED8" : "#FFFFFF"}
+                  <View
+                    className={`w-2 h-2 rounded-full mr-2 ${
+                      slot.enabled ? "bg-emerald-500" : "bg-gray-400"
+                    }`}
                   />
-
-                  <TouchableOpacity
-                    onPress={() => openEditModal(slot)}
-                    activeOpacity={0.8}
-                    className="ml-3 w-9 h-9 rounded-full bg-[#EEF2FF] items-center justify-center"
+                  <Text
+                    className={`text-[11px] font-extrabold ${
+                      slot.enabled ? "text-emerald-700" : "text-gray-600"
+                    }`}
                   >
-                    <Ionicons name="pencil-outline" size={16} color="#1D4ED8" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => onRemoveSlot(slot.id)}
-                    activeOpacity={0.8}
-                    className="ml-2 w-9 h-9 rounded-full bg-[#F1F5F9] items-center justify-center"
-                  >
-                    <Ionicons name="close" size={18} color="#64748B" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View className="mt-3 flex-row items-center justify-center">
-                <View className="bg-[#E8EEF8] rounded-full px-5 py-2 flex-row items-center">
-                  <Text className="text-[13px] font-extrabold text-gray-700">
-                    {slot.timeLabel}
+                    {slot.enabled ? "ON" : "OFF"}
                   </Text>
-                  <Ionicons name="time-outline" size={16} color="#64748B" style={{ marginLeft: 8 }} />
                 </View>
-              </View>
-
-              {slot.enabled && (
-                <View className="mt-2 flex-row items-center justify-center">
-                  <View className="w-2 h-2 rounded-full bg-green-500 mr-2" />
-                  <Text className="text-[10px] text-gray-500">Auto-update enabled</Text>
-                </View>
-              )}
+              </TouchableOpacity>
             </View>
-          ))}
-        </View>
 
-        {/* Add Time Slot button */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={openModal}
-          className="border border-gray-300 bg-white rounded-[16px] py-4 items-center justify-center flex-row"
-        >
-          <Ionicons name="add-circle-outline" size={18} color="#64748B" />
-          <Text className="ml-2 text-[13px] font-extrabold text-gray-700">
-            Add Time Slot
-          </Text>
-        </TouchableOpacity>
+            <View className="flex-row" style={{ gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => openEditModal(slot)}
+                className="flex-1 bg-[#F8FAFC] rounded-xl py-3 items-center"
+                activeOpacity={0.85}
+              >
+                <Text className="text-[12px] font-extrabold text-gray-700">Edit</Text>
+              </TouchableOpacity>
 
-        {/* Save Schedule */}
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => navigation.goBack()}
-          className="mt-4 bg-[#003B8F] rounded-[16px] py-4 items-center"
-        >
-          <Text className="text-white text-[14px] font-extrabold">
-            Save Schedule
-          </Text>
-        </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => onRemoveSlot(slot.id)}
+                className="flex-1 bg-red-50 rounded-xl py-3 items-center"
+                activeOpacity={0.85}
+              >
+                <Text className="text-[12px] font-extrabold text-red-600">Remove</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
 
-        {/* (Optional) spacer */}
-        <View className="h-14" />
+        {/* Add Button */}
+        {slots.length < MAX_SLOTS && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={openModal}
+            className="bg-[#003B8F] rounded-2xl py-4 items-center flex-row justify-center mt-2"
+          >
+            <Ionicons name="add-circle-outline" size={22} color="white" />
+            <Text className="ml-2 text-[14px] font-extrabold text-white">Add Time Slot</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
-      {/* ===================== MODAL ===================== */}
+      {/* Modal */}
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable
           onPress={() => setOpen(false)}
           className="flex-1 bg-black/40 items-center justify-center px-5"
         >
-          <Pressable
-            onPress={() => {}}
-            className="w-full bg-white rounded-[22px] overflow-hidden max-w-md"
-          >
-            {/* Modal top bar */}
+          <Pressable onPress={() => {}} className="w-full bg-white rounded-[22px] overflow-hidden max-w-md">
             <View className="px-5 pt-5 pb-3 border-b border-gray-100 flex-row items-center justify-between">
               <Text className="text-[12px] font-extrabold text-gray-900 tracking-[0.6px]">
                 {editingSlotId ? "EDIT SCHEDULE" : "NEW SCHEDULE"}
@@ -467,11 +541,8 @@ export default function ScheduleTimeSlotsScreen() {
             </View>
 
             <View className="px-5 py-5">
-              {/* Name */}
-              <Text className="text-[13px] font-extrabold text-gray-900 mb-2">
-                Schedule Name
-              </Text>
-              <View className="bg-[#F1F5F9] rounded-[14px] px-4 py-3">
+              <Text className="text-[13px] font-extrabold text-gray-900 mb-2">Schedule Name</Text>
+              <View className="bg-[#F1F5F9] rounded-[14px] px-4 py-3 mb-5">
                 <TextInput
                   value={scheduleName}
                   onChangeText={setScheduleName}
@@ -481,14 +552,9 @@ export default function ScheduleTimeSlotsScreen() {
                 />
               </View>
 
-              {/* Time picker */}
-              <Text className="text-[13px] font-extrabold text-gray-900 mt-5 mb-3">
-                Select Time
-              </Text>
+              <Text className="text-[13px] font-extrabold text-gray-900 mb-3">Select Time</Text>
 
-              {/* ✅ Improved time picker layout */}
               <View className="flex-row bg-[#F8FAFC] rounded-[16px] p-2" style={{ height: 220 }}>
-                {/* Hours */}
                 <View className="flex-1 items-center">
                   <Text className="text-[11px] font-extrabold text-gray-500 mb-2">HOUR</Text>
                   <ScrollView
@@ -497,20 +563,13 @@ export default function ScheduleTimeSlotsScreen() {
                     contentContainerStyle={{ alignItems: "center", paddingVertical: 4 }}
                   >
                     {hours.map((h) => (
-                      <SelectionPill
-                        key={`h-${h}`}
-                        label={pad2(h)}
-                        selected={hour === h}
-                        onPress={() => setHour(h)}
-                      />
+                      <SelectionPill key={`h-${h}`} label={pad2(h)} selected={hour === h} onPress={() => setHour(h)} />
                     ))}
                   </ScrollView>
                 </View>
 
-                {/* Divider */}
                 <View className="w-px bg-gray-200 mx-2" />
 
-                {/* Minutes */}
                 <View className="flex-1 items-center">
                   <Text className="text-[11px] font-extrabold text-gray-500 mb-2">MIN</Text>
                   <ScrollView
@@ -519,45 +578,27 @@ export default function ScheduleTimeSlotsScreen() {
                     contentContainerStyle={{ alignItems: "center", paddingVertical: 4 }}
                   >
                     {minutes.map((m) => (
-                      <SelectionPill
-                        key={`m-${m}`}
-                        label={pad2(m)}
-                        selected={minute === m}
-                        onPress={() => setMinute(m)}
-                      />
+                      <SelectionPill key={`m-${m}`} label={pad2(m)} selected={minute === m} onPress={() => setMinute(m)} />
                     ))}
                   </ScrollView>
                 </View>
 
-                {/* Divider */}
                 <View className="w-px bg-gray-200 mx-2" />
 
-                {/* AM/PM */}
                 <View className="flex-1 items-center justify-center">
-                  <SelectionPill
-                    label="AM"
-                    selected={meridiem === "AM"}
-                    onPress={() => setMeridiem("AM")}
-                  />
+                  <SelectionPill label="AM" selected={meridiem === "AM"} onPress={() => setMeridiem("AM")} />
                   <View className="h-2" />
-                  <SelectionPill
-                    label="PM"
-                    selected={meridiem === "PM"}
-                    onPress={() => setMeridiem("PM")}
-                  />
+                  <SelectionPill label="PM" selected={meridiem === "PM"} onPress={() => setMeridiem("PM")} />
                 </View>
               </View>
 
-              {/* Buttons */}
               <View className="flex-row justify-between mt-6">
                 <TouchableOpacity
                   onPress={() => setOpen(false)}
                   activeOpacity={0.9}
                   className="flex-1 bg-[#E8EEF8] rounded-[18px] py-4 items-center mr-3"
                 >
-                  <Text className="text-[13px] font-extrabold text-gray-700">
-                    Cancel
-                  </Text>
+                  <Text className="text-[13px] font-extrabold text-gray-700">Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
