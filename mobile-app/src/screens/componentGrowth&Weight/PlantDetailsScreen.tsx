@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Svg, { Path, Circle, Line, Text as SvgText } from "react-native-svg";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useAuth } from "../../auth/useAuth";
 import { getPlantDetails } from "../../api/plantsApi";
@@ -21,11 +22,36 @@ type HistoryItem = {
   dateLabel: string;
   ageDays?: number;
   weightG: number; // actual
-  predG: number;   // predicted
+  predG: number; // predicted
   kind: "scan" | "prediction";
 };
 
 type RouteParams = { plant_id: string };
+
+const START_W_KEY = (plantId: string) => `plant_start_weight_g:${String(plantId).toLowerCase()}`;
+
+async function getCachedStartWeight(plantId: string): Promise<number | null> {
+  try {
+    const v = await AsyncStorage.getItem(START_W_KEY(plantId));
+    if (!v) return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+async function setCachedStartWeightIfMissing(plantId: string, w: number) {
+  try {
+    if (!Number.isFinite(w) || w <= 0) return;
+    const key = START_W_KEY(plantId);
+    const existing = await AsyncStorage.getItem(key);
+    if (existing) return; // do not overwrite
+    await AsyncStorage.setItem(key, String(w));
+  } catch {
+    // ignore
+  }
+}
 
 function TopStat({
   icon,
@@ -46,12 +72,8 @@ function TopStat({
           {label}
         </Text>
       </View>
-      <Text className="text-[18px] font-extrabold text-gray-900 mt-2">
-        {value}
-      </Text>
-      {subValue ? (
-        <Text className="text-[10px] font-bold text-green-600 mt-1">{subValue}</Text>
-      ) : null}
+      <Text className="text-[18px] font-extrabold text-gray-900 mt-2">{value}</Text>
+      {subValue ? <Text className="text-[10px] font-bold text-green-600 mt-1">{subValue}</Text> : null}
     </View>
   );
 }
@@ -73,24 +95,14 @@ function SegButton({
         active ? "bg-[#EAF4FF] border border-[#B6C8F0]" : "bg-[#EEF2F7]"
       }`}
     >
-      <Text
-        className={`text-[10px] font-extrabold ${
-          active ? "text-[#003B8F]" : "text-gray-600"
-        }`}
-      >
+      <Text className={`text-[10px] font-extrabold ${active ? "text-[#003B8F]" : "text-gray-600"}`}>
         {label}
       </Text>
     </TouchableOpacity>
   );
 }
 
-function HistoryRow({
-  item,
-  highlight,
-}: {
-  item: HistoryItem;
-  highlight?: boolean;
-}) {
+function HistoryRow({ item, highlight }: { item: HistoryItem; highlight?: boolean }) {
   const isPred = item.kind === "prediction";
 
   return (
@@ -107,13 +119,7 @@ function HistoryRow({
             } items-center justify-center`}
           >
             <Ionicons
-              name={
-                highlight
-                  ? "checkmark-circle-outline"
-                  : isPred
-                  ? "analytics-outline"
-                  : "camera-outline"
-              }
+              name={highlight ? "checkmark-circle-outline" : isPred ? "analytics-outline" : "camera-outline"}
               size={18}
               color={highlight ? "#003B8F" : "#64748B"}
             />
@@ -124,27 +130,15 @@ function HistoryRow({
               {item.dateLabel}
               {item.ageDays != null ? `  •  Age ${item.ageDays}d` : ""}
             </Text>
-            <Text className="text-[10px] font-bold text-gray-500 mt-1">
-              Pred: {item.predG.toFixed(2)}g
-            </Text>
+            <Text className="text-[10px] font-bold text-gray-500 mt-1">Pred: {item.predG.toFixed(2)}g</Text>
           </View>
         </View>
 
         <View className="items-end">
-          <Text className="text-[14px] font-extrabold text-gray-900">
-            {item.weightG.toFixed(2)}g
-          </Text>
+          <Text className="text-[14px] font-extrabold text-gray-900">{item.weightG.toFixed(2)}g</Text>
 
-          <View
-            className={`mt-2 px-3 py-1 rounded-full self-end ${
-              isPred ? "bg-[#EEF2F7]" : "bg-[#EAF4FF]"
-            }`}
-          >
-            <Text
-              className={`text-[10px] font-extrabold ${
-                isPred ? "text-gray-600" : "text-[#003B8F]"
-              }`}
-            >
+          <View className={`mt-2 px-3 py-1 rounded-full self-end ${isPred ? "bg-[#EEF2F7]" : "bg-[#EAF4FF]"}`}>
+            <Text className={`text-[10px] font-extrabold ${isPred ? "text-gray-600" : "text-[#003B8F]"}`}>
               {isPred ? "Predicted" : "Scan"}
             </Text>
           </View>
@@ -162,14 +156,9 @@ function parseTs(x: any) {
 
 function prettyDayLabel(ts: number) {
   const d = new Date(ts);
-  return d.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "2-digit",
-  });
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "2-digit" });
 }
 
-// ✅ chart reused here (actual + predicted)
 function GrowthTrendChart({
   labels,
   actual,
@@ -183,19 +172,31 @@ function GrowthTrendChart({
   const h = 180;
   const pad = 22;
 
-  const all = [...actual, ...predicted].filter((x) => Number.isFinite(x));
+  const safeActual = actual.map((v) => (Number.isFinite(v) ? v : NaN));
+  const safePred = predicted.map((v) => (Number.isFinite(v) ? v : NaN));
+
+  const all = [...safeActual, ...safePred].filter((x) => Number.isFinite(x));
   const min = all.length ? Math.min(...all) : 0;
   const max = all.length ? Math.max(...all) : 1;
 
   const scaleX = (i: number) => pad + (i * (w - pad * 2)) / Math.max(1, labels.length - 1);
   const scaleY = (v: number) => {
+    if (!Number.isFinite(v)) return h - pad; // drop NaNs to bottom (won't be drawn anyway)
     if (max === min) return h / 2;
     const t = (v - min) / (max - min);
     return h - pad - t * (h - pad * 2);
   };
 
-  const toPath = (vals: number[]) =>
-    vals.map((v, i) => `${i === 0 ? "M" : "L"} ${scaleX(i)} ${scaleY(v)}`).join(" ");
+  const toPath = (vals: number[]) => {
+    let started = false;
+    let d = "";
+    vals.forEach((v, i) => {
+      if (!Number.isFinite(v)) return;
+      d += `${started ? " L" : " M"} ${scaleX(i)} ${scaleY(v)}`;
+      started = true;
+    });
+    return d;
+  };
 
   return (
     <View className="mt-4 bg-white rounded-[18px] shadow-sm px-4 py-4">
@@ -207,30 +208,21 @@ function GrowthTrendChart({
       <Svg width={w} height={h}>
         {[0, 1, 2, 3].map((k) => {
           const y = pad + (k * (h - pad * 2)) / 3;
-          return (
-            <Line key={k} x1={pad} y1={y} x2={w - pad} y2={y} stroke="#D8E3FF" strokeWidth={1} />
-          );
+          return <Line key={k} x1={pad} y1={y} x2={w - pad} y2={y} stroke="#D8E3FF" strokeWidth={1} />;
         })}
 
-        <Path d={toPath(actual)} stroke="#111827" strokeWidth={3} fill="none" />
-        <Path d={toPath(predicted)} stroke="#003B8F" strokeWidth={3} fill="none" strokeDasharray="6 6" />
+        <Path d={toPath(safeActual)} stroke="#111827" strokeWidth={3} fill="none" />
+        <Path d={toPath(safePred)} stroke="#003B8F" strokeWidth={3} fill="none" strokeDasharray="6 6" />
 
-        {actual.map((v, i) => (
-          <Circle key={`a-${i}`} cx={scaleX(i)} cy={scaleY(v)} r={3} fill="#111827" />
-        ))}
-        {predicted.map((v, i) => (
-          <Circle key={`p-${i}`} cx={scaleX(i)} cy={scaleY(v)} r={3} fill="#003B8F" />
-        ))}
+        {safeActual.map((v, i) =>
+          Number.isFinite(v) ? <Circle key={`a-${i}`} cx={scaleX(i)} cy={scaleY(v)} r={3} fill="#111827" /> : null
+        )}
+        {safePred.map((v, i) =>
+          Number.isFinite(v) ? <Circle key={`p-${i}`} cx={scaleX(i)} cy={scaleY(v)} r={3} fill="#003B8F" /> : null
+        )}
 
         {labels.map((t, i) => (
-          <SvgText
-            key={`x-${i}`}
-            x={scaleX(i)}
-            y={h - 4}
-            fontSize="9"
-            fill="#6B7280"
-            textAnchor="middle"
-          >
+          <SvgText key={`x-${i}`} x={scaleX(i)} y={h - 4} fontSize="9" fill="#6B7280" textAnchor="middle">
             {t}
           </SvgText>
         ))}
@@ -251,7 +243,19 @@ export default function PlantDetailsScreen() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
 
+  // ✅ cached start weight override (first-ever scan)
+  const [startOverride, setStartOverride] = useState<number | null>(null);
+
   const zone_id = "z01";
+
+  // load cached start weight when plant changes
+  useEffect(() => {
+    if (!plant_id) return;
+    (async () => {
+      const cached = await getCachedStartWeight(plant_id);
+      setStartOverride(cached);
+    })();
+  }, [plant_id]);
 
   useEffect(() => {
     if (!plant_id) return;
@@ -269,7 +273,22 @@ export default function PlantDetailsScreen() {
     })();
   }, [plant_id, range, accessToken]);
 
+  // If backend returns a valid start weight and we don't have cached start yet, lock it in.
+  useEffect(() => {
+    if (!plant_id) return;
+    const backendStart = Number(data?.start_weight_g ?? 0);
+    if (startOverride == null && Number.isFinite(backendStart) && backendStart > 0) {
+      (async () => {
+        await setCachedStartWeightIfMissing(plant_id, backendStart);
+        const cached = await getCachedStartWeight(plant_id);
+        setStartOverride(cached);
+      })();
+    }
+  }, [data, plant_id, startOverride]);
+
   const ui = useMemo(() => {
+    console.log("🔍 Raw backend data:", JSON.stringify(data, null, 2));
+
     const fmt2 = (n: any) => {
       const x = Number(n);
       return Number.isFinite(x) ? Number(x.toFixed(2)) : 0;
@@ -279,7 +298,16 @@ export default function PlantDetailsScreen() {
     const plantedOn = data?.planted_on ?? "Planted --";
     const ageDays = Number(data?.age_days ?? 0);
 
-    // --- build history from ALL sources ---
+    // Backend values
+    const backendStartWeight = fmt2(data?.start_weight_g ?? 0);
+    const backendCurrentWeight = fmt2(data?.current_weight_g ?? 0);
+
+    console.log("🔝 Backend top-level:", {
+      start_weight_g: backendStartWeight,
+      current_weight_g: backendCurrentWeight,
+    });
+
+    // Build history
     const items: HistoryItem[] = [];
 
     const scans = Array.isArray(data?.scans) ? data.scans : [];
@@ -293,7 +321,7 @@ export default function PlantDetailsScreen() {
         dateLabel: prettyDayLabel(ts) || "Scan",
         ageDays: age != null ? Number(age) : undefined,
         weightG: w,
-        predG: fmt2(s?.predicted_g ?? s?.predicted_weight_g ?? 0), // ✅ include prediction if available
+        predG: fmt2(s?.predicted_g ?? s?.predicted_weight_g ?? 0),
         kind: "scan",
       });
     }
@@ -314,6 +342,7 @@ export default function PlantDetailsScreen() {
       });
     }
 
+    // fallback "history"
     const fallbackHistory = Array.isArray(data?.history) ? data.history : [];
     if (items.length === 0 && fallbackHistory.length > 0) {
       fallbackHistory.forEach((h: any, idx: number) => {
@@ -330,56 +359,64 @@ export default function PlantDetailsScreen() {
       });
     }
 
-    // ✅ Sort oldest->newest for chart
+    console.log("📊 Total items parsed:", items.length);
+
     const sortedAsc = [...items].sort((a, b) => a.ts - b.ts);
-    // ✅ Sort newest->oldest for list
     const sortedDesc = [...items].sort((a, b) => b.ts - a.ts);
 
-    // ✅ Separate scan and prediction data points
     const scanPoints = sortedAsc.filter((x) => x.kind === "scan" && x.weightG > 0);
     const predPoints = sortedAsc.filter((x) => x.kind === "prediction" && x.predG > 0);
 
-    // ✅ start weight = first scan or first prediction
-    const startWeightG = scanPoints.length > 0 
-      ? scanPoints[0].weightG 
-      : predPoints.length > 0 
-      ? predPoints[0].predG 
-      : 0;
+    console.log("📈 Scan points:", scanPoints.map((s) => ({ w: s.weightG, age: s.ageDays })));
 
-    // ✅ current weight = latest scan
-    const currentWeightG = scanPoints.length > 0 ? scanPoints[scanPoints.length - 1].weightG : 0;
+    // ✅ FINAL FIX:
+    // START = cached first scan (if available) else backendStart else first scan in history
+    const startFromCache = startOverride != null && Number.isFinite(startOverride) ? startOverride : 0;
 
-    // ✅ predicted today = latest prediction
+    const startWeightG =
+      startFromCache > 0
+        ? fmt2(startFromCache)
+        : backendStartWeight > 0
+        ? backendStartWeight
+        : scanPoints.length > 0
+        ? scanPoints[0].weightG
+        : 0;
+
+    // CURRENT = backend current (latest scan) else last scan in history
+    const currentWeightG =
+      backendCurrentWeight > 0
+        ? backendCurrentWeight
+        : scanPoints.length > 0
+        ? scanPoints[scanPoints.length - 1].weightG
+        : 0;
+
     const predictedToday = predPoints.length > 0 ? predPoints[predPoints.length - 1].predG : 0;
 
-    // ✅ Chart: only plot non-zero values
+    console.log("📊 Final weights:", { START: startWeightG, CURRENT: currentWeightG, PREDICTED: predictedToday });
+
+    // Chart series
     const chartLabels: string[] = [];
     const actualSeries: number[] = [];
     const predictedSeries: number[] = [];
 
-    // Add scan data points
     scanPoints.forEach((s) => {
       chartLabels.push(s.ageDays != null ? `D${s.ageDays}` : "Scan");
       actualSeries.push(s.weightG);
-      predictedSeries.push(s.predG > 0 ? s.predG : s.weightG); // use scan weight if no prediction
+      predictedSeries.push(s.predG > 0 ? s.predG : s.weightG);
     });
 
-    // Add prediction-only points (not already covered by scans)
     predPoints.forEach((p) => {
-      const alreadyHasScanAtSameTime = scanPoints.some(
-        (s) => Math.abs(s.ts - p.ts) < 60000 // within 1 minute
-      );
+      const alreadyHasScanAtSameTime = scanPoints.some((s) => Math.abs(s.ts - p.ts) < 60000);
       if (!alreadyHasScanAtSameTime) {
         chartLabels.push(p.ageDays != null ? `D${p.ageDays}` : "Pred");
-        actualSeries.push(0); // no actual measurement, leave gap
+        actualSeries.push(NaN);
         predictedSeries.push(p.predG);
       }
     });
 
-    // ✅ growth % based on actual measurements or predictions
     const growthPctLabel =
-      startWeightG > 0 && (currentWeightG > 0 || predictedToday > 0)
-        ? `+${(((Math.max(currentWeightG, predictedToday) - startWeightG) / startWeightG) * 100).toFixed(0)}%`
+      startWeightG > 0 && currentWeightG > startWeightG
+        ? `+${(((currentWeightG - startWeightG) / startWeightG) * 100).toFixed(0)}%`
         : "";
 
     return {
@@ -392,19 +429,19 @@ export default function PlantDetailsScreen() {
       growthPctLabel,
       historyAsc: sortedAsc,
       historyDesc: sortedDesc,
-      chart: { 
-        labels: chartLabels, 
-        actual: actualSeries, 
-        predicted: predictedSeries 
-      },
+      chart: { labels: chartLabels, actual: actualSeries, predicted: predictedSeries },
     };
-  }, [data, plant_id]);
+  }, [data, plant_id, startOverride]);
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       <View className="px-4 pt-2 pb-2">
         <View className="flex-row items-center justify-between">
-          <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.85} className="w-10 h-10 items-center justify-center">
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.85}
+            className="w-10 h-10 items-center justify-center"
+          >
             <Ionicons name="chevron-back" size={22} color="#111827" />
           </TouchableOpacity>
 
@@ -427,14 +464,22 @@ export default function PlantDetailsScreen() {
           <Text className="mt-2 text-[11px] text-gray-500 font-semibold">Loading plant details...</Text>
         </View>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentInsetAdjustmentBehavior="never"
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+        >
           <View className="flex-row mt-4" style={{ gap: 10 }}>
             <TopStat icon="calendar-outline" label="AGE" value={`${ui.ageDays} Days`} />
             <TopStat icon="hourglass-outline" label="START" value={`${ui.startWeightG.toFixed(2)}g`} />
-            <TopStat icon="bar-chart-outline" label="CURRENT" value={`${ui.currentWeightG.toFixed(2)}g`} subValue={ui.growthPctLabel} />
+            <TopStat
+              icon="bar-chart-outline"
+              label="CURRENT"
+              value={`${ui.currentWeightG.toFixed(2)}g`}
+              subValue={ui.growthPctLabel}
+            />
           </View>
 
-          {/* ✅ real chart */}
           <GrowthTrendChart labels={ui.chart.labels} actual={ui.chart.actual} predicted={ui.chart.predicted} />
 
           <View className="flex-row mt-4" style={{ gap: 10 }}>
