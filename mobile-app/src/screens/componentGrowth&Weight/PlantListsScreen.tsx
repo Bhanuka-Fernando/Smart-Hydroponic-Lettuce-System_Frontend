@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { View, Text, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,6 +11,7 @@ type Filter = "All" | "Growing" | "Harvest Ready";
 
 type Plant = {
   id: string;
+  listKey: string; // unique key for React rendering
   name: string;
   day: number;
   area: number; // cm2
@@ -19,6 +20,12 @@ type Plant = {
   status: "NOT READY" | "HARVEST READY";
   imageUri: string;
 };
+
+const normalizePlantId = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^[^a-z0-9_-]+/i, ""); // strips leading symbols like "$"
 
 function Chip({ label, active, onPress }: { label: Filter; active: boolean; onPress: () => void }) {
   return (
@@ -113,28 +120,44 @@ export default function PlantListsScreen() {
       setLoading(true);
       const data = await getPlants({ token: accessToken, filter: apiFilter as any, zone_id: "z01" });
 
-      // ✅ Filter out p04 and any invalid plants
-      const mapped: Plant[] = data
-        .filter((p: any) => {
-          // Block p04/P04 completely
-          if (p.plant_id?.toLowerCase() === "p04") {
-            console.log('🚫 Blocking p04 from display');
-            return false;
-          }
-          return true;
-        })
-        .map((p: any) => ({
-          id: p.plant_id,
-          name: p.name ?? `Plant ${p.plant_id}`,
+      const seen = new Set<string>();
+      const mapped: Plant[] = [];
+
+      data.forEach((p: any, index: number) => {
+        if (!p?.plant_id) return;
+
+        const normalizedId = normalizePlantId(p.plant_id);
+        if (!normalizedId) return;
+
+        // Block p04/P04 completely
+        if (normalizedId === "p04") {
+          console.log("🚫 Blocking p04 from display");
+          return;
+        }
+
+        // Dedupe by normalized plant_id
+        if (seen.has(normalizedId)) {
+          console.log(`⚠️ Duplicate plant skipped: ${p.plant_id}`);
+          return;
+        }
+        seen.add(normalizedId);
+
+        const cleanId = String(p.plant_id).trim().replace(/^[^a-z0-9_-]+/i, "");
+
+        mapped.push({
+          id: cleanId || normalizedId.toUpperCase(),
+          listKey: `${normalizedId}-${index}`, // guaranteed unique key
+          name: p.name ?? `Plant ${cleanId || normalizedId.toUpperCase()}`,
           day: Number(p.age_days ?? 0),
-          area: Number(p.area_cm2 ?? 0).toFixed ? Number(Number(p.area_cm2 ?? 0).toFixed(1)) : Number(p.area_cm2 ?? 0),
-          diameter: Number(p.diameter_cm ?? 0).toFixed ? Number(Number(p.diameter_cm ?? 0).toFixed(1)) : Number(p.diameter_cm ?? 0),
-          estWeight: Number(p.estimated_weight_g ?? 0).toFixed ? Number(Number(p.estimated_weight_g ?? 0).toFixed(1)) : Number(p.estimated_weight_g ?? 0),
+          area: Number(Number(p.area_cm2 ?? 0).toFixed(1)),
+          diameter: Number(Number(p.diameter_cm ?? 0).toFixed(1)),
+          estWeight: Number(Number(p.estimated_weight_g ?? 0).toFixed(1)),
           status: p.status === "HARVEST_READY" ? "HARVEST READY" : "NOT READY",
           imageUri:
             p.image_url ||
             "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=60",
-        }));
+        });
+      });
 
       setPlants(mapped);
     } catch (e: any) {
@@ -214,7 +237,7 @@ export default function PlantListsScreen() {
           <View className="mt-4">
             {plants.map((p) => (
               <PlantCard
-                key={p.id}
+                key={p.listKey}
                 plant={p}
                 onPress={() => navigation.navigate("PlantDetails", { plant_id: p.id })}
                 onDelete={() => handleDelete(p.id, p.name)}

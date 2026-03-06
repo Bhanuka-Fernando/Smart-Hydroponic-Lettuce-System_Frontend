@@ -31,10 +31,17 @@ type RouteParams = {
 
 type PlantListItem = {
   plant_id: string;
+  listKey: string;
   zone_id?: string;
   planted_at?: string | null;
   latest_age_days?: number | null;
 };
+
+const normalizePlantId = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^[^a-z0-9_-]+/i, "");
 
 function StatCard({
   title,
@@ -276,22 +283,34 @@ export default function GrowthPredictionResultsScreen() {
         const list: PlantListItem[] = Array.isArray(res) ? res : (res as any)?.plants ?? [];
         if (!mounted) return;
 
+        const seen = new Set<string>();
+
         const cleaned = list
-          .filter((p) => {
-            // ✅ Block p04/P04 from appearing in dropdown
-            if (!p?.plant_id) return false;
-            if (String(p.plant_id).toLowerCase() === "p04") {
-              console.log('🚫 Filtering out p04 from plant picker');
-              return false;
-            }
-            return true;
-          })
-          .map((p) => ({
-            plant_id: String(p.plant_id),
-            zone_id: p.zone_id ?? "z01",
-            planted_at: p.planted_at ?? null,
-            latest_age_days: (p as any).latest_age_days ?? (p as any).age_days ?? null,
-          }))
+          .reduce<PlantListItem[]>((acc, p, index) => {
+            if (!p?.plant_id) return acc;
+
+            const normalizedId = normalizePlantId(p.plant_id);
+            if (!normalizedId) return acc;
+
+            // Block p04/P04
+            if (normalizedId === "p04") return acc;
+
+            // Dedupe duplicated plant IDs from API
+            if (seen.has(normalizedId)) return acc;
+            seen.add(normalizedId);
+
+            const cleanId = String(p.plant_id).trim().replace(/^[^a-z0-9_-]+/i, "");
+
+            acc.push({
+              plant_id: cleanId || normalizedId.toUpperCase(),
+              listKey: `${normalizedId}-${index}`,
+              zone_id: p.zone_id ?? "z01",
+              planted_at: p.planted_at ?? null,
+              latest_age_days: (p as any).latest_age_days ?? (p as any).age_days ?? null,
+            });
+
+            return acc;
+          }, [])
           .sort((a, b) => a.plant_id.localeCompare(b.plant_id));
 
         setPlants(cleaned);
@@ -488,7 +507,12 @@ export default function GrowthPredictionResultsScreen() {
                   </View>
                 ) : (
                   plants.map((p) => (
-                    <TouchableOpacity key={p.plant_id} activeOpacity={0.9} onPress={() => onSelectPlant(p)} className="py-3 border-b border-gray-100 flex-row items-center justify-between">
+                    <TouchableOpacity
+                      key={p.listKey}
+                      activeOpacity={0.9}
+                      onPress={() => onSelectPlant(p)}
+                      className="py-3 border-b border-gray-100 flex-row items-center justify-between"
+                    >
                       <View>
                         <Text className="text-[12px] font-extrabold text-gray-900">{p.plant_id}</Text>
                         <Text className="text-[10px] text-gray-500 mt-1">
