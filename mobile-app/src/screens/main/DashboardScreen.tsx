@@ -97,17 +97,14 @@ export default function DashboardScreen() {
 
   const { user, signOut, accessToken } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
-  
-  // Dashboard state
+
   const [metrics, setMetrics] = useState<DashboardMetricsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Notifications and Activities state
   const [notifications, setNotifications] = useState<NotificationItem[]>(mockNotifications);
   const [activities, setActivities] = useState<ActivityItem[]>(mockActivities);
 
-  // Fetch dashboard metrics
   const fetchDashboard = useCallback(async (isRefreshing = false) => {
     try {
       if (!isRefreshing) setLoading(true);
@@ -115,8 +112,7 @@ export default function DashboardScreen() {
       setMetrics(data);
     } catch (error: any) {
       console.error("Failed to fetch dashboard:", error);
-      
-      // Use mock data if API is not available
+
       const mockData: DashboardMetricsResponse = {
         zone_id: "all",
         zone_name: "All Zones",
@@ -130,7 +126,7 @@ export default function DashboardScreen() {
         last_updated: new Date().toISOString(),
       };
       setMetrics(mockData);
-      
+
       if (!isRefreshing) {
         console.warn("Using mock data - backend endpoint not available");
       }
@@ -140,12 +136,10 @@ export default function DashboardScreen() {
     }
   }, [accessToken]);
 
-  // Fetch on mount
   useEffect(() => {
     fetchDashboard();
-  }, []);
+  }, [fetchDashboard]);
 
-  // Pull to refresh
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchDashboard(true);
@@ -159,8 +153,14 @@ export default function DashboardScreen() {
     }
   };
 
+  const openSpoilageModule = () => {
+    navigation.navigate("SpoilageModule", {
+      screen: "SpoilageDetails",
+    });
+  };
+
   const handleDismissNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
   const handleClearAllNotifications = () => {
@@ -182,7 +182,6 @@ export default function DashboardScreen() {
     try {
       setProfileOpen(false);
       await signOut();
-      // RootNavigator will automatically switch back to Auth screens
     } catch {
       Alert.alert("Logout failed", "Please try again.");
     }
@@ -190,9 +189,10 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
-      {/* HEADER */}
       <View className="px-4 pt-4 pb-3">
-        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">{headerDate}</Text>
+        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">
+          {headerDate}
+        </Text>
 
         <View className="flex-row items-start justify-between mt-2">
           <View>
@@ -204,7 +204,6 @@ export default function DashboardScreen() {
             </Text>
           </View>
 
-          {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => setProfileOpen(true)}
@@ -219,7 +218,6 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {/* BODY */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
@@ -239,7 +237,6 @@ export default function DashboardScreen() {
           </View>
         ) : metrics ? (
           <>
-            {/* Metrics Cards */}
             <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
               <Text className="text-[16px] font-extrabold text-gray-900 mb-3">
                 System Overview
@@ -273,7 +270,7 @@ export default function DashboardScreen() {
                 subtitle="Identify Crop Issues"
                 iconBg="bg-[#FFF6E5]"
                 icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
-                onPress={() => (navigation.getParent() as any)?.navigate("Spoilage")}
+                onPress={openSpoilageModule}
               />
               <FeatureCard
                 title="Water Quality"
@@ -285,7 +282,7 @@ export default function DashboardScreen() {
             </View>
           </>
         ) : null}
-        {/* Feature 2x2 grid */}
+
         <View className="mt-4">
           <View className="flex-row justify-between">
             <FeatureCard
@@ -310,7 +307,7 @@ export default function DashboardScreen() {
               subtitle="Identify Crop Issues"
               iconBg="bg-[#FFF6E5]"
               icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
-              onPress={() => go("Scan")}
+              onPress={openSpoilageModule}
             />
             <FeatureCard
               title="Water Quality"
@@ -322,7 +319,6 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Quick Actions */}
         <Text className="text-[13px] font-extrabold text-gray-900 mt-6 mb-3">
           Quick Actions
         </Text>
@@ -354,11 +350,10 @@ export default function DashboardScreen() {
             bottom="Check"
             iconBg="bg-[#FFF6E5]"
             icon={<Ionicons name="warning-outline" size={20} color="#F59E0B" />}
-            onPress={() => navigation.navigate("SpoilageDetails")}
+            onPress={openSpoilageModule}
           />
         </View>
 
-        {/* Notifications */}
         {notifications.length > 0 && (
           <>
             <View className="flex-row items-center justify-between mt-6 mb-3">
@@ -396,7 +391,6 @@ export default function DashboardScreen() {
           </>
         )}
 
-        {/* Recent Activities */}
         {activities.length > 0 && (
           <>
             <View className="flex-row items-center justify-between mt-6 mb-3">
@@ -432,19 +426,15 @@ export default function DashboardScreen() {
         )}
       </ScrollView>
 
-      {/* ✅ Profile Bottom Sheet Modal */}
       <Modal
         visible={profileOpen}
         transparent
         animationType="slide"
         onRequestClose={() => setProfileOpen(false)}
       >
-        {/* Backdrop */}
         <Pressable className="flex-1 bg-black/40" onPress={() => setProfileOpen(false)} />
 
-        {/* Sheet */}
         <View className="bg-white rounded-t-3xl px-5 pt-4 pb-6">
-          {/* Grab handle */}
           <View className="w-12 h-1.5 bg-gray-200 rounded-full self-center mb-4" />
 
           <View className="flex-row items-center">
@@ -488,8 +478,6 @@ export default function DashboardScreen() {
     </SafeAreaView>
   );
 }
-
-/* ---------- components ---------- */
 
 function FeatureCard({
   title,

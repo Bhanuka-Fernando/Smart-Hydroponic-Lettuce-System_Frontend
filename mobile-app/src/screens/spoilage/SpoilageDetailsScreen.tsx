@@ -64,8 +64,8 @@ function mapSeverity(
 }
 
 function mapAction(stage: SpoilagePredictionRow["stage"]): string | undefined {
-  if (stage === "near_spoilage") return "Action : Inspect Now";
-  if (stage === "spoiled") return "Action : Discard";
+  if (stage === "near_spoilage") return "Action: Inspect now";
+  if (stage === "spoiled") return "Action: Discard";
   return undefined;
 }
 
@@ -171,9 +171,10 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
               else navigation.navigate("SpoilageDetails");
             }}
             activeOpacity={0.8}
-            className="w-10 h-10 items-center justify-center"
+            className="w-10 h-10 items-center justify-center rounded-full bg-white"
+            style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
           >
-            <Ionicons name="chevron-back" size={22} color="#111827" />
+            <Ionicons name="chevron-back" size={20} color="#111827" />
           </TouchableOpacity>
 
           <Text className="text-[16px] font-extrabold text-gray-900">
@@ -183,42 +184,57 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           <TouchableOpacity
             onPress={handleRefresh}
             activeOpacity={0.85}
-            className="w-10 h-10 items-center justify-center"
+            className="w-10 h-10 items-center justify-center rounded-full bg-white"
+            style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
           >
             <Ionicons name="refresh" size={18} color="#111827" />
           </TouchableOpacity>
         </View>
 
-        <View className="mt-2">
-          <Text className="text-[11px] text-gray-500 font-semibold">
-            CURRENT LOCATION
-          </Text>
-          <View className="flex-row items-center mt-1">
-            <Text className="text-[14px] font-extrabold text-gray-900">
-              {currentLocation}
-            </Text>
-            <Ionicons
-              name="chevron-down"
-              size={16}
-              color="#6B7280"
-              style={{ marginLeft: 6 }}
-            />
+        <View className="mt-4 bg-[#0B1220] rounded-[22px] px-4 py-4">
+          <View className="flex-row items-start justify-between">
+            <View className="flex-1 pr-3">
+              <Text className="text-[11px] text-white/60 font-semibold">
+                CURRENT LOCATION
+              </Text>
+              <View className="flex-row items-center mt-1">
+                <Text className="text-[16px] font-extrabold text-white">
+                  {currentLocation}
+                </Text>
+                <Ionicons
+                  name="chevron-down"
+                  size={15}
+                  color="#CBD5E1"
+                  style={{ marginLeft: 6 }}
+                />
+              </View>
+
+              <Text className="text-[12px] text-white/75 mt-3 leading-5">
+                Monitor spoilage risk, check urgent plants, and rescan only the
+                ones that need attention.
+              </Text>
+            </View>
+
+            <View className="w-12 h-12 rounded-full bg-[#16A34A] items-center justify-center">
+              <Ionicons name="leaf-outline" size={22} color="#fff" />
+            </View>
           </View>
         </View>
 
         {error ? (
-          <Text className="text-[12px] text-red-600 font-semibold mt-2">
-            {error}
-          </Text>
-        ) : (
-          <Text className="text-[11px] text-gray-500 font-semibold mt-2">
-            Live updates from DB (latest per plant)
-          </Text>
-        )}
+          <View
+            className="mt-3 rounded-[16px] px-4 py-3 bg-[#FEF2F2]"
+            style={{ borderWidth: 1, borderColor: "#FECACA" }}
+          >
+            <Text className="text-[12px] text-red-600 font-semibold">
+              {error}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={{ paddingHorizontal: 16 }}>
-        <View className="flex-row items-center justify-between mt-2 mb-2">
+        <View className="flex-row items-center justify-between mt-1 mb-3">
           <Text className="text-[14px] font-extrabold text-gray-900">
             Current Batch Status
           </Text>
@@ -240,9 +256,12 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
         </View>
 
         <TouchableOpacity
-          activeOpacity={0.9}
+          activeOpacity={0.92}
           onPress={openSpoilageScan}
-          className="mt-4 bg-[#0B1220] rounded-[18px] px-4 py-4 shadow-sm"
+          className="mt-4 rounded-[22px] px-4 py-4 shadow-sm"
+          style={{
+            backgroundColor: "#0B1220",
+          }}
         >
           <View className="flex-row items-center justify-between">
             <View className="flex-1 pr-3">
@@ -262,12 +281,14 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
 
         <View className="flex-row justify-between mt-3">
           <SmallActionCard
-            title={`Today's Alerts (${activeAlertCount})`}
+            title="Today's Alerts"
+            value={activeAlertCount}
             icon={<Ionicons name="warning-outline" size={18} color="#F59E0B" />}
             onPress={() => navigation.navigate("SpoilageAlerts")}
           />
           <SmallActionCard
-            title={`Recheck Soon (${recheckCount})`}
+            title="Recheck Soon"
+            value={recheckCount}
             icon={<Ionicons name="time-outline" size={18} color="#2563EB" />}
             onPress={() =>
               Alert.alert(
@@ -278,9 +299,16 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           />
         </View>
 
-        <Text className="text-[14px] font-extrabold text-gray-900 mt-5 mb-3">
-          Priority Recheck Queue
-        </Text>
+        <View className="flex-row items-center justify-between mt-6 mb-3">
+          <Text className="text-[14px] font-extrabold text-gray-900">
+            Priority Recheck Queue
+          </Text>
+          {recheckItems.length > 0 ? (
+            <Text className="text-[11px] text-gray-500 font-semibold">
+              Top 3 urgent plants
+            </Text>
+          ) : null}
+        </View>
 
         {recheckItems.length === 0 ? (
           <View className="bg-white rounded-[18px] px-4 py-4 shadow-sm">
@@ -302,12 +330,16 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
             >
               <View className="flex-row items-center justify-between">
                 <View className="flex-1 pr-3">
-                  <Text className="text-[13px] font-extrabold text-gray-900">
-                    {displayPlantId(item.plant_id)}
+                  <View className="flex-row items-center">
+                    <Text className="text-[13px] font-extrabold text-gray-900">
+                      {displayPlantId(item.plant_id)}
+                    </Text>
                     {isSimPlantId(item.plant_id) ? (
-                      <Text className="text-[11px] text-gray-400"> (Sim)</Text>
+                      <Text className="text-[11px] text-gray-400 ml-1">
+                        (Sim)
+                      </Text>
                     ) : null}
-                  </Text>
+                  </View>
 
                   <Text className="text-[11px] text-gray-500 mt-1">
                     Stage: {mapStageLabel(item.stage)} • Shelf Life:{" "}
@@ -339,9 +371,14 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           ))
         )}
 
-        <Text className="text-[14px] font-extrabold text-gray-900 mt-5 mb-3">
-          Recent Predictions
-        </Text>
+        <View className="flex-row items-center justify-between mt-6 mb-3">
+          <Text className="text-[14px] font-extrabold text-gray-900">
+            Recent Predictions
+          </Text>
+          <Text className="text-[11px] text-gray-500 font-semibold">
+            Latest result per plant
+          </Text>
+        </View>
 
         <View className="flex-row mb-3">
           <Chip
@@ -404,7 +441,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
               </Text>
             </View>
           }
-          contentContainerStyle={{ paddingBottom: 18 }}
+          contentContainerStyle={{ paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews
           initialNumToRender={6}
@@ -456,10 +493,12 @@ function StatPill({
 
 function SmallActionCard({
   title,
+  value,
   icon,
   onPress,
 }: {
   title: string;
+  value: number;
   icon: React.ReactNode;
   onPress: () => void;
 }) {
@@ -467,12 +506,18 @@ function SmallActionCard({
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={onPress}
-      className="bg-white w-[48%] rounded-[18px] px-4 py-4 shadow-sm flex-row items-center"
+      className="bg-white w-[48%] rounded-[18px] px-4 py-4 shadow-sm"
     >
-      <View className="w-10 h-10 rounded-full bg-[#EEF2FF] items-center justify-center mr-3">
-        {icon}
+      <View className="flex-row items-center justify-between">
+        <View className="w-10 h-10 rounded-full bg-[#EEF2FF] items-center justify-center">
+          {icon}
+        </View>
+        <Text className="text-[18px] font-extrabold text-gray-900">{value}</Text>
       </View>
-      <Text className="text-[13px] font-extrabold text-gray-900">{title}</Text>
+
+      <Text className="text-[12px] font-extrabold text-gray-900 mt-3">
+        {title}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -563,7 +608,9 @@ function PredictionRow({
             <View className="flex-row items-center justify-between">
               <Text className="text-[13px] font-extrabold text-gray-900">
                 {displayPlantId(item.plantId)}
-                {sim ? <Text className="text-[11px] text-gray-400"> (Sim)</Text> : null}
+                {sim ? (
+                  <Text className="text-[11px] text-gray-400"> (Sim)</Text>
+                ) : null}
               </Text>
 
               <View
@@ -580,7 +627,7 @@ function PredictionRow({
             </View>
 
             <Text className="text-[11px] text-gray-500 mt-1">
-              🕒 Shelf Life: {clamp(item.shelfLifeDays, 0, 99)} Days
+              Shelf Life: {clamp(item.shelfLifeDays, 0, 99)} Days
             </Text>
 
             {item.actionText ? (

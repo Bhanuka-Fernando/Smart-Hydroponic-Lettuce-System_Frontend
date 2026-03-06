@@ -85,6 +85,29 @@ async function ensureLocalUri(uri: string) {
   return localPath;
 }
 
+function getFriendlyPredictionError(detail: any) {
+  if (!detail) {
+    return "Invalid image. Please capture a clear top-view lettuce image only.";
+  }
+
+  if (typeof detail === "string") {
+    const msg = detail.toLowerCase();
+
+    if (
+      msg.includes("invalid image") ||
+      msg.includes("top-view lettuce") ||
+      msg.includes("not a lettuce") ||
+      msg.includes("low confidence")
+    ) {
+      return "Wrong image detected. Please capture a clear top-view photo of the lettuce only.";
+    }
+
+    return detail;
+  }
+
+  return "Wrong image detected. Please capture a clear top-view photo of the lettuce only.";
+}
+
 export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [mode, setMode] = useState<Mode>("Camera");
 
@@ -119,6 +142,8 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [simLock, setSimLock] = useState<SimLock | null>(null);
 
   const [demoTimeIndex, setDemoTimeIndex] = useState(0);
+  const [scanError, setScanError] = useState<string | null>(null);
+
   const selectedDemoLabel = DEMO_DAY_OPTIONS[demoTimeIndex]?.label;
   const selectedDemoDaysAhead = DEMO_DAY_OPTIONS[demoTimeIndex]?.daysAhead ?? 0;
   const selectedDemoTime = buildDemoIso(selectedDemoDaysAhead);
@@ -136,6 +161,8 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
 
   const pickFromGallery = async () => {
     try {
+      setScanError(null);
+
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         Alert.alert("Permission", "Please allow gallery access.");
@@ -163,6 +190,8 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
 
     try {
       setBusy(true);
+      setScanError(null);
+
       const photo = await cameraRef.current.takePictureAsync({
         quality: 1,
         skipProcessing: true,
@@ -185,6 +214,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
     setCapturedUri(null);
     setCapturedAt(null);
     setSimLock(null);
+    setScanError(null);
   };
 
   const onUseLastSensor = async () => {
@@ -231,6 +261,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
   const onSimulateCamera = async () => {
     try {
       setBusy(true);
+      setScanError(null);
 
       const pidForSimRequest = (rawLockedPlantId ?? plantId)?.trim() || "";
       const pidForDisplay = stripSim(pidForSimRequest);
@@ -317,6 +348,7 @@ Image: ${sample.image_name ?? "none"}`
 
     try {
       setBusy(true);
+      setScanError(null);
 
       if (simLock && capturedUri === simLock.imageUrl) {
         setTemperature(simLock.temperature);
@@ -350,6 +382,7 @@ Image: ${sample.image_name ?? "none"}`
       setCapturedUri(null);
       setCapturedAt(null);
       setSimLock(null);
+      setScanError(null);
 
       navigation.replace("SpoilageConfirm", {
         imageUri: localUri,
@@ -361,7 +394,11 @@ Image: ${sample.image_name ?? "none"}`
       } as any);
     } catch (e: any) {
       console.log("Predict error:", e?.message, e?.response?.data);
-      Alert.alert("Error", e?.response?.data?.detail || "Prediction failed");
+
+      const detail = e?.response?.data?.detail;
+      const friendly = getFriendlyPredictionError(detail);
+
+      setScanError(friendly);
     } finally {
       setBusy(false);
     }
@@ -489,6 +526,29 @@ Image: ${sample.image_name ?? "none"}`
             <Text className="text-[11px] text-gray-500 mt-1">
               Selected: {selectedDemoLabel} • {formatLocalDateTime(selectedDemoTime)}
             </Text>
+          </View>
+        ) : null}
+
+        {scanError ? (
+          <View
+            className="mt-4 rounded-[16px] px-4 py-3"
+            style={{
+              backgroundColor: "#FEF2F2",
+              borderWidth: 1,
+              borderColor: "#FECACA",
+            }}
+          >
+            <View className="flex-row items-start">
+              <Ionicons name="warning-outline" size={18} color="#DC2626" />
+              <View className="ml-2 flex-1">
+                <Text className="text-[13px] font-extrabold text-red-700">
+                  Invalid capture
+                </Text>
+                <Text className="text-[12px] text-red-600 mt-1 leading-5">
+                  {scanError}
+                </Text>
+              </View>
+            </View>
           </View>
         ) : null}
 
