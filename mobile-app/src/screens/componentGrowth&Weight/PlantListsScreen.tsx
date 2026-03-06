@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicat
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // ✅ Add this import
 
 import { useAuth } from "../../auth/useAuth";
 import { getPlants, deletePlant } from "../../api/plantsApi";
@@ -178,7 +179,16 @@ export default function PlantListsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              // ✅ 1. Delete from backend
               await deletePlant({ token: accessToken, plant_id: plantId });
+
+              // ✅ 2. Clear cached weights from AsyncStorage
+              const normalizedId = plantId.trim().toLowerCase();
+              const startKey = `plant_start_weight_g:${normalizedId}`;
+              const currentKey = `plant_current_weight_g:${normalizedId}`;
+              
+              await AsyncStorage.multiRemove([startKey, currentKey]);
+
               Alert.alert("Success", "Plant deleted successfully");
               loadPlants(); // Refresh the list
             } catch (e: any) {
