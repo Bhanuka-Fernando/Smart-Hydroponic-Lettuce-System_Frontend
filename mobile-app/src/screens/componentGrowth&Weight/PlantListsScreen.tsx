@@ -182,12 +182,15 @@ export default function PlantListsScreen() {
               // ✅ 1. Delete from backend
               await deletePlant({ token: accessToken, plant_id: plantId });
 
-              // ✅ 2. Clear cached weights from AsyncStorage
+              // ✅ 2. Clear ALL cached data from AsyncStorage
               const normalizedId = plantId.trim().toLowerCase();
               const startKey = `plant_start_weight_g:${normalizedId}`;
               const currentKey = `plant_current_weight_g:${normalizedId}`;
+              const scansKey = `plant_scans:${normalizedId}`; // ✅ Added this
               
-              await AsyncStorage.multiRemove([startKey, currentKey]);
+              await AsyncStorage.multiRemove([startKey, currentKey, scansKey]);
+
+              console.log(`✅ Deleted all cached data for plant: ${normalizedId}`);
 
               Alert.alert("Success", "Plant deleted successfully");
               loadPlants(); // Refresh the list

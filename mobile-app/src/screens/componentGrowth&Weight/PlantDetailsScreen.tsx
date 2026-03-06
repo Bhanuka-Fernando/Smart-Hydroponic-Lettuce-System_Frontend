@@ -20,6 +20,7 @@ type HistoryItem = {
   id: string;
   ts: number;
   dateLabel: string;
+  timeLabel?: string;
   ageDays?: number;
   weightG: number;
   predG: number;
@@ -70,7 +71,6 @@ async function getCachedScans(plantId: string): Promise<any[]> {
   try {
     const v = await AsyncStorage.getItem(SCANS_KEY(plantId));
     if (!v) return [];
-
     const parsed = JSON.parse(v);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -124,8 +124,16 @@ function prettyDayLabel(ts: number) {
   const d = new Date(ts);
   return d.toLocaleDateString(undefined, {
     weekday: "short",
-    month: "short",
     day: "2-digit",
+    month: "short",
+  });
+}
+
+function prettyTimeLabel(ts: number) {
+  const d = new Date(ts);
+  return d.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -166,9 +174,7 @@ function TopStat({
         </Text>
       </View>
       <Text className="text-[18px] font-extrabold text-gray-900 mt-2">{value}</Text>
-      {subValue ? (
-        <Text className="text-[10px] font-bold text-green-600 mt-1">{subValue}</Text>
-      ) : null}
+      {subValue ? <Text className="text-[10px] font-bold text-green-600 mt-1">{subValue}</Text> : null}
     </View>
   );
 }
@@ -229,8 +235,10 @@ function HistoryRow({ item, highlight }: { item: HistoryItem; highlight?: boolea
           <View className="ml-3 flex-1">
             <Text className="text-[12px] font-extrabold text-gray-900">
               {item.dateLabel}
-              {item.ageDays != null ? `  •  Age ${item.ageDays}d` : ""}
+              {item.timeLabel ? ` • ${item.timeLabel}` : ""}
+              {item.ageDays != null ? ` • Age ${item.ageDays}d` : ""}
             </Text>
+
             <Text className="text-[10px] font-bold text-gray-500 mt-1">
               {item.kind === "scan"
                 ? `Actual: ${item.weightG.toFixed(2)}g`
@@ -422,8 +430,6 @@ export default function PlantDetailsScreen() {
 
     const rawItems: HistoryItem[] = [];
 
-    console.log("📱 Processing cached scans:", cachedScans.length);
-
     cachedScans.forEach((s: any, idx: number) => {
       const ts = parseTs(s?.ts || s?.created_at || s?.captured_at || s?.time || s?.date);
       const age = s?.plant_age_days ?? s?.age_days ?? s?.age ?? undefined;
@@ -441,6 +447,7 @@ export default function PlantDetailsScreen() {
           id: `cached-scan-${s?.id ?? idx}-${ts}`,
           ts: ts || Date.now() - idx,
           dateLabel: prettyDayLabel(ts || Date.now()),
+          timeLabel: prettyTimeLabel(ts || Date.now()),
           ageDays: age != null ? Number(age) : undefined,
           weightG: w,
           predG: w,
@@ -450,8 +457,6 @@ export default function PlantDetailsScreen() {
     });
 
     const scans = Array.isArray(data?.scans) ? data.scans : [];
-    console.log("📸 Total backend scans found:", scans.length);
-
     scans.forEach((s: any, idx: number) => {
       const ts = parseTs(s?.ts || s?.created_at || s?.captured_at || s?.time || s?.date);
       const age = s?.plant_age_days ?? s?.age_days ?? s?.age ?? undefined;
@@ -470,6 +475,7 @@ export default function PlantDetailsScreen() {
           id: `scan-${s?.id ?? idx}-${ts}`,
           ts: ts || Date.now() - idx,
           dateLabel: prettyDayLabel(ts || Date.now()),
+          timeLabel: prettyTimeLabel(ts || Date.now()),
           ageDays: age != null ? Number(age) : undefined,
           weightG: w,
           predG: predW > 0 ? predW : w,
@@ -479,8 +485,6 @@ export default function PlantDetailsScreen() {
     });
 
     const preds = Array.isArray(data?.growth_predictions) ? data.growth_predictions : [];
-    console.log("🔮 Total predictions found:", preds.length);
-
     const predsByAgeAndLabel = new Map<string, any>();
 
     for (const p of preds) {
@@ -514,6 +518,7 @@ export default function PlantDetailsScreen() {
           id: `pred-${p?.id ?? ts}`,
           ts: ts || Date.now(),
           dateLabel: p?.date_label ?? prettyDayLabel(ts || Date.now()),
+          timeLabel: undefined,
           ageDays: age != null ? Number(age) : undefined,
           weightG: predW,
           predG: predW,
@@ -523,8 +528,6 @@ export default function PlantDetailsScreen() {
     }
 
     const fallbackHistory = Array.isArray(data?.history) ? data.history : [];
-    console.log("📜 Total history items found:", fallbackHistory.length);
-
     fallbackHistory.forEach((h: any, idx: number) => {
       let age = h?.age_days ?? undefined;
       const dateLabel = String(h?.date_label ?? "").toLowerCase();
@@ -546,7 +549,6 @@ export default function PlantDetailsScreen() {
       const actualW = fmt2(h?.actual_weight_g ?? h?.weight_g ?? 0);
       const predW = fmt2(h?.predicted_weight_g ?? h?.prediction ?? 0);
       const kind: "scan" | "prediction" = isActualScan ? "scan" : "prediction";
-
       const finalWeight = kind === "scan" ? actualW : predW;
 
       if (finalWeight > 0) {
@@ -554,6 +556,7 @@ export default function PlantDetailsScreen() {
           id: `hist-${h?.id ?? idx}-${ts}`,
           ts: ts || Date.now() - idx,
           dateLabel: h?.date_label ?? h?.date ?? prettyDayLabel(ts || Date.now()),
+          timeLabel: kind === "scan" ? prettyTimeLabel(ts || Date.now()) : undefined,
           ageDays: age != null ? Number(age) : undefined,
           weightG: finalWeight,
           predG: predW > 0 ? predW : finalWeight,
@@ -570,68 +573,62 @@ export default function PlantDetailsScreen() {
 
       if (!existing) {
         dedupedMap.set(key, item);
-      } else {
-        if (item.id.startsWith("cached-scan")) {
-          dedupedMap.set(key, item);
-        }
+      } else if (item.id.startsWith("cached-scan")) {
+        dedupedMap.set(key, item);
       }
     }
 
     const items = Array.from(dedupedMap.values());
-
-    console.log(
-      "📊 Final merged items:",
-      items.map((i) => ({
-        id: i.id,
-        kind: i.kind,
-        age: i.ageDays,
-        weight: i.weightG,
-        ts: i.ts,
-        label: i.dateLabel,
-      }))
-    );
-
     const sortedAsc = [...items].sort((a, b) => a.ts - b.ts);
     const sortedDesc = [...items].sort((a, b) => b.ts - a.ts);
 
     const scanPoints = sortedAsc.filter((x) => x.kind === "scan" && x.weightG > 0);
     const predPoints = sortedAsc.filter((x) => x.kind === "prediction" && x.predG > 0);
 
-    const startFromCache = startOverride != null && Number.isFinite(startOverride) ? startOverride : 0;
-    const currentFromCache = currentOverride != null && Number.isFinite(currentOverride) ? currentOverride : 0;
+    const earliestScan = scanPoints.length > 0 ? scanPoints[0] : null;
+    const latestScan = scanPoints.length > 0 ? scanPoints[scanPoints.length - 1] : null;
 
     const startWeightG =
-      startFromCache > 0
-        ? fmt2(startFromCache)
+      earliestScan?.weightG != null && earliestScan.weightG > 0
+        ? fmt2(earliestScan.weightG)
+        : startOverride != null && startOverride > 0
+        ? fmt2(startOverride)
         : backendStartWeight > 0
         ? backendStartWeight
-        : scanPoints.length > 0
-        ? scanPoints[0].weightG
         : 0;
 
     const currentWeightG =
-      currentFromCache > 0
-        ? fmt2(currentFromCache)
+      latestScan?.weightG != null && latestScan.weightG > 0
+        ? fmt2(latestScan.weightG)
+        : currentOverride != null && currentOverride > 0
+        ? fmt2(currentOverride)
         : backendCurrentWeight > 0
         ? backendCurrentWeight
-        : scanPoints.length > 0
-        ? scanPoints[scanPoints.length - 1].weightG
         : 0;
 
     const predictedToday = predPoints.length > 0 ? predPoints[predPoints.length - 1].predG : 0;
 
+    const ageRepeatCount = new Map<string, number>();
     const chartLabels: string[] = [];
     const actualSeries: number[] = [];
     const predictedSeries: number[] = [];
 
     scanPoints.forEach((s) => {
-      chartLabels.push(s.ageDays != null ? `D${s.ageDays}` : "Scan");
+      const baseLabel = s.ageDays != null ? `D${s.ageDays}` : "Scan";
+      const seen = ageRepeatCount.get(baseLabel) ?? 0;
+      ageRepeatCount.set(baseLabel, seen + 1);
+
+      const finalLabel =
+        seen === 0 ? baseLabel : s.timeLabel ? s.timeLabel : `${baseLabel}-${seen + 1}`;
+
+      chartLabels.push(finalLabel);
       actualSeries.push(s.weightG);
-      predictedSeries.push(s.predG > 0 ? s.predG : s.weightG);
+      predictedSeries.push(s.weightG);
     });
 
     predPoints.forEach((p) => {
-      chartLabels.push(p.ageDays != null ? `D${p.ageDays}` : "Pred");
+      const finalLabel = p.ageDays != null ? `D${p.ageDays}` : "Pred";
+      chartLabels.push(finalLabel);
       actualSeries.push(NaN);
       predictedSeries.push(p.predG);
     });
