@@ -205,41 +205,48 @@ function SegButton({
 
 function HistoryRow({ item, highlight }: { item: HistoryItem; highlight?: boolean }) {
   const isPred = item.kind === "prediction";
+  const isTomorrow = item.dateLabel?.toLowerCase().includes("tomorrow");
+
+  // Only highlight if it's tomorrow's prediction
+  const shouldHighlight = highlight && isPred && isTomorrow;
 
   return (
     <View
       className={`bg-white rounded-[16px] border ${
-        highlight ? "border-[#003B8F]" : "border-gray-100"
-      } px-4 py-3 mb-3`}
+        shouldHighlight ? "border-[#003B8F] border-2" : "border-gray-100"
+      } ${shouldHighlight ? "px-5 py-4" : "px-4 py-3"} mb-3`}
     >
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center flex-1 pr-3">
           <View
-            className={`w-9 h-9 rounded-full ${
-              highlight ? "bg-[#EAF4FF]" : "bg-[#EEF2F7]"
+            className={`${shouldHighlight ? "w-11 h-11" : "w-9 h-9"} rounded-full ${
+              shouldHighlight ? "bg-[#EAF4FF]" : "bg-[#EEF2F7]"
             } items-center justify-center`}
           >
             <Ionicons
               name={
-                highlight
-                  ? "checkmark-circle-outline"
+                shouldHighlight
+                  ? "trending-up-outline"
                   : isPred
                   ? "analytics-outline"
                   : "camera-outline"
               }
-              size={18}
-              color={highlight ? "#003B8F" : "#64748B"}
+              size={shouldHighlight ? 20 : 18}
+              color={shouldHighlight ? "#003B8F" : "#64748B"}
             />
           </View>
 
-          <View className="ml-3 flex-1">
-            <Text className="text-[12px] font-extrabold text-gray-900">
-              {item.dateLabel}
-              {item.timeLabel ? ` • ${item.timeLabel}` : ""}
-              {item.ageDays != null ? ` • Age ${item.ageDays}d` : ""}
-            </Text>
+          <View className={`${shouldHighlight ? "ml-4" : "ml-3"} flex-1`}>
+            <View className="flex-row items-center">
+              <Text className={`${shouldHighlight ? "text-[13px]" : "text-[12px]"} font-extrabold text-gray-900`}>
+                {item.dateLabel}
+                {item.timeLabel ? ` • ${item.timeLabel}` : ""}
+                {item.ageDays != null ? ` • Age ${item.ageDays}d` : ""}
+              </Text>
+              
+            </View>
 
-            <Text className="text-[10px] font-bold text-gray-500 mt-1">
+            <Text className={`${shouldHighlight ? "text-[11px] mt-1.5" : "text-[10px] mt-1"} font-bold text-gray-500`}>
               {item.kind === "scan"
                 ? `Actual: ${item.weightG.toFixed(2)}g`
                 : `Pred: ${item.predG.toFixed(2)}g`}
@@ -248,12 +255,16 @@ function HistoryRow({ item, highlight }: { item: HistoryItem; highlight?: boolea
         </View>
 
         <View className="items-end">
-          <Text className="text-[14px] font-extrabold text-gray-900">
+          <Text className={`${shouldHighlight ? "text-[16px]" : "text-[14px]"} font-extrabold ${shouldHighlight ? "text-[#003B8F]" : "text-gray-900"}`}>
             {(isPred ? item.predG : item.weightG).toFixed(2)}g
           </Text>
 
-          <View className={`mt-2 px-3 py-1 rounded-full self-end ${isPred ? "bg-[#EEF2F7]" : "bg-[#EAF4FF]"}`}>
-            <Text className={`text-[10px] font-extrabold ${isPred ? "text-gray-600" : "text-[#003B8F]"}`}>
+          <View className={`${shouldHighlight ? "mt-2.5" : "mt-2"} px-3 ${shouldHighlight ? "py-1.5" : "py-1"} rounded-full self-end ${
+            shouldHighlight ? "bg-[#003B8F]" : isPred ? "bg-[#EEF2F7]" : "bg-[#EAF4FF]"
+          }`}>
+            <Text className={`${shouldHighlight ? "text-[11px]" : "text-[10px]"} font-extrabold ${
+              shouldHighlight ? "text-white" : isPred ? "text-gray-600" : "text-[#003B8F]"
+            }`}>
               {isPred ? "Predicted" : "Scan"}
             </Text>
           </View>
@@ -580,10 +591,39 @@ export default function PlantDetailsScreen() {
 
     const items = Array.from(dedupedMap.values());
     const sortedAsc = [...items].sort((a, b) => a.ts - b.ts);
-    const sortedDesc = [...items].sort((a, b) => b.ts - a.ts);
 
-    const scanPoints = sortedAsc.filter((x) => x.kind === "scan" && x.weightG > 0);
-    const predPoints = sortedAsc.filter((x) => x.kind === "prediction" && x.predG > 0);
+    // Apply date range filter
+    const now = Date.now();
+    const cutoffTime = range === "7d" 
+      ? now - 7 * 24 * 60 * 60 * 1000 
+      : range === "month" 
+      ? now - 30 * 24 * 60 * 60 * 1000 
+      : 0;
+
+    const filteredItems = sortedAsc.filter((item) => {
+      // Always include future predictions
+      const isFuturePrediction = item.kind === "prediction" && 
+        (item.dateLabel?.toLowerCase().includes("tomorrow") || 
+         (item.ageDays != null && item.ageDays > ageDays));
+      
+      return item.ts >= cutoffTime || isFuturePrediction;
+    });
+
+    // Sort to put tomorrow's prediction at the top
+    const sortedDesc = [...filteredItems].sort((a, b) => {
+      const aTomorrow = a.kind === "prediction" && a.dateLabel?.toLowerCase().includes("tomorrow");
+      const bTomorrow = b.kind === "prediction" && b.dateLabel?.toLowerCase().includes("tomorrow");
+
+      // Tomorrow predictions come first
+      if (aTomorrow && !bTomorrow) return -1;
+      if (!aTomorrow && bTomorrow) return 1;
+
+      // Otherwise sort by timestamp descending
+      return b.ts - a.ts;
+    });
+
+    const scanPoints = filteredItems.filter((x) => x.kind === "scan" && x.weightG > 0);
+    const predPoints = filteredItems.filter((x) => x.kind === "prediction" && x.predG > 0);
 
     const earliestScan = scanPoints.length > 0 ? scanPoints[0] : null;
     const latestScan = scanPoints.length > 0 ? scanPoints[scanPoints.length - 1] : null;
@@ -613,6 +653,7 @@ export default function PlantDetailsScreen() {
     const actualSeries: number[] = [];
     const predictedSeries: number[] = [];
 
+    // Build chart from filtered items
     scanPoints.forEach((s) => {
       const baseLabel = s.ageDays != null ? `D${s.ageDays}` : "Scan";
       const seen = ageRepeatCount.get(baseLabel) ?? 0;
@@ -646,11 +687,11 @@ export default function PlantDetailsScreen() {
       currentWeightG,
       predictedToday,
       growthPctLabel,
-      historyAsc: sortedAsc,
+      historyAsc: filteredItems,
       historyDesc: sortedDesc,
       chart: { labels: chartLabels, actual: actualSeries, predicted: predictedSeries },
     };
-  }, [data, plant_id, startOverride, currentOverride, cachedScans]);
+  }, [data, plant_id, startOverride, currentOverride, cachedScans, range]);
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
@@ -707,12 +748,8 @@ export default function PlantDetailsScreen() {
             <SegButton label="All Time" active={range === "all"} onPress={() => setRange("all")} />
           </View>
 
-          <View className="flex-row items-center justify-between mt-6 mb-3">
-            <Text className="text-[13px] font-extrabold text-gray-900">History Log</Text>
-            <TouchableOpacity activeOpacity={0.9} onPress={() => {}} className="flex-row items-center">
-              <Text className="text-[11px] font-bold text-gray-500 mr-1">Filter</Text>
-              <Ionicons name="filter-outline" size={16} color="#6B7280" />
-            </TouchableOpacity>
+          <View className="mt-6 mb-4">
+            <Text className="text-[14px] font-extrabold text-gray-900">History Log</Text>
           </View>
 
           {ui.historyDesc.length === 0 ? (
@@ -720,7 +757,13 @@ export default function PlantDetailsScreen() {
               <Text className="text-[11px] font-semibold text-gray-500">No history yet.</Text>
             </View>
           ) : (
-            ui.historyDesc.map((h, idx) => <HistoryRow key={h.id} item={h} highlight={idx === 0} />)
+            ui.historyDesc.map((h, idx) => {
+              const isFirstTomorrowPred = idx === 0 &&
+                h.kind === "prediction" &&
+                h.dateLabel?.toLowerCase().includes("tomorrow");
+
+              return <HistoryRow key={h.id} item={h} highlight={isFirstTomorrowPred} />;
+            })
           )}
         </ScrollView>
       )}
