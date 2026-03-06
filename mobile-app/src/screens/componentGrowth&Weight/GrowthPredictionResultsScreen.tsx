@@ -409,7 +409,7 @@ export default function GrowthPredictionResultsScreen() {
         });
       }
 
-      Alert.alert("Success", `Prediction saved successfully (Age ${savedAge} days).`, [
+      Alert.alert("Success", `Prediction saved successfully.`, [
         { text: "OK", onPress: () => navigation.navigate("PlantLists") },
       ]);
     } catch (error: any) {
@@ -458,10 +458,10 @@ export default function GrowthPredictionResultsScreen() {
           >
             {/* Forecast Header */}
             <View className="mb-4">
-              <Text className="text-[20px] font-extrabold text-gray-900 text-left">
+              <Text className="text-[20px] font-extrabold text-gray-900 text-center">
                 Growth Forecast
               </Text>
-              <Text className="text-[11px] font-semibold text-gray-500 text-left mt-1">
+              <Text className="text-[11px] font-semibold text-gray-500 text-center mt-1">
                 Predicted for {model.dateLabel}
               </Text>
             </View>
@@ -568,13 +568,6 @@ export default function GrowthPredictionResultsScreen() {
                 keyboardType="number-pad"
                 className="bg-[#F8FAFC] rounded-xl px-4 py-3.5 text-[13px] font-semibold text-gray-900 border border-gray-200"
               />
-
-              {/* Age Preview */}
-              <View className="mt-3 px-3 py-2 rounded-xl bg-[#EAF4FF]">
-                <Text className="text-[11px] font-bold text-[#003B8F]">
-                  Saved age will be: {savedAgePreview} days
-                </Text>
-              </View>
             </View>
 
             {/* Save Button */}

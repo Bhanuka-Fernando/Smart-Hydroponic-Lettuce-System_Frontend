@@ -330,7 +330,7 @@ export default function PlantListsScreen() {
         </View>
 
         {/* Filter Chips */}
-        <View className="flex-row" style={{ gap: 8 }}>
+        <View className="flex-row mt-3" style={{ gap: 10 }}>
           <Chip label="All" active={filter === "All"} onPress={() => setFilter("All")} />
           <Chip label="Growing" active={filter === "Growing"} onPress={() => setFilter("Growing")} />
           <Chip label="Harvest Ready" active={filter === "Harvest Ready"} onPress={() => setFilter("Harvest Ready")} />
