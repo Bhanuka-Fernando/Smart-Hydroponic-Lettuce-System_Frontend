@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -31,9 +31,9 @@ const PRIMARY = "#0046AD";
 
 const DEMO_DAY_OPTIONS = [
   { label: "Day 0", daysAhead: 0 },
-  { label: "Day 1", daysAhead: 1 },
-  { label: "Day 3", daysAhead: 3 },
-  { label: "Day 6", daysAhead: 6 },
+  { label: "Day 2", daysAhead: 2 },
+  { label: "Day 4", daysAhead: 4 },
+  { label: "Day 7", daysAhead: 7 },
 ] as const;
 
 function buildDemoIso(daysAhead: number) {
@@ -62,7 +62,7 @@ function formatLocalDateTime(iso: string) {
 type Mode = "Camera" | "Gallery";
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageScan">;
 
-const stripSim = (id: string) => (id ? id.replace(/^SIM-/, "") : id);
+const stripSim = (id: string) => (id ? id.replace(/^SIM-/i, "") : id);
 
 type SimLock = {
   plantId: string;
@@ -108,14 +108,21 @@ function getFriendlyPredictionError(detail: any) {
   return "Wrong image detected. Please capture a clear top-view photo of the lettuce only.";
 }
 
+function clampDemoIndex(index: number | undefined | null) {
+  const safe = Number(index ?? 0);
+  if (Number.isNaN(safe)) return 0;
+  return Math.max(0, Math.min(safe, DEMO_DAY_OPTIONS.length - 1));
+}
+
 export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [mode, setMode] = useState<Mode>("Camera");
 
   const rawLockedPlantId = route.params?.plantId?.trim();
   const demoMode = route.params?.demoMode ?? true;
+  const initialDemoDayIndex = clampDemoIndex(route.params?.initialDemoDayIndex);
 
   const isLockedSimStream =
-    !!rawLockedPlantId && rawLockedPlantId.startsWith("SIM-");
+    !!rawLockedPlantId && rawLockedPlantId.toUpperCase().startsWith("SIM-");
 
   const lockedPlantId = rawLockedPlantId
     ? stripSim(rawLockedPlantId)
@@ -141,16 +148,26 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [plantId, setPlantId] = useState<string>(lockedPlantId ?? "P-001");
   const [simLock, setSimLock] = useState<SimLock | null>(null);
 
-  const [demoTimeIndex, setDemoTimeIndex] = useState(0);
+  const [demoTimeIndex, setDemoTimeIndex] = useState(initialDemoDayIndex);
   const [scanError, setScanError] = useState<string | null>(null);
-
-  const selectedDemoLabel = DEMO_DAY_OPTIONS[demoTimeIndex]?.label;
-  const selectedDemoDaysAhead = DEMO_DAY_OPTIONS[demoTimeIndex]?.daysAhead ?? 0;
-  const selectedDemoTime = buildDemoIso(selectedDemoDaysAhead);
 
   useEffect(() => {
     if (lockedPlantId) setPlantId(lockedPlantId);
   }, [lockedPlantId]);
+
+  useEffect(() => {
+    if (demoMode) {
+      setDemoTimeIndex(initialDemoDayIndex);
+    }
+  }, [demoMode, initialDemoDayIndex, rawLockedPlantId]);
+
+  const selectedDemoOption = DEMO_DAY_OPTIONS[demoTimeIndex] ?? DEMO_DAY_OPTIONS[0];
+  const selectedDemoLabel = selectedDemoOption.label;
+  const selectedDemoDaysAhead = selectedDemoOption.daysAhead;
+
+  const selectedDemoTime = useMemo(() => {
+    return buildDemoIso(selectedDemoDaysAhead);
+  }, [selectedDemoDaysAhead]);
 
   const tempText = `${temperature.toFixed(1)}°C`;
   const rhText = `${humidity.toFixed(0)}% RH`;
@@ -366,7 +383,7 @@ Image: ${sample.image_name ?? "none"}`
 
       const usedCapturedAt = isSim
         ? demoMode
-          ? selectedDemoTime ?? simLock!.capturedAt
+          ? selectedDemoTime
           : new Date().toISOString()
         : capturedAt ?? new Date().toISOString();
 
