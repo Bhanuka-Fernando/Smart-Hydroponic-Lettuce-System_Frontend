@@ -239,70 +239,24 @@ export default function DashboardScreen() {
           </View>
         ) : metrics ? (
           <>
-            {/* Metrics Cards */}
-            <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-              <Text className="text-[16px] font-extrabold text-gray-900 mb-3">
-                System Overview
-              </Text>
-              <View className="flex-row justify-between mb-3">
-                <View className="flex-1 mr-2">
-                  <MetricItem
-                    icon={<MaterialCommunityIcons name="sprout" size={18} color="#0046AD" />}
-                    label="Total Plants"
-                    value={metrics.plant_count.toString()}
-                  />
-                </View>
-                <View className="flex-1 ml-2">
-                  <MetricItem
-                    icon={<Ionicons name="checkmark-circle" size={18} color="#16A34A" />}
-                    label="Harvest Ready"
-                    value={metrics.harvest_ready_count.toString()}
-                  />
-                </View>
+            {/* Feature 2x2 grid */}
+            <View className="mt-4">
+              <View className="flex-row justify-between">
+                <FeatureCard
+                  title="Weight & Growth"
+                  subtitle="Forecasting & Estimation"
+                  iconBg="bg-[#EAF4FF]"
+                  icon={<MaterialCommunityIcons name="sprout" size={22} color="#0046AD" />}
+                  onPress={() => go("WeightGrowth")}
+                />
+                <FeatureCard
+                  title="Disease Detection"
+                  subtitle="Analyze Plant Health"
+                  iconBg="bg-[#FFEAF2]"
+                  icon={<Ionicons name="medkit-outline" size={22} color="#DB2777" />}
+                  onPress={() => go("Scan")}
+                />
               </View>
-              <MetricItem
-                icon={<Ionicons name="trending-up" size={18} color="#0046AD" />}
-                label="Avg Growth"
-                value={`${metrics.avg_growth_pct.toFixed(1)}%`}
-              />
-            </View>
-
-            <View className="flex-row justify-between mt-3">
-              <FeatureCard
-                title="Spoilage Detection"
-                subtitle="Identify Crop Issues"
-                iconBg="bg-[#FFF6E5]"
-                icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
-                onPress={() => (navigation.getParent() as any)?.navigate("Spoilage")}
-              />
-              <FeatureCard
-                title="Water Quality"
-                subtitle="Monitor Sensor data"
-                iconBg="bg-[#E8F7FF]"
-                icon={<Ionicons name="water-outline" size={22} color="#0284C7" />}
-                onPress={() => go("Scan")}
-              />
-            </View>
-          </>
-        ) : null}
-        {/* Feature 2x2 grid */}
-        <View className="mt-4">
-          <View className="flex-row justify-between">
-            <FeatureCard
-              title="Weight & Growth"
-              subtitle="Forecasting & Estimation"
-              iconBg="bg-[#EAF4FF]"
-              icon={<MaterialCommunityIcons name="sprout" size={22} color="#0046AD" />}
-              onPress={() => go("WeightGrowth")}
-            />
-            <FeatureCard
-              title="Disease Detection"
-              subtitle="Analyze Plant Health"
-              iconBg="bg-[#FFEAF2]"
-              icon={<Ionicons name="medkit-outline" size={22} color="#DB2777" />}
-              onPress={() => go("Scan")}
-            />
-          </View>
 
               <View className="flex-row justify-between mt-3">
                 <FeatureCard
