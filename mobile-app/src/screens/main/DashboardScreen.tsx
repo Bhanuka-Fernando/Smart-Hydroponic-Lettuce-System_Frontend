@@ -15,7 +15,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../../auth/useAuth";
-import { getDashboardLatest, DashboardMetricsResponse } from "../../api/dashboardApi";
+import {
+  getDashboardLatest,
+  DashboardMetricsResponse,
+} from "../../api/dashboardApi";
 
 type NotificationItem = {
   id: string;
@@ -102,42 +105,58 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>(mockNotifications);
-  const [activities, setActivities] = useState<ActivityItem[]>(mockActivities);
+  const [notifications, setNotifications] =
+    useState<NotificationItem[]>(mockNotifications);
+  const [activities, setActivities] =
+    useState<ActivityItem[]>(mockActivities);
 
-  const fetchDashboard = useCallback(async (isRefreshing = false) => {
-    try {
-      if (!isRefreshing) setLoading(true);
-      const data = await getDashboardLatest({ token: accessToken });
-      setMetrics(data);
-    } catch (error: any) {
-      console.error("Failed to fetch dashboard:", error);
+  const fetchDashboard = useCallback(
+    async (isRefreshing = false) => {
+      try {
+        if (!isRefreshing) setLoading(true);
+        const data = await getDashboardLatest({ token: accessToken });
+        setMetrics(data);
+      } catch (error: any) {
+        console.error("Failed to fetch dashboard:", error);
 
-      const mockData: DashboardMetricsResponse = {
-        zone_id: "all",
-        zone_name: "All Zones",
-        plant_count: 24,
-        harvest_ready_count: 5,
-        avg_growth_pct: 78.5,
-        temperature_c: 23.5,
-        humidity_pct: 62.0,
-        ec_ms_cm: 1.4,
-        ph: 6.2,
-        last_updated: new Date().toISOString(),
-      };
-      setMetrics(mockData);
+        const mockData: DashboardMetricsResponse = {
+          zone_id: "all",
+          zone_name: "All Zones",
+          plant_count: 24,
+          harvest_ready_count: 5,
+          avg_growth_pct: 78.5,
+          temperature_c: 23.5,
+          humidity_pct: 62.0,
+          ec_ms_cm: 1.4,
+          ph: 6.2,
+          last_updated: new Date().toISOString(),
+        };
+        setMetrics(mockData);
 
-      if (!isRefreshing) {
-        console.warn("Using mock data - backend endpoint not available");
+        if (!isRefreshing) {
+          console.warn("Using mock data - backend endpoint not available");
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [accessToken]);
+    },
+    [accessToken]
+  );
 
   useEffect(() => {
-    fetchDashboard();
+    let isActive = true;
+
+    const run = async () => {
+      if (!isActive) return;
+      await fetchDashboard();
+    };
+
+    run();
+
+    return () => {
+      isActive = false;
+    };
   }, [fetchDashboard]);
 
   const onRefresh = useCallback(() => {
@@ -244,186 +263,238 @@ export default function DashboardScreen() {
               <View className="flex-row justify-between mb-3">
                 <View className="flex-1 mr-2">
                   <MetricItem
-                    icon={<MaterialCommunityIcons name="sprout" size={18} color="#0046AD" />}
+                    icon={
+                      <MaterialCommunityIcons
+                        name="sprout"
+                        size={18}
+                        color="#0046AD"
+                      />
+                    }
                     label="Total Plants"
                     value={metrics.plant_count.toString()}
                   />
                 </View>
                 <View className="flex-1 ml-2">
                   <MetricItem
-                    icon={<Ionicons name="checkmark-circle" size={18} color="#16A34A" />}
+                    icon={
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={18}
+                        color="#16A34A"
+                      />
+                    }
                     label="Harvest Ready"
                     value={metrics.harvest_ready_count.toString()}
                   />
                 </View>
               </View>
               <MetricItem
-                icon={<Ionicons name="trending-up" size={18} color="#0046AD" />}
+                icon={
+                  <Ionicons name="trending-up" size={18} color="#0046AD" />
+                }
                 label="Avg Growth"
                 value={`${metrics.avg_growth_pct.toFixed(1)}%`}
               />
             </View>
 
-            <View className="flex-row justify-between mt-3">
-              <FeatureCard
-                title="Spoilage Detection"
-                subtitle="Identify Crop Issues"
-                iconBg="bg-[#FFF6E5]"
-                icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
-                onPress={openSpoilageModule}
-              />
-              <FeatureCard
-                title="Water Quality"
-                subtitle="Monitor Sensor data"
-                iconBg="bg-[#E8F7FF]"
-                icon={<Ionicons name="water-outline" size={22} color="#0284C7" />}
-                onPress={() => go("Scan")}
-              />
-            </View>
-          </>
-        ) : null}
+            <View className="mt-4">
+              <View className="flex-row justify-between">
+                <FeatureCard
+                  title="Weight & Growth"
+                  subtitle="Forecasting & Estimation"
+                  iconBg="bg-[#EAF4FF]"
+                  icon={
+                    <MaterialCommunityIcons
+                      name="sprout"
+                      size={22}
+                      color="#0046AD"
+                    />
+                  }
+                  onPress={() => go("WeightGrowth")}
+                />
+                <FeatureCard
+                  title="Disease Detection"
+                  subtitle="Analyze Plant Health"
+                  iconBg="bg-[#FFEAF2]"
+                  icon={
+                    <Ionicons
+                      name="medkit-outline"
+                      size={22}
+                      color="#DB2777"
+                    />
+                  }
+                  onPress={() => go("Scan")}
+                />
+              </View>
 
-        <View className="mt-4">
-          <View className="flex-row justify-between">
-            <FeatureCard
-              title="Weight & Growth"
-              subtitle="Forecasting & Estimation"
-              iconBg="bg-[#EAF4FF]"
-              icon={<MaterialCommunityIcons name="sprout" size={22} color="#0046AD" />}
-              onPress={() => go("WeightGrowth")}
-            />
-            <FeatureCard
-              title="Disease Detection"
-              subtitle="Analyze Plant Health"
-              iconBg="bg-[#FFEAF2]"
-              icon={<Ionicons name="medkit-outline" size={22} color="#DB2777" />}
-              onPress={() => go("Scan")}
-            />
-          </View>
-
-          <View className="flex-row justify-between mt-3">
-            <FeatureCard
-              title="Spoilage Detection"
-              subtitle="Identify Crop Issues"
-              iconBg="bg-[#FFF6E5]"
-              icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
-              onPress={openSpoilageModule}
-            />
-            <FeatureCard
-              title="Water Quality"
-              subtitle="Monitor Sensor data"
-              iconBg="bg-[#E8F7FF]"
-              icon={<Ionicons name="water-outline" size={22} color="#0284C7" />}
-              onPress={() => go("Scan")}
-            />
-          </View>
-        </View>
-
-        <Text className="text-[13px] font-extrabold text-gray-900 mt-6 mb-3">
-          Quick Actions
-        </Text>
-
-        <View className="flex-row justify-between">
-          <QuickAction
-            top="Estimate"
-            bottom="Weight"
-            iconBg="bg-[#EAF4FF]"
-            icon={<MaterialCommunityIcons name="scale-bathroom" size={20} color="#0046AD" />}
-            onPress={() => go("Scan")}
-          />
-          <QuickAction
-            top="Monitor"
-            bottom="Growth"
-            iconBg="bg-[#E9FBEF]"
-            icon={<Ionicons name="analytics-outline" size={20} color="#16A34A" />}
-            onPress={() => go("Scan")}
-          />
-          <QuickAction
-            top="Detect"
-            bottom="Disease"
-            iconBg="bg-[#FFEAF2]"
-            icon={<Ionicons name="medkit-outline" size={20} color="#DB2777" />}
-            onPress={() => go("Scan")}
-          />
-          <QuickAction
-            top="Spoilage"
-            bottom="Check"
-            iconBg="bg-[#FFF6E5]"
-            icon={<Ionicons name="warning-outline" size={20} color="#F59E0B" />}
-            onPress={openSpoilageModule}
-          />
-        </View>
-
-        {notifications.length > 0 && (
-          <>
-            <View className="flex-row items-center justify-between mt-6 mb-3">
-              <Text className="text-[13px] font-extrabold text-gray-900">
-                Notifications
-              </Text>
-
-              <View className="flex-row items-center gap-2">
-                <View className="bg-red-500 rounded-full px-3 py-1">
-                  <Text className="text-white text-[11px] font-extrabold">
-                    {notifications.length} New
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={handleClearAllNotifications}
-                  activeOpacity={0.7}
-                  className="px-3 py-1 rounded-full bg-gray-100"
-                >
-                  <Text className="text-[11px] font-extrabold text-gray-600">
-                    Clear All
-                  </Text>
-                </TouchableOpacity>
+              <View className="flex-row justify-between mt-3">
+                <FeatureCard
+                  title="Spoilage Detection"
+                  subtitle="Identify Crop Issues"
+                  iconBg="bg-[#FFF6E5]"
+                  icon={
+                    <Ionicons
+                      name="warning-outline"
+                      size={22}
+                      color="#F59E0B"
+                    />
+                  }
+                  onPress={openSpoilageModule}
+                />
+                <FeatureCard
+                  title="Water Quality"
+                  subtitle="Monitor Sensor data"
+                  iconBg="bg-[#E8F7FF]"
+                  icon={
+                    <Ionicons
+                      name="water-outline"
+                      size={22}
+                      color="#0284C7"
+                    />
+                  }
+                  onPress={() => go("Scan")}
+                />
               </View>
             </View>
 
-            {notifications.map((notification, index) => (
-              <React.Fragment key={notification.id}>
-                <NotificationCard
-                  {...notification}
-                  onDismiss={() => handleDismissNotification(notification.id)}
-                />
-                {index < notifications.length - 1 && <View className="h-3" />}
-              </React.Fragment>
-            ))}
-          </>
-        )}
+            <Text className="text-[13px] font-extrabold text-gray-900 mt-6 mb-3">
+              Quick Actions
+            </Text>
 
-        {activities.length > 0 && (
-          <>
-            <View className="flex-row items-center justify-between mt-6 mb-3">
-              <Text className="text-[13px] font-extrabold text-gray-900">
-                Recent Activities
-              </Text>
-              <TouchableOpacity onPress={() => go("History")} activeOpacity={0.85}>
-                <Text className="text-[11px] font-extrabold text-[#0046AD]">
-                  View All
-                </Text>
-              </TouchableOpacity>
+            <View className="flex-row justify-between">
+              <QuickAction
+                top="Estimate"
+                bottom="Weight"
+                iconBg="bg-[#EAF4FF]"
+                icon={
+                  <MaterialCommunityIcons
+                    name="scale-bathroom"
+                    size={20}
+                    color="#0046AD"
+                  />
+                }
+                onPress={() => go("Scan")}
+              />
+              <QuickAction
+                top="Monitor"
+                bottom="Growth"
+                iconBg="bg-[#E9FBEF]"
+                icon={
+                  <Ionicons
+                    name="analytics-outline"
+                    size={20}
+                    color="#16A34A"
+                  />
+                }
+                onPress={() => go("Scan")}
+              />
+              <QuickAction
+                top="Detect"
+                bottom="Disease"
+                iconBg="bg-[#FFEAF2]"
+                icon={
+                  <Ionicons
+                    name="medkit-outline"
+                    size={20}
+                    color="#DB2777"
+                  />
+                }
+                onPress={() => go("Scan")}
+              />
+              <QuickAction
+                top="Spoilage"
+                bottom="Check"
+                iconBg="bg-[#FFF6E5]"
+                icon={
+                  <Ionicons
+                    name="warning-outline"
+                    size={20}
+                    color="#F59E0B"
+                  />
+                }
+                onPress={openSpoilageModule}
+              />
             </View>
 
-            <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
-              {activities.map((activity, index) => (
-                <React.Fragment key={activity.id}>
-                  <ActivityRow {...activity} />
-                  {index < activities.length - 1 && <Divider />}
-                </React.Fragment>
-              ))}
+            {notifications.length > 0 && (
+              <>
+                <View className="flex-row items-center justify-between mt-6 mb-3">
+                  <Text className="text-[13px] font-extrabold text-gray-900">
+                    Notifications
+                  </Text>
 
-              <TouchableOpacity
-                className="py-4 items-center"
-                activeOpacity={0.85}
-                onPress={() => go("History")}
-              >
-                <Text className="text-[13px] font-semibold text-gray-700">
-                  View All Activity
-                </Text>
-              </TouchableOpacity>
-            </View>
+                  <View className="flex-row items-center gap-2">
+                    <View className="bg-red-500 rounded-full px-3 py-1">
+                      <Text className="text-white text-[11px] font-extrabold">
+                        {notifications.length} New
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={handleClearAllNotifications}
+                      activeOpacity={0.7}
+                      className="px-3 py-1 rounded-full bg-gray-100"
+                    >
+                      <Text className="text-[11px] font-extrabold text-gray-600">
+                        Clear All
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {notifications.map((notification, index) => (
+                  <React.Fragment key={notification.id}>
+                    <NotificationCard
+                      {...notification}
+                      onDismiss={() =>
+                        handleDismissNotification(notification.id)
+                      }
+                    />
+                    {index < notifications.length - 1 && (
+                      <View className="h-3" />
+                    )}
+                  </React.Fragment>
+                ))}
+              </>
+            )}
+
+            {activities.length > 0 && (
+              <>
+                <View className="flex-row items-center justify-between mt-6 mb-3">
+                  <Text className="text-[13px] font-extrabold text-gray-900">
+                    Recent Activities
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => go("History")}
+                    activeOpacity={0.85}
+                  >
+                    <Text className="text-[11px] font-extrabold text-[#0046AD]">
+                      View All
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
+                  {activities.map((activity, index) => (
+                    <React.Fragment key={activity.id}>
+                      <ActivityRow {...activity} />
+                      {index < activities.length - 1 && <Divider />}
+                    </React.Fragment>
+                  ))}
+
+                  <TouchableOpacity
+                    className="py-4 items-center"
+                    activeOpacity={0.85}
+                    onPress={() => go("History")}
+                  >
+                    <Text className="text-[13px] font-semibold text-gray-700">
+                      View All Activity
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </>
-        )}
+        ) : null}
       </ScrollView>
 
       <Modal
@@ -432,7 +503,10 @@ export default function DashboardScreen() {
         animationType="slide"
         onRequestClose={() => setProfileOpen(false)}
       >
-        <Pressable className="flex-1 bg-black/40" onPress={() => setProfileOpen(false)} />
+        <Pressable
+          className="flex-1 bg-black/40"
+          onPress={() => setProfileOpen(false)}
+        />
 
         <View className="bg-white rounded-t-3xl px-5 pt-4 pb-6">
           <View className="w-12 h-1.5 bg-gray-200 rounded-full self-center mb-4" />
@@ -498,7 +572,9 @@ function FeatureCard({
       activeOpacity={0.85}
       className="bg-white rounded-[18px] p-4 w-[48%]"
     >
-      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
+      <View
+        className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}
+      >
         {icon}
       </View>
 
@@ -529,7 +605,9 @@ function QuickAction({
       activeOpacity={0.85}
       className="bg-white rounded-[18px] w-[23%] pt-4 pb-3 items-center shadow-sm"
     >
-      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
+      <View
+        className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}
+      >
         {icon}
       </View>
 
@@ -561,10 +639,26 @@ function NotificationCard({
   onDismiss: () => void;
 }) {
   const colors = {
-    orange: { bar: "bg-orange-400", iconBg: "bg-[#FFF6E5]", iconColor: "#F59E0B" },
-    blue: { bar: "bg-blue-600", iconBg: "bg-[#EAF2FF]", iconColor: "#2563EB" },
-    green: { bar: "bg-green-500", iconBg: "bg-[#E9FBEF]", iconColor: "#16A34A" },
-    red: { bar: "bg-red-500", iconBg: "bg-[#FFE5E5]", iconColor: "#EF4444" },
+    orange: {
+      bar: "bg-orange-400",
+      iconBg: "bg-[#FFF6E5]",
+      iconColor: "#F59E0B",
+    },
+    blue: {
+      bar: "bg-blue-600",
+      iconBg: "bg-[#EAF2FF]",
+      iconColor: "#2563EB",
+    },
+    green: {
+      bar: "bg-green-500",
+      iconBg: "bg-[#E9FBEF]",
+      iconColor: "#16A34A",
+    },
+    red: {
+      bar: "bg-red-500",
+      iconBg: "bg-[#FFE5E5]",
+      iconColor: "#EF4444",
+    },
   };
   const { bar, iconBg, iconColor } = colors[accent];
 
@@ -574,7 +668,9 @@ function NotificationCard({
         <View className={`w-1.5 ${bar}`} />
         <View className="flex-1 px-4 py-4">
           <View className="flex-row items-center">
-            <View className={`w-10 h-10 rounded-[14px] ${iconBg} items-center justify-center mr-3`}>
+            <View
+              className={`w-10 h-10 rounded-[14px] ${iconBg} items-center justify-center mr-3`}
+            >
               <Ionicons name={iconName as any} size={18} color={iconColor} />
             </View>
 
@@ -622,11 +718,17 @@ function ActivityRow({
     const iconColor = iconBg.includes("EAF4FF")
       ? "#0046AD"
       : iconBg.includes("E9FBEF")
-      ? "#16A34A"
-      : "#7C3AED";
+        ? "#16A34A"
+        : "#7C3AED";
 
     if (iconLib === "material") {
-      return <MaterialCommunityIcons name={iconName as any} size={18} color={iconColor} />;
+      return (
+        <MaterialCommunityIcons
+          name={iconName as any}
+          size={18}
+          color={iconColor}
+        />
+      );
     } else if (iconLib === "ionicons") {
       return <Ionicons name={iconName as any} size={18} color={iconColor} />;
     } else {
@@ -636,7 +738,9 @@ function ActivityRow({
 
   return (
     <View className="flex-row items-center px-4 py-4">
-      <View className={`w-10 h-10 rounded-full ${iconBg} items-center justify-center mr-3`}>
+      <View
+        className={`w-10 h-10 rounded-full ${iconBg} items-center justify-center mr-3`}
+      >
         {renderIcon()}
       </View>
 
@@ -672,30 +776,6 @@ function MetricItem({
           {value}
         </Text>
       </View>
-    </View>
-  );
-}
-
-function SensorMetric({
-  icon,
-  label,
-  value,
-  bgColor,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  bgColor: string;
-}) {
-  return (
-    <View className={`${bgColor} rounded-xl p-3`}>
-      <View className="flex-row items-center mb-2">
-        {icon}
-        <Text className="text-[11px] text-gray-600 ml-2 font-semibold">
-          {label}
-        </Text>
-      </View>
-      <Text className="text-[15px] font-extrabold text-gray-900">{value}</Text>
     </View>
   );
 }
