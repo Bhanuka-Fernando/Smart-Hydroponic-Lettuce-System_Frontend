@@ -426,7 +426,7 @@ export default function ScheduleTimeSlotsScreen() {
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       {/* Header */}
-      <View className="px-5 py-4 bg-white border-b border-gray-100">
+      <View className="mt-4 px-5 py-4 bg-[#F4F6FA] border-b border-gray-100">
         <View className="flex-row items-center justify-between mb-2">
           <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
             <Ionicons name="chevron-back" size={28} color="#1F2937" />

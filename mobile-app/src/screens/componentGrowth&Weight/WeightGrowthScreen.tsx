@@ -410,25 +410,55 @@ export default function WeightGrowthScreen() {
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
-      {/* Top header */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 }}>
-        <Text className="text-[13px] text-gray-500">{headerDate}</Text>
-        <View className="flex-row items-start justify-between mt-2">
-          <View className="flex-1 pr-3">
-            <Text className="H1 text-gray-900">WEIGHT ESTIMATION & GROWTH FORECAST</Text>
-          </View>
+      {/* ✅ Enhanced Header with Back Button */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 }}>
+        <View className="flex-row items-center justify-between mb-3">
+          {/* Back Button */}
+          <TouchableOpacity
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                // Navigate to Dashboard if no history
+                navigation.navigate("Dashboard");
+              }
+            }}
+            activeOpacity={0.8}
+            className="w-10 h-10 items-center justify-center rounded-full bg-white"
+            style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
+          >
+            <Ionicons name="chevron-back" size={20} color="#111827" />
+          </TouchableOpacity>
 
-          <View className="relative mt-1">
-            <Image source={{ uri: "https://i.pravatar.cc/100?img=12" }} className="w-12 h-12 rounded-full" />
-            <View className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-white" />
+          {/* Title */}
+          <Text className="text-[16px] font-extrabold text-gray-900">
+            Weight & Growth
+          </Text>
+
+          {/* Profile Avatar */}
+          <View className="relative">
+            <Image 
+              source={{ uri: "https://i.pravatar.cc/100?img=12" }} 
+              className="w-10 h-10 rounded-full" 
+            />
+            <View className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-white" />
           </View>
         </View>
+
+        {/* Date */}
+        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">
+          {headerDate}
+        </Text>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 }}
+        contentContainerStyle={{ 
+          paddingHorizontal: 16, 
+          paddingTop: 16, 
+          paddingBottom: tabBarHeight + 16 // ✅ Add bottom padding for tab bar
+        }}
       >
         {/* Environment */}
         <View className="flex-row items-center justify-between mt-1">
@@ -541,7 +571,7 @@ export default function WeightGrowthScreen() {
           />
         </View>
 
-        {/* Scheduled time slots (CLICKABLE) - Now dynamic */}
+        {/* Scheduled time slots */}
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => navigation.navigate("ScheduleTimeSlots")}
