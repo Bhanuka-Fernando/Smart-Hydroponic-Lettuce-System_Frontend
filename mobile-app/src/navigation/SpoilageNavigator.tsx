@@ -19,7 +19,7 @@ export type SpoilageStackParamList = {
   SpoilagePlantDetails: { plantId: string };
 
   // ✅ scan can accept a plantId (passed from plant details)
-  SpoilageScan: { plantId?: string } | undefined;
+  SpoilageScan: { plantId?: string; demoMode?: boolean } | undefined;
 
   SpoilageConfirm: {
     imageUri: string;

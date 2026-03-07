@@ -8,45 +8,47 @@ export function useSpoilagePolling(limit: number, pollMs: number = 4000) {
   const [error, setError] = useState<string | null>(null);
 
   const timerRef = useRef<any>(null);
+  const isActiveRef = useRef(false);
 
-  // ✅ used to avoid setting state when nothing changed
-  const lastFirstIdRef = useRef<number | string | null>(null);
-  const lastLenRef = useRef<number>(0);
+  const lastSigRef = useRef<string>("");
 
   const load = useCallback(async () => {
     try {
       setError(null);
-
-      // optional: only show loading spinner on first load
       if (rows.length === 0) setLoading(true);
 
       const data = await getRecentPredictions(limit);
 
-      const firstId = (data?.[0] as any)?.id ?? null;
-      const newLen = Array.isArray(data) ? data.length : 0;
+      // Build a cheap signature to avoid re-render storms
+      const firstId = (data?.[0] as any)?.id ?? "";
+      const len = Array.isArray(data) ? data.length : 0;
+      const sig = `${firstId}:${len}`;
 
-      // ✅ only update state when data changed
-      const changed =
-        firstId !== lastFirstIdRef.current || newLen !== lastLenRef.current;
-
-      if (changed) {
-        lastFirstIdRef.current = firstId;
-        lastLenRef.current = newLen;
-        setRows(data);
+      if (sig !== lastSigRef.current) {
+        lastSigRef.current = sig;
+        if (isActiveRef.current) setRows(data);
       }
     } catch (e: any) {
-      setError(String(e?.message ?? e));
+      if (isActiveRef.current) setError(String(e?.message ?? e));
     } finally {
-      setLoading(false);
+      if (isActiveRef.current) setLoading(false);
     }
-  }, [limit, rows.length]);
+  }, [limit, pollMs, rows.length]); // 👈 keep rows.length ONLY for first-load spinner, not for interval
 
   useFocusEffect(
     useCallback(() => {
+      isActiveRef.current = true;
+
       load();
+
       timerRef.current = setInterval(load, pollMs);
+
       return () => {
-        if (timerRef.current) clearInterval(timerRef.current);
+        isActiveRef.current = false;
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
       };
     }, [load, pollMs])
   );
