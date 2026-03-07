@@ -103,6 +103,13 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // ✅ Add state for water quality data (turbidity)
+  const [turbidity, setTurbidity] = useState<number | null>(null);
+
+  // ✅ Add state for chiller room data
+  const [chillerTemp, setChillerTemp] = useState<number | null>(null);
+  const [chillerLight, setChillerLight] = useState<number | null>(null);
+
   // Notifications and Activities state
   const [notifications, setNotifications] = useState<NotificationItem[]>(mockNotifications);
   const [activities, setActivities] = useState<ActivityItem[]>(mockActivities);
@@ -113,6 +120,24 @@ export default function DashboardScreen() {
       if (!isRefreshing) setLoading(true);
       const data = await getDashboardLatest({ token: accessToken });
       setMetrics(data);
+      
+      // ✅ Fetch turbidity from water quality API
+      try {
+        const { getWaterHistory } = await import('../../api/WaterQualityApi');
+        const hist = await getWaterHistory('TANK_01', 1);
+        if (hist.readings && hist.readings.length > 0) {
+          setTurbidity(hist.readings[hist.readings.length - 1].turb_ntu);
+        }
+      } catch (waterErr) {
+        console.warn('Failed to fetch turbidity:', waterErr);
+        setTurbidity(null);
+      }
+
+      // ✅ Fetch chiller room data (mock for now - replace with actual API)
+      // TODO: Replace with actual chiller room API call
+      setChillerTemp(18.5); // Mock temperature
+      setChillerLight(450); // Mock light intensity in lux
+      
     } catch (error: any) {
       console.error("Failed to fetch dashboard:", error);
       
@@ -130,6 +155,9 @@ export default function DashboardScreen() {
         last_updated: new Date().toISOString(),
       };
       setMetrics(mockData);
+      setTurbidity(2.5); // Mock turbidity value
+      setChillerTemp(18.5); // Mock chiller temperature
+      setChillerLight(450); // Mock chiller light
       
       if (!isRefreshing) {
         console.warn("Using mock data - backend endpoint not available");
@@ -257,8 +285,108 @@ const openSpoilageModule = (
           </View>
         ) : metrics ? (
           <>
-            {/* Feature 2x2 grid */}
+            {/* Environment Metrics */}
             <View className="mt-4">
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-[20px] font-extrabold text-gray-900">Environment</Text>
+                <View className="flex-row items-center">
+                  <View className="w-2 h-2 rounded-full bg-green-500 mr-2" />
+                  <Text className="text-[11px] font-bold text-gray-500">Live Data</Text>
+                </View>
+              </View>
+
+              {/* Metrics 2x2 Grid - Row 1 */}
+              <View className="flex-row justify-between">
+                <EnvironmentMetricCard
+                  iconBg="bg-[#FFEAF2]"
+                  icon={<Feather name="thermometer" size={20} color="#DB2777" />}
+                  label="Temperature"
+                  value={metrics?.temperature_c != null ? `${metrics.temperature_c}` : "--"}
+                  unit="°C"
+                  status={getStatus("airT", metrics?.temperature_c ?? null)}
+                />
+
+                <EnvironmentMetricCard
+                  iconBg="bg-[#F3E8FF]"
+                  icon={<Ionicons name="flash-outline" size={20} color="#7C3AED" />}
+                  label="EC Level"
+                  value={metrics?.ec_ms_cm != null ? `${metrics.ec_ms_cm}` : "--"}
+                  unit="ms/cm"
+                  status={getStatus("EC", metrics?.ec_ms_cm ?? null)}
+                />
+              </View>
+
+              {/* Metrics 2x2 Grid - Row 2 */}
+              <View className="flex-row justify-between mt-3">
+                <EnvironmentMetricCard
+                  iconBg="bg-[#E8F7FF]"
+                  icon={<Ionicons name="water-outline" size={20} color="#0284C7" />}
+                  label="Humidity"
+                  value={metrics?.humidity_pct != null ? `${metrics.humidity_pct}` : "--"}
+                  unit="%"
+                  status={getStatus("RH", metrics?.humidity_pct ?? null)}
+                />
+
+                <EnvironmentMetricCard
+                  iconBg="bg-[#EAF4FF]"
+                  icon={<MaterialCommunityIcons name="water-check-outline" size={20} color="#0046AD" />}
+                  label="Water pH"
+                  value={metrics?.ph != null ? `${metrics.ph}` : "--"}
+                  status={getStatus("pH", metrics?.ph ?? null)}
+                />
+              </View>
+
+              {/* Metrics 2x2 Grid - Row 3 (Turbidity) */}
+              <View className="flex-row justify-between mt-3">
+                <EnvironmentMetricCard
+                  iconBg="bg-[#F0FDF4]"
+                  icon={<Ionicons name="eye-outline" size={20} color="#10B981" />}
+                  label="Turbidity"
+                  value={turbidity != null ? `${turbidity.toFixed(1)}` : "--"}
+                  unit="NTU"
+                  status={getStatus("turbidity", turbidity)}
+                />
+
+                {/* Empty card to maintain layout */}
+                <View className="w-[48%]" />
+              </View>
+            </View>
+
+            {/* Chiller Room Section */}
+            <View className="mt-6">
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-[20px] font-extrabold text-gray-900">Chiller Room</Text>
+                <View className="flex-row items-center">
+                  <View className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+                  <Text className="text-[11px] font-bold text-gray-500">Monitored</Text>
+                </View>
+              </View>
+
+              <View className="flex-row justify-between">
+                <EnvironmentMetricCard
+                  iconBg="bg-[#DBEAFE]"
+                  icon={<Feather name="thermometer" size={20} color="#1D4ED8" />}
+                  label="Temperature"
+                  value={chillerTemp != null ? `${chillerTemp}` : "--"}
+                  unit="°C"
+                  status={getStatus("chillerTemp", chillerTemp)}
+                />
+
+                <EnvironmentMetricCard
+                  iconBg="bg-[#FEF3C7]"
+                  icon={<Ionicons name="sunny-outline" size={20} color="#D97706" />}
+                  label="Light Intensity"
+                  value={chillerLight != null ? `${chillerLight}` : "--"}
+                  unit="lux"
+                  status={getStatus("chillerLight", chillerLight)}
+                />
+              </View>
+            </View>
+
+            {/* Feature 2x2 grid */}
+            <View className="mt-6">
+              <Text className="text-[20px] font-extrabold text-gray-900 mb-3">Features</Text>
+              
               <View className="flex-row justify-between">
                 <FeatureCard
                   title="Weight & Growth"
@@ -394,6 +522,76 @@ const openSpoilageModule = (
 }
 
 /* ---------- components ---------- */
+
+type Status = "Good" | "Optimal" | "Low";
+
+function getStatus(key: "airT" | "RH" | "EC" | "pH" | "turbidity" | "chillerTemp" | "chillerLight", value: number | null): Status {
+  if (value === null || value === undefined) return "Low";
+  
+  const ranges: Record<string, { optimal: [number, number]; good: [number, number] }> = {
+    airT: { optimal: [22, 28], good: [18, 32] },
+    RH: { optimal: [50, 70], good: [40, 80] },
+    EC: { optimal: [1.2, 1.8], good: [0.8, 2.2] },
+    pH: { optimal: [5.5, 6.5], good: [5.0, 7.0] },
+    turbidity: { optimal: [0, 3], good: [0, 5] },
+    chillerTemp: { optimal: [15, 20], good: [12, 22] }, // ✅ Chiller room temperature range
+    chillerLight: { optimal: [400, 600], good: [300, 800] }, // ✅ Light intensity in lux
+  };
+
+  const range = ranges[key];
+  const isOptimal = value >= range.optimal[0] && value <= range.optimal[1];
+  const isGood = value >= range.good[0] && value <= range.good[1];
+
+  return isOptimal ? "Optimal" : isGood ? "Good" : "Low";
+}
+
+function StatusPill({ status }: { status: Status }) {
+  const map: Record<Status, { bg: string; text: string }> = {
+    Good: { bg: "bg-[#E9FBEF]", text: "text-[#16A34A]" },
+    Optimal: { bg: "bg-[#EEF2FF]", text: "text-[#4F46E5]" },
+    Low: { bg: "bg-[#FFF6E5]", text: "text-[#F59E0B]" },
+  };
+
+  return (
+    <View className={`px-2.5 py-1 rounded-full ${map[status].bg}`}>
+      <Text className={`text-[11px] font-extrabold ${map[status].text}`}>{status}</Text>
+    </View>
+  );
+}
+
+function EnvironmentMetricCard({
+  iconBg,
+  icon,
+  label,
+  value,
+  unit,
+  status,
+}: {
+  iconBg: string;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  unit?: string;
+  status: Status;
+}) {
+  return (
+    <View className="bg-white rounded-[18px] p-4 w-[48%]">
+      <View className="flex-row items-start justify-between">
+        <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
+          {icon}
+        </View>
+        <StatusPill status={status} />
+      </View>
+
+      <Text className="mt-3 text-[12px] text-gray-500 font-semibold">{label}</Text>
+
+      <View className="flex-row items-end mt-1">
+        <Text className="text-[20px] font-extrabold text-gray-900">{value}</Text>
+        {unit ? <Text className="text-[12px] text-gray-400 ml-1 mb-[2px]">{unit}</Text> : null}
+      </View>
+    </View>
+  );
+}
 
 function FeatureCard({
   title,
