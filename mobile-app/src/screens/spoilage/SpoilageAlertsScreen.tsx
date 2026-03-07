@@ -1,4 +1,3 @@
-// src/screens/spoilage/SpoilageAlertsScreen.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
@@ -16,24 +15,14 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { SpoilageStackParamList } from "../../navigation/SpoilageNavigator";
 
 import {
-  getRecentPredictions,
-  type SpoilagePredictionRow,
-  type SpoilageStage,
+  getSpoilageAlerts,
+  acknowledgeSpoilageAlert,
+  type SpoilageAlertRow,
 } from "../../api/SpoilageApi";
 
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageAlerts">;
 
-type Filter = "All Status" | "Monitoring" | "Warning" | "Critical";
-
-type AlertItem = {
-  id: string;
-  severity: "monitoring" | "warning" | "critical";
-  time: string;
-  title: string;
-  plantId: string;
-  actionText: string;
-  stage: SpoilageStage;
-};
+type Filter = "All Status" | "Warning" | "Critical";
 
 function toTimeLabel(iso: string) {
   const d = new Date(iso);
@@ -46,58 +35,45 @@ function toTimeLabel(iso: string) {
   return `${h}:${m} ${ampm}`;
 }
 
-function severityFromStage(stage: SpoilageStage): AlertItem["severity"] {
-  if (stage === "spoiled") return "critical";
-  if (stage === "near_spoilage") return "warning";
-  return "monitoring";
-}
-
-function titleFromStage(stage: SpoilageStage) {
-  if (stage === "spoiled") return "Spoilage Detected";
-  if (stage === "near_spoilage") return "Shelf-Life Risk";
-  return "Freshness Detected";
-}
-
-function actionTextFromRemaining(days: number) {
-  const d = Math.max(0, days);
-  // keep your wording format
-  return `Act Now! ${d.toFixed(d < 2 ? 1 : 0)} Days Left`;
-}
-
 export default function SpoilageAlertsScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<Filter>("All Status");
-
-  const [rows, setRows] = useState<SpoilagePredictionRow[]>([]);
+  const [rows, setRows] = useState<SpoilageAlertRow[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // ✅ local acknowledge state (frontend only)
-  const [ackIds, setAckIds] = useState<Set<string>>(new Set());
+  const [ackLoadingIds, setAckLoadingIds] = useState<Set<number>>(new Set());
 
   const toast = (msg: string) => {
     if (Platform.OS === "android") ToastAndroid.show(msg, ToastAndroid.SHORT);
     else Alert.alert("Done", msg);
   };
 
-  const acknowledge = (id: string, plantId: string) => {
-    setAckIds((prev) => new Set([...Array.from(prev), id]));
-    toast(`Alert acknowledged for ${plantId}`);
-  };
-
   const load = async () => {
     try {
       setLoading(true);
-      const data = await getRecentPredictions(200);
-
-      // ✅ if you only want Warning+Critical alerts, filter here:
-      // const onlyAlerts = data.filter(r => r.stage === "near_spoilage" || r.stage === "spoiled");
-      // setRows(onlyAlerts);
-
+      const data = await getSpoilageAlerts({ acknowledged: false, limit: 100 });
       setRows(data);
     } catch (e: any) {
       console.log("Load alerts error:", e?.message, e?.response?.data);
       Alert.alert("Error", e?.response?.data?.detail || "Failed to load alerts");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const acknowledge = async (id: number, plantId: string) => {
+    try {
+      setAckLoadingIds((prev) => new Set([...Array.from(prev), id]));
+      await acknowledgeSpoilageAlert(id);
+      setRows((prev) => prev.filter((x) => x.id !== id));
+      toast(`Alert acknowledged for ${plantId}`);
+    } catch (e: any) {
+      console.log("Ack alert error:", e?.message, e?.response?.data);
+      Alert.alert("Error", e?.response?.data?.detail || "Failed to acknowledge alert");
+    } finally {
+      setAckLoadingIds((prev) => {
+        const next = new Set(Array.from(prev));
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -108,36 +84,18 @@ export default function SpoilageAlertsScreen({ navigation }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ map db -> alert items
-  const items: AlertItem[] = useMemo(() => {
-    return rows
-      .map((r) => {
-        const stage = r.stage as SpoilageStage;
-        return {
-          id: String(r.id),
-          stage,
-          severity: severityFromStage(stage),
-          time: toTimeLabel(r.captured_at),
-          title: titleFromStage(stage),
-          plantId: r.plant_id,
-          actionText: actionTextFromRemaining(r.remaining_days),
-        };
-      })
-      // hide acknowledged ones
-      .filter((a) => !ackIds.has(a.id));
-  }, [rows, ackIds]);
-
   const filtered = useMemo(() => {
-    if (filter === "All Status") return items;
-    if (filter === "Monitoring") return items.filter((i) => i.severity === "monitoring");
-    if (filter === "Warning") return items.filter((i) => i.severity === "warning");
-    return items.filter((i) => i.severity === "critical");
-  }, [filter, items]);
+    if (filter === "All Status") return rows;
+    if (filter === "Warning") return rows.filter((r) => r.severity === "warning");
+    return rows.filter((r) => r.severity === "critical");
+  }, [filter, rows]);
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#EAF4FF]">
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
-        {/* Header */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ padding: 16 }}
+      >
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -147,7 +105,9 @@ export default function SpoilageAlertsScreen({ navigation }: Props) {
             <Ionicons name="chevron-back" size={22} color="#111827" />
           </TouchableOpacity>
 
-          <Text className="text-[14px] font-extrabold text-gray-900">Today&apos;s Alerts</Text>
+          <Text className="text-[14px] font-extrabold text-gray-900">
+            Today&apos;s Alerts
+          </Text>
 
           <TouchableOpacity
             onPress={load}
@@ -158,32 +118,48 @@ export default function SpoilageAlertsScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* Filters */}
         <View className="mt-3 bg-white rounded-full p-1 flex-row">
-          <Chip label="All Status" active={filter === "All Status"} onPress={() => setFilter("All Status")} />
-          <Chip label="Monitoring" active={filter === "Monitoring"} onPress={() => setFilter("Monitoring")} />
-          <Chip label="Warning" active={filter === "Warning"} onPress={() => setFilter("Warning")} />
-          <Chip label="Critical" active={filter === "Critical"} onPress={() => setFilter("Critical")} />
+          <Chip
+            label="All Status"
+            active={filter === "All Status"}
+            onPress={() => setFilter("All Status")}
+          />
+          <Chip
+            label="Warning"
+            active={filter === "Warning"}
+            onPress={() => setFilter("Warning")}
+          />
+          <Chip
+            label="Critical"
+            active={filter === "Critical"}
+            onPress={() => setFilter("Critical")}
+          />
         </View>
 
-        {/* Cards */}
         <View className="mt-4 space-y-4">
           {loading ? (
             <View className="bg-white rounded-[18px] p-5 items-center">
               <ActivityIndicator />
-              <Text className="mt-2 text-[12px] text-gray-500 font-semibold">Loading...</Text>
+              <Text className="mt-2 text-[12px] text-gray-500 font-semibold">
+                Loading...
+              </Text>
             </View>
           ) : filtered.length === 0 ? (
             <View className="bg-white rounded-[18px] p-5 items-center">
               <Ionicons name="checkmark-circle-outline" size={26} color="#16A34A" />
               <Text className="mt-2 font-extrabold text-gray-900">All caught up</Text>
               <Text className="text-[12px] text-gray-500 mt-1">
-                No alerts for the selected filter.
+                No active alerts right now.
               </Text>
             </View>
           ) : (
             filtered.map((a) => (
-              <AlertCard key={a.id} item={a} onAcknowledge={() => acknowledge(a.id, a.plantId)} />
+              <AlertCard
+                key={a.id}
+                item={a}
+                ackLoading={ackLoadingIds.has(a.id)}
+                onAcknowledge={() => acknowledge(a.id, a.plant_id)}
+              />
             ))
           )}
         </View>
@@ -221,19 +197,19 @@ function Chip({
 function AlertCard({
   item,
   onAcknowledge,
+  ackLoading,
 }: {
-  item: { severity: "monitoring" | "warning" | "critical"; time: string; title: string; plantId: string; actionText: string };
+  item: SpoilageAlertRow;
   onAcknowledge: () => void;
+  ackLoading: boolean;
 }) {
   const isCritical = item.severity === "critical";
-  const isWarning = item.severity === "warning";
+  const border = isCritical ? "#EF4444" : "#F59E0B";
+  const softBg = isCritical ? "#FEE2E2" : "#FFF7ED";
+  const titleColor = isCritical ? "#DC2626" : "#F59E0B";
 
-  const border = isCritical ? "#EF4444" : isWarning ? "#F59E0B" : "#22C55E";
-  const softBg = isCritical ? "#FEE2E2" : isWarning ? "#FFF7ED" : "#ECFDF5";
-  const titleColor = isCritical ? "#DC2626" : isWarning ? "#F59E0B" : "#16A34A";
-
-  const badge = isCritical ? "Critical" : isWarning ? "Near Spoilage" : "Monitoring";
-  const icon = isCritical ? "warning-outline" : isWarning ? "time-outline" : "checkmark-circle-outline";
+  const badge = isCritical ? "Critical" : "Near Spoilage";
+  const icon = isCritical ? "warning-outline" : "time-outline";
 
   return (
     <View>
@@ -251,34 +227,36 @@ function AlertCard({
               <Text className="text-[11px] font-extrabold" style={{ color: titleColor }}>
                 {badge}
               </Text>
-              <Text className="text-[10px] text-gray-500 ml-2">{item.time}</Text>
+              <Text className="text-[10px] text-gray-500 ml-2">
+                {toTimeLabel(item.created_at)}
+              </Text>
             </View>
 
-            <Text className="text-[12px] font-extrabold text-gray-900 mt-1">{item.title}</Text>
-            <Text className="text-[11px] text-gray-600 mt-1">Plant ID: {item.plantId}</Text>
+            <Text className="text-[12px] font-extrabold text-gray-900 mt-1">
+              {item.title}
+            </Text>
+            <Text className="text-[11px] text-gray-600 mt-1">
+              Plant ID: {item.plant_id}
+            </Text>
+            <Text className="text-[11px] text-gray-600 mt-1">
+              {item.message}
+            </Text>
           </View>
-        </View>
-
-        <View
-          className="mt-3 rounded-full px-4 py-3 flex-row items-center justify-center"
-          style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: border }}
-        >
-          <Ionicons name="time-outline" size={16} color={border} />
-          <Text className="ml-2 text-[12px] font-extrabold" style={{ color: titleColor }}>
-            {item.actionText}
-          </Text>
         </View>
       </View>
 
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={onAcknowledge}
+        disabled={ackLoading}
         className="mt-3 rounded-[12px] items-center justify-center"
-        style={{ backgroundColor: "#0046AD", height: 48 }}
+        style={{ backgroundColor: "#0046AD", height: 48, opacity: ackLoading ? 0.7 : 1 }}
       >
         <View className="flex-row items-center">
           <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
-          <Text className="ml-2 text-[13px] font-extrabold text-white">Acknowledge</Text>
+          <Text className="ml-2 text-[13px] font-extrabold text-white">
+            {ackLoading ? "Acknowledging..." : "Acknowledge"}
+          </Text>
         </View>
       </TouchableOpacity>
     </View>
