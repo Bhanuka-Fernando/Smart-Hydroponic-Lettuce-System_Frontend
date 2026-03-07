@@ -16,6 +16,9 @@ import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../../auth/useAuth";
 import { getDashboardLatest, DashboardMetricsResponse } from "../../api/dashboardApi";
+import { getDeviceSensors } from "../../api/deviceApi";
+import axios from 'axios';
+import { ML_BASE_URL } from '../../utils/constants';
 
 type NotificationItem = {
   id: string;
@@ -103,6 +106,16 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // ✅ Add loading state for "Check for Updates"
+  const [loadingUpdate, setLoadingUpdate] = useState(false);
+
+  // ✅ Add state for water quality data (turbidity)
+  const [turbidity, setTurbidity] = useState<number | null>(null);
+
+  // ✅ Add state for chiller room data
+  const [chillerTemp, setChillerTemp] = useState<number | null>(null);
+  const [chillerHumidity, setChillerHumidity] = useState<number | null>(null);
+
   // Notifications and Activities state
   const [notifications, setNotifications] = useState<NotificationItem[]>(mockNotifications);
   const [activities, setActivities] = useState<ActivityItem[]>(mockActivities);
@@ -113,10 +126,26 @@ export default function DashboardScreen() {
       if (!isRefreshing) setLoading(true);
       const data = await getDashboardLatest({ token: accessToken });
       setMetrics(data);
+      
+      // ✅ Fetch turbidity from water quality API
+      try {
+        const { getWaterHistory } = await import('../../api/WaterQualityApi');
+        const hist = await getWaterHistory('TANK_01', 1);
+        if (hist.readings && hist.readings.length > 0) {
+          setTurbidity(hist.readings[hist.readings.length - 1].turb_ntu);
+        }
+      } catch (waterErr) {
+        console.warn('Failed to fetch turbidity:', waterErr);
+        setTurbidity(null);
+      }
+
+      // ✅ Fetch chiller room data (mock for now - replace with actual API)
+      setChillerTemp(18.5);
+      setChillerHumidity(65);
+      
     } catch (error: any) {
       console.error("Failed to fetch dashboard:", error);
       
-      // Use mock data if API is not available
       const mockData: DashboardMetricsResponse = {
         zone_id: "all",
         zone_name: "All Zones",
@@ -130,6 +159,9 @@ export default function DashboardScreen() {
         last_updated: new Date().toISOString(),
       };
       setMetrics(mockData);
+      setTurbidity(2.5);
+      setChillerTemp(18.5);
+      setChillerHumidity(65);
       
       if (!isRefreshing) {
         console.warn("Using mock data - backend endpoint not available");
@@ -139,6 +171,84 @@ export default function DashboardScreen() {
       setRefreshing(false);
     }
   }, [accessToken]);
+
+  // ✅ New function: Fetch fresh sensor readings from device simulator
+  const handleCheckForUpdates = async () => {
+    try {
+      setLoadingUpdate(true);
+
+      const ZONE_ID = "z01";
+      const deviceSensors = await getDeviceSensors(ZONE_ID, "NORMAL");
+
+      // Update metrics with fresh sensor data
+      const updatedMetrics: DashboardMetricsResponse = {
+        ...metrics,
+        zone_id: deviceSensors.zone_id,
+        zone_name: "Zone 01",
+        temperature_c: deviceSensors.temperature_c,
+        humidity_pct: deviceSensors.humidity_pct,
+        ec_ms_cm: deviceSensors.ec_ms_cm,
+        ph: deviceSensors.ph,
+        last_updated: deviceSensors.timestamp,
+        plant_count: metrics?.plant_count ?? 0,
+        harvest_ready_count: metrics?.harvest_ready_count ?? 0,
+        avg_growth_pct: metrics?.avg_growth_pct ?? 0,
+      };
+
+      setMetrics(updatedMetrics);
+
+      // Fetch turbidity
+      try {
+        const { getWaterHistory } = await import('../../api/WaterQualityApi');
+        const hist = await getWaterHistory('TANK_01', 1);
+        if (hist.readings && hist.readings.length > 0) {
+          setTurbidity(hist.readings[hist.readings.length - 1].turb_ntu);
+        }
+      } catch (waterErr) {
+        console.warn('Failed to fetch turbidity:', waterErr);
+      }
+
+      // Optional: Ingest to ML backend
+      try {
+        const payload = {
+          device_id: deviceSensors.device_id,
+          zone_id: deviceSensors.zone_id,
+          plant_id: "p04",
+          ts: deviceSensors.timestamp,
+          air_temp_c: deviceSensors.temperature_c,
+          humidity_pct: deviceSensors.humidity_pct,
+          ec_ms_cm: deviceSensors.ec_ms_cm,
+          ph: deviceSensors.ph,
+        };
+
+        await axios.post(`${ML_BASE_URL}/infer/iot/ingest`, payload, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        });
+        
+        console.log("✅ ML backend ingested successfully");
+      } catch (e: any) {
+        console.warn("⚠️  Failed to ingest sensor data to ML backend:", {
+          status: e?.response?.status,
+          data: e?.response?.data,
+          message: e?.message,
+        });
+      }
+
+      // ✅ Show success feedback
+      Alert.alert("✅ Updated", "Sensor readings refreshed successfully", [{ text: "OK" }]);
+    } catch (error: any) {
+      Alert.alert(
+        "Update Failed",
+        error?.message || "Failed to fetch sensor readings. Ensure device simulator is running.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setLoadingUpdate(false);
+    }
+  };
 
   // Fetch on mount
   useEffect(() => {
@@ -257,8 +367,128 @@ const openSpoilageModule = (
           </View>
         ) : metrics ? (
           <>
-            {/* Feature 2x2 grid */}
+            {/* Environment Metrics */}
             <View className="mt-4">
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-[20px] font-extrabold text-gray-900">Environment</Text>
+                <View className="flex-row items-center">
+                  <View className="w-2 h-2 rounded-full bg-green-500 mr-2" />
+                  <Text className="text-[11px] font-bold text-gray-500">Live Data</Text>
+                </View>
+              </View>
+
+              {/* Metrics 2x2 Grid - Row 1 */}
+              <View className="flex-row justify-between">
+                <EnvironmentMetricCard
+                  iconBg="bg-[#FFEAF2]"
+                  icon={<Feather name="thermometer" size={20} color="#DB2777" />}
+                  label="Temperature"
+                  value={metrics?.temperature_c != null ? `${metrics.temperature_c}` : "--"}
+                  unit="°C"
+                  status={getStatus("airT", metrics?.temperature_c ?? null)}
+                />
+
+                <EnvironmentMetricCard
+                  iconBg="bg-[#F3E8FF]"
+                  icon={<Ionicons name="flash-outline" size={20} color="#7C3AED" />}
+                  label="EC Level"
+                  value={metrics?.ec_ms_cm != null ? `${metrics.ec_ms_cm}` : "--"}
+                  unit="ms/cm"
+                  status={getStatus("EC", metrics?.ec_ms_cm ?? null)}
+                />
+              </View>
+
+              {/* Metrics 2x2 Grid - Row 2 */}
+              <View className="flex-row justify-between mt-3">
+                <EnvironmentMetricCard
+                  iconBg="bg-[#E8F7FF]"
+                  icon={<Ionicons name="water-outline" size={20} color="#0284C7" />}
+                  label="Humidity"
+                  value={metrics?.humidity_pct != null ? `${metrics.humidity_pct}` : "--"}
+                  unit="%"
+                  status={getStatus("RH", metrics?.humidity_pct ?? null)}
+                />
+
+                <EnvironmentMetricCard
+                  iconBg="bg-[#EAF4FF]"
+                  icon={<MaterialCommunityIcons name="water-check-outline" size={20} color="#0046AD" />}
+                  label="Water pH"
+                  value={metrics?.ph != null ? `${metrics.ph}` : "--"}
+                  status={getStatus("pH", metrics?.ph ?? null)}
+                />
+              </View>
+
+              {/* Metrics 2x2 Grid - Row 3 (Turbidity) */}
+              <View className="flex-row justify-between mt-3">
+                <EnvironmentMetricCard
+                  iconBg="bg-[#F0FDF4]"
+                  icon={<Ionicons name="eye-outline" size={20} color="#10B981" />}
+                  label="Turbidity"
+                  value={turbidity != null ? `${turbidity.toFixed(1)}` : "--"}
+                  unit="NTU"
+                  status={getStatus("turbidity", turbidity)}
+                />
+
+                {/* Empty card to maintain layout */}
+                <View className="w-[48%]" />
+              </View>
+
+              {/* ✅ Check for Updates Button */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleCheckForUpdates}
+                disabled={loadingUpdate}
+                className="mt-4 bg-white rounded-[14px] px-4 py-3 flex-row items-center justify-center shadow-sm"
+              >
+                {loadingUpdate ? (
+                  <>
+                    <ActivityIndicator size="small" color="#1D4ED8" />
+                    <Text className="ml-2 text-[12px] font-bold text-gray-700">Updating...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="sync-outline" size={18} color="#1D4ED8" />
+                    <Text className="ml-2 text-[12px] font-bold text-gray-700">Check for Updates</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Chiller Room Section */}
+            <View className="mt-6">
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-[20px] font-extrabold text-gray-900">Chiller Room</Text>
+                <View className="flex-row items-center">
+                  <View className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+                  <Text className="text-[11px] font-bold text-gray-500">Monitored</Text>
+                </View>
+              </View>
+
+              <View className="flex-row justify-between">
+                <EnvironmentMetricCard
+                  iconBg="bg-[#DBEAFE]"
+                  icon={<Feather name="thermometer" size={20} color="#1D4ED8" />}
+                  label="Temperature"
+                  value={chillerTemp != null ? `${chillerTemp}` : "--"}
+                  unit="°C"
+                  status={getStatus("chillerTemp", chillerTemp)}
+                />
+
+                <EnvironmentMetricCard
+                  iconBg="bg-[#E0F2FE]"
+                  icon={<Ionicons name="water-outline" size={20} color="#0284C7" />}
+                  label="Humidity"
+                  value={chillerHumidity != null ? `${chillerHumidity}` : "--"}
+                  unit="%"
+                  status={getStatus("chillerHumidity", chillerHumidity)}
+                />
+              </View>
+            </View>
+
+            {/* Feature 2x2 grid */}
+            <View className="mt-6">
+              <Text className="text-[20px] font-extrabold text-gray-900 mb-3">Features</Text>
+              
               <View className="flex-row justify-between">
                 <FeatureCard
                   title="Weight & Growth"
@@ -294,79 +524,9 @@ const openSpoilageModule = (
               </View>
             </View>
 
-            {/* Quick Actions */}
-            <Text className="text-[13px] font-extrabold text-gray-900 mt-6 mb-3">
-              Quick Actions
-            </Text>
+            {/* Quick Actions section removed */}
 
-            <View className="flex-row justify-between">
-              <QuickAction
-                top="Estimate"
-                bottom="Weight"
-                iconBg="bg-[#EAF4FF]"
-                icon={<MaterialCommunityIcons name="scale-bathroom" size={20} color="#0046AD" />}
-                onPress={() => go("Scan")}
-              />
-              <QuickAction
-                top="Monitor"
-                bottom="Growth"
-                iconBg="bg-[#E9FBEF]"
-                icon={<Ionicons name="analytics-outline" size={20} color="#16A34A" />}
-                onPress={() => go("Scan")}
-              />
-              <QuickAction
-                top="Detect"
-                bottom="Disease"
-                iconBg="bg-[#FFEAF2]"
-                icon={<Ionicons name="medkit-outline" size={20} color="#DB2777" />}
-                onPress={() => go("Scan")}
-              />
-              <QuickAction
-                top="Spoilage"
-                bottom="Check"
-                iconBg="bg-[#FFF6E5]"
-                icon={<Ionicons name="warning-outline" size={20} color="#F59E0B" />}
-                onPress={() => navigation.navigate("SpoilageDetails")}
-              />
-            </View>
-
-            {/* Notifications */}
-            {notifications.length > 0 && (
-              <>
-                <View className="flex-row items-center justify-between mt-6 mb-3">
-                  <Text className="text-[13px] font-extrabold text-gray-900">
-                    Notifications
-                  </Text>
-
-                  <View className="flex-row items-center gap-2">
-                    <View className="bg-red-500 rounded-full px-3 py-1">
-                      <Text className="text-white text-[11px] font-extrabold">
-                        {notifications.length} New
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={handleClearAllNotifications}
-                      activeOpacity={0.7}
-                      className="px-3 py-1 rounded-full bg-gray-100"
-                    >
-                      <Text className="text-[11px] font-extrabold text-gray-600">
-                        Clear All
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {notifications.map((notification, index) => (
-                  <React.Fragment key={notification.id}>
-                    <NotificationCard
-                      {...notification}
-                      onDismiss={() => handleDismissNotification(notification.id)}
-                    />
-                    {index < notifications.length - 1 && <View className="h-3" />}
-                  </React.Fragment>
-                ))}
-              </>
-            )}
+            {/* Notifications section removed */}
 
             {/* Recent Activities */}
             {activities.length > 0 && (
@@ -464,6 +624,76 @@ const openSpoilageModule = (
 }
 
 /* ---------- components ---------- */
+
+type Status = "Good" | "Optimal" | "Low";
+
+function getStatus(key: "airT" | "RH" | "EC" | "pH" | "turbidity" | "chillerTemp" | "chillerHumidity", value: number | null): Status {
+  if (value === null || value === undefined) return "Low";
+  
+  const ranges: Record<string, { optimal: [number, number]; good: [number, number] }> = {
+    airT: { optimal: [22, 28], good: [18, 32] },
+    RH: { optimal: [50, 70], good: [40, 80] },
+    EC: { optimal: [1.2, 1.8], good: [0.8, 2.2] },
+    pH: { optimal: [5.5, 6.5], good: [5.0, 7.0] },
+    turbidity: { optimal: [0, 3], good: [0, 5] },
+    chillerTemp: { optimal: [15, 20], good: [12, 22] },
+    chillerHumidity: { optimal: [60, 75], good: [50, 85] }, // ✅ Chiller room humidity range
+  };
+
+  const range = ranges[key];
+  const isOptimal = value >= range.optimal[0] && value <= range.optimal[1];
+  const isGood = value >= range.good[0] && value <= range.good[1];
+
+  return isOptimal ? "Optimal" : isGood ? "Good" : "Low";
+}
+
+function StatusPill({ status }: { status: Status }) {
+  const map: Record<Status, { bg: string; text: string }> = {
+    Good: { bg: "bg-[#E9FBEF]", text: "text-[#16A34A]" },
+    Optimal: { bg: "bg-[#EEF2FF]", text: "text-[#4F46E5]" },
+    Low: { bg: "bg-[#FFF6E5]", text: "text-[#F59E0B]" },
+  };
+
+  return (
+    <View className={`px-2.5 py-1 rounded-full ${map[status].bg}`}>
+      <Text className={`text-[11px] font-extrabold ${map[status].text}`}>{status}</Text>
+    </View>
+  );
+}
+
+function EnvironmentMetricCard({
+  iconBg,
+  icon,
+  label,
+  value,
+  unit,
+  status,
+}: {
+  iconBg: string;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  unit?: string;
+  status: Status;
+}) {
+  return (
+    <View className="bg-white rounded-[18px] p-4 w-[48%]">
+      <View className="flex-row items-start justify-between">
+        <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
+          {icon}
+        </View>
+        <StatusPill status={status} />
+      </View>
+
+      <Text className="mt-3 text-[12px] text-gray-500 font-semibold">{label}</Text>
+
+      <View className="flex-row items-end mt-1">
+        <Text className="text-[20px] font-extrabold text-gray-900">{value}</Text>
+        {unit ? <Text className="text-[12px] text-gray-400 ml-1 mb-[2px]">{unit}</Text> : null}
+      </View>
+    </View>
+  );
+}
 
 function FeatureCard({
   title,
