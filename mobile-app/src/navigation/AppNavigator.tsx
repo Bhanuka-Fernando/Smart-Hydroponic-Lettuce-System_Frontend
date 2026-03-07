@@ -1,4 +1,3 @@
-// src/navigation/AppNavigator.tsx
 import React from "react";
 import { View, Text } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -28,7 +27,6 @@ export type DashboardStackParamList = {
   EstimateWeightScan: undefined;
   GrowthForecasting: undefined;
   PlantLists: undefined;
-
   EstimateWeightResults: {
     imageUri: string;
     accuracy?: number;
@@ -39,7 +37,6 @@ export type DashboardStackParamList = {
     plantAgeDays?: number;
     capturedAtISO?: string;
   };
-
   GrowthPredictionResults: {
     dateLabel?: string;
     predictedWeight?: number;
@@ -51,7 +48,7 @@ export type DashboardStackParamList = {
     predicted?: number[];
   };
 
-  // ✅ FIX: pass ONLY plant_id
+  // pass ONLY plant_id
   PlantDetails: { plant_id: string };
 };
 
@@ -62,13 +59,28 @@ function DashboardStackNavigator() {
     <DashboardStack.Navigator screenOptions={{ headerShown: false }}>
       <DashboardStack.Screen name="DashboardHome" component={DashboardScreen} />
       <DashboardStack.Screen name="WeightGrowth" component={WeightGrowthScreen} />
-      <DashboardStack.Screen name="ScheduleTimeSlots" component={ScheduleTimeSlotsScreen} />
-      <DashboardStack.Screen name="EstimateWeightScan" component={EstimateWeightScanScreen} />
-      <DashboardStack.Screen name="GrowthForecasting" component={GrowthForecastingScreen} />
-      <DashboardStack.Screen name="GrowthPredictionResults" component={GrowthPredictionResultsScreen} />
+      <DashboardStack.Screen
+        name="ScheduleTimeSlots"
+        component={ScheduleTimeSlotsScreen}
+      />
+      <DashboardStack.Screen
+        name="EstimateWeightScan"
+        component={EstimateWeightScanScreen}
+      />
+      <DashboardStack.Screen
+        name="GrowthForecasting"
+        component={GrowthForecastingScreen}
+      />
+      <DashboardStack.Screen
+        name="GrowthPredictionResults"
+        component={GrowthPredictionResultsScreen}
+      />
       <DashboardStack.Screen name="PlantLists" component={PlantListsScreen} />
       <DashboardStack.Screen name="PlantDetails" component={PlantDetailsScreen} />
-      <DashboardStack.Screen name="EstimateWeightResults" component={EstimateWeightResultsScreen} />
+      <DashboardStack.Screen
+        name="EstimateWeightResults"
+        component={EstimateWeightResultsScreen}
+      />
     </DashboardStack.Navigator>
   );
 }
@@ -120,7 +132,7 @@ function TabIcon({
   );
 }
 
-function TabsNavigator() {
+export default function AppNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -166,3 +178,4 @@ function TabsNavigator() {
     </Tab.Navigator>
   );
 }
+
