@@ -16,6 +16,7 @@ import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../../auth/useAuth";
 import { getDashboardLatest, DashboardMetricsResponse } from "../../api/dashboardApi";
+import LeafHealthNavigator from "../../navigation/LeafHealthNavigator";
 
 type NotificationItem = {
   id: string;
@@ -254,7 +255,7 @@ export default function DashboardScreen() {
                   subtitle="Analyze Plant Health"
                   iconBg="bg-[#FFEAF2]"
                   icon={<Ionicons name="medkit-outline" size={22} color="#DB2777" />}
-                  onPress={() => go("Scan")}
+                  onPress={() => navigation.navigate("LeafHealth")}
                 />
               </View>
 

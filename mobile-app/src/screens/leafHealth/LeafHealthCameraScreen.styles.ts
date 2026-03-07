@@ -1,0 +1,157 @@
+import { StyleSheet } from "react-native";
+
+export const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: "#F3F4F4",
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 18,
+  },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  topTitle: {
+    fontSize: 20,
+    color: "#1F2937",
+    fontWeight: "800",
+  },
+  topSpacer: {
+    width: 40,
+  },
+  permissionCard: {
+    flex: 1,
+    marginTop: 24,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  permissionTitle: {
+    fontSize: 24,
+  },
+  permissionText: {
+    marginTop: 8,
+    color: "#64748B",
+    textAlign: "center",
+  },
+  cameraCard: {
+    flex: 1,
+    borderRadius: 20,
+    overflow: "hidden",
+    backgroundColor: "#000814",
+    marginTop: 8,
+    marginBottom: 20,
+    elevation: 4,
+  },
+  cameraWrapper: {
+    flex: 1,
+  },
+  camera: {
+    flex: 1,
+  },
+  overlayTop: {
+    position: "absolute",
+    top: 14,
+    left: 12,
+    right: 12,
+    zIndex: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  hintPill: {
+    backgroundColor: "rgba(30,41,59,0.85)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  hintText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  livePill: {
+    backgroundColor: "rgba(15,23,42,0.85)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  liveText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  frameBox: {
+    position: "absolute",
+    top: "22%",
+    left: "14%",
+    width: "72%",
+    height: "48%",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.75)",
+    borderRadius: 18,
+  },
+  bottomRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  refreshBtn: {
+    width: 62,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: "#F8F8F8",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  captureBtn: {
+    flex: 1,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: "#0B3D91",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+  },
+  captureBtnDisabled: {
+    opacity: 0.7,
+  },
+  captureBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  primaryBtn: {
+    marginTop: 18,
+    height: 50,
+    minWidth: 180,
+    borderRadius: 12,
+    backgroundColor: "#0B3D91",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 18,
+  },
+  primaryBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+});
