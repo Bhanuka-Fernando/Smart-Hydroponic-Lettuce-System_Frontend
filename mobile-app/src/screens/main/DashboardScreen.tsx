@@ -108,7 +108,7 @@ export default function DashboardScreen() {
 
   // ✅ Add state for chiller room data
   const [chillerTemp, setChillerTemp] = useState<number | null>(null);
-  const [chillerLight, setChillerLight] = useState<number | null>(null);
+  const [chillerHumidity, setChillerHumidity] = useState<number | null>(null);
 
   // Notifications and Activities state
   const [notifications, setNotifications] = useState<NotificationItem[]>(mockNotifications);
@@ -136,7 +136,7 @@ export default function DashboardScreen() {
       // ✅ Fetch chiller room data (mock for now - replace with actual API)
       // TODO: Replace with actual chiller room API call
       setChillerTemp(18.5); // Mock temperature
-      setChillerLight(450); // Mock light intensity in lux
+      setChillerHumidity(65); // Mock humidity in %
       
     } catch (error: any) {
       console.error("Failed to fetch dashboard:", error);
@@ -157,7 +157,7 @@ export default function DashboardScreen() {
       setMetrics(mockData);
       setTurbidity(2.5); // Mock turbidity value
       setChillerTemp(18.5); // Mock chiller temperature
-      setChillerLight(450); // Mock chiller light
+      setChillerHumidity(65); // Mock chiller humidity
       
       if (!isRefreshing) {
         console.warn("Using mock data - backend endpoint not available");
@@ -373,12 +373,12 @@ const openSpoilageModule = (
                 />
 
                 <EnvironmentMetricCard
-                  iconBg="bg-[#FEF3C7]"
-                  icon={<Ionicons name="sunny-outline" size={20} color="#D97706" />}
-                  label="Light Intensity"
-                  value={chillerLight != null ? `${chillerLight}` : "--"}
-                  unit="lux"
-                  status={getStatus("chillerLight", chillerLight)}
+                  iconBg="bg-[#E0F2FE]"
+                  icon={<Ionicons name="water-outline" size={20} color="#0284C7" />}
+                  label="Humidity"
+                  value={chillerHumidity != null ? `${chillerHumidity}` : "--"}
+                  unit="%"
+                  status={getStatus("chillerHumidity", chillerHumidity)}
                 />
               </View>
             </View>
@@ -525,7 +525,7 @@ const openSpoilageModule = (
 
 type Status = "Good" | "Optimal" | "Low";
 
-function getStatus(key: "airT" | "RH" | "EC" | "pH" | "turbidity" | "chillerTemp" | "chillerLight", value: number | null): Status {
+function getStatus(key: "airT" | "RH" | "EC" | "pH" | "turbidity" | "chillerTemp" | "chillerHumidity", value: number | null): Status {
   if (value === null || value === undefined) return "Low";
   
   const ranges: Record<string, { optimal: [number, number]; good: [number, number] }> = {
@@ -534,8 +534,8 @@ function getStatus(key: "airT" | "RH" | "EC" | "pH" | "turbidity" | "chillerTemp
     EC: { optimal: [1.2, 1.8], good: [0.8, 2.2] },
     pH: { optimal: [5.5, 6.5], good: [5.0, 7.0] },
     turbidity: { optimal: [0, 3], good: [0, 5] },
-    chillerTemp: { optimal: [15, 20], good: [12, 22] }, // ✅ Chiller room temperature range
-    chillerLight: { optimal: [400, 600], good: [300, 800] }, // ✅ Light intensity in lux
+    chillerTemp: { optimal: [15, 20], good: [12, 22] },
+    chillerHumidity: { optimal: [60, 75], good: [50, 85] }, // ✅ Chiller room humidity range
   };
 
   const range = ranges[key];
