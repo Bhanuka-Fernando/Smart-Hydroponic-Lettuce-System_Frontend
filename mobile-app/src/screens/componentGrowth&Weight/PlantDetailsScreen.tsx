@@ -241,15 +241,11 @@ function HistoryRow({ item, highlight }: { item: HistoryItem; highlight?: boolea
               <Text className={`${shouldHighlight ? "text-[13px]" : "text-[12px]"} font-extrabold text-gray-900`}>
                 {item.dateLabel}
                 {item.timeLabel ? ` • ${item.timeLabel}` : ""}
-                {item.ageDays != null ? ` • Age ${item.ageDays}d` : ""}
               </Text>
-              
             </View>
 
             <Text className={`${shouldHighlight ? "text-[11px] mt-1.5" : "text-[10px] mt-1"} font-bold text-gray-500`}>
-              {item.kind === "scan"
-                ? `Actual: ${item.weightG.toFixed(2)}g`
-                : `Pred: ${item.predG.toFixed(2)}g`}
+              {item.ageDays != null ? `Age: ${item.ageDays} days` : "Age: --"}
             </Text>
           </View>
         </View>
