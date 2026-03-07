@@ -1,7 +1,10 @@
-const HOST = "172.20.10.4";
+import Constants from "expo-constants";
 
-export const API_BASE_URL = `http://${HOST}:8000`;
-export const WATER_BASE_URL = `http://${HOST}:8006`;
-export const ML_BASE_URL = `http://${HOST}:8001`;
-export const SPOILAGE_BASE_URL = `http://${HOST}:8002`;
-export const DEVICE_BASE_URL = `http://${HOST}:8010`;
+const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string>;
+
+export const HOST = extra.HOST;
+export const API_BASE_URL = extra.API_BASE_URL;
+export const WATER_BASE_URL = extra.WATER_BASE_URL;
+export const ML_BASE_URL = extra.ML_BASE_URL;
+export const SPOILAGE_BASE_URL = extra.SPOILAGE_BASE_URL;
+export const DEVICE_BASE_URL = extra.DEVICE_BASE_URL;
