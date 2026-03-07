@@ -1,5 +1,4 @@
-// src/screens/spoilage/SpoilagePlantDetailsScreen.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -26,11 +25,11 @@ type Props = NativeStackScreenProps<
 >;
 
 function isSimPlantId(id: string) {
-  return String(id || "").startsWith("SIM-");
+  return String(id || "").trim().toUpperCase().startsWith("SIM-");
 }
 
 function displayPlantId(id: string) {
-  return isSimPlantId(id) ? String(id).replace(/^SIM-/, "") : String(id);
+  return isSimPlantId(id) ? String(id).replace(/^SIM-/i, "") : String(id);
 }
 
 function formatDateTime(iso: string) {
@@ -70,16 +69,20 @@ function badge(stage: SpoilagePredictionRow["stage"]) {
   return { bg: "#FEE2E2", text: "#DC2626", label: "Spoiled" };
 }
 
-function remainingDaysNow(rawDays: number, capturedAt?: string | null) {
-  const base = Number(rawDays ?? 0);
+function formatRemainingDays(value: number | null | undefined) {
+  const n = Math.max(0, Number(value ?? 0));
+  return `${Math.round(n)} days`;
+}
 
-  if (!capturedAt) return Math.max(0, Math.round(base));
+function getInitialDemoDayIndex(stage?: string | null) {
+  const s = String(stage || "").trim().toLowerCase();
 
-  const capturedMs = new Date(capturedAt).getTime();
-  if (Number.isNaN(capturedMs)) return Math.max(0, Math.round(base));
+  if (s === "fresh") return 0;          // Day 0
+  if (s === "slightly_aged") return 1;  // Day 2
+  if (s === "near_spoilage") return 2;  // Day 4
+  if (s === "spoiled") return 3;        // Day 7
 
-  const elapsedDays = (Date.now() - capturedMs) / (1000 * 60 * 60 * 24);
-  return Math.max(0, Math.ceil(base - elapsedDays));
+  return 0;
 }
 
 export default function SpoilagePlantDetailsScreen({
@@ -91,29 +94,43 @@ export default function SpoilagePlantDetailsScreen({
   const [rows, setRows] = useState<SpoilagePredictionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getPlantHistory(plantId, 30);
-      setRows(data);
+
+      const sorted = [...data].sort((a, b) => {
+        const ta = new Date(a.captured_at).getTime();
+        const tb = new Date(b.captured_at).getTime();
+        return tb - ta;
+      });
+
+      setRows(sorted);
     } catch (e: any) {
       console.log("history load error:", e?.message, e?.response?.data);
       Alert.alert("Error", e?.response?.data?.detail || "Failed to load history");
     } finally {
       setLoading(false);
     }
-  };
+  }, [plantId]);
 
   useEffect(() => {
     load();
     const unsub = navigation.addListener("focus", load);
     return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plantId]);
+  }, [plantId, navigation, load]);
 
-  const current = rows[0];
+  const current = rows.length > 0 ? rows[0] : null;
   const sim = isSimPlantId(plantId);
   const titlePlant = `${displayPlantId(plantId)}${sim ? " (Sim)" : ""}`;
+
+  const handleRescan = () => {
+    navigation.navigate("SpoilageScan", {
+      plantId,
+      demoMode: sim,
+      initialDemoDayIndex: sim ? getInitialDemoDayIndex(current?.stage) : undefined,
+    } as never);
+  };
 
   const header = useMemo(() => {
     if (!current) {
@@ -183,10 +200,7 @@ export default function SpoilagePlantDetailsScreen({
             <View className="flex-1 ml-4">
               <Mini
                 label="REMAINING DAYS"
-                value={`${remainingDaysNow(
-                  Number(current.remaining_days ?? 0),
-                  current.captured_at
-                )} days`}
+                value={formatRemainingDays(current.remaining_days)}
               />
               <View style={{ height: 8 }} />
               <Mini
@@ -203,7 +217,7 @@ export default function SpoilagePlantDetailsScreen({
 
           <TouchableOpacity
             activeOpacity={0.9}
-            onPress={() => navigation.navigate("SpoilageScan", { plantId } as any)}
+            onPress={handleRescan}
             className="mt-4 rounded-[12px] items-center justify-center"
             style={{ backgroundColor: "#0046AD", height: 48 }}
           >
@@ -221,7 +235,7 @@ export default function SpoilagePlantDetailsScreen({
         </Text>
       </View>
     );
-  }, [current, titlePlant, navigation, plantId]);
+  }, [current, titlePlant]);
 
   const renderItem = ({ item }: { item: SpoilagePredictionRow }) => {
     const b = badge(item.stage);
@@ -247,8 +261,7 @@ export default function SpoilagePlantDetailsScreen({
         </View>
 
         <Text className="text-[11px] text-gray-500 mt-2">
-          Remaining at scan:{" "}
-          {Math.max(0, Number(item.remaining_days ?? 0)).toFixed(0)} days • Temp:{" "}
+          Remaining at scan: {Math.max(0, Number(item.remaining_days ?? 0)).toFixed(0)} days • Temp:{" "}
           {Number(item.temperature ?? 0).toFixed(1)}°C • RH:{" "}
           {Math.round(Number(item.humidity ?? 0))}%
         </Text>
@@ -295,7 +308,11 @@ export default function SpoilagePlantDetailsScreen({
           ListHeaderComponent={
             <View style={{ padding: 16, paddingBottom: 0 }}>{header}</View>
           }
-          contentContainerStyle={{ padding: 16, paddingTop: 0, paddingBottom: 24 }}
+          contentContainerStyle={{
+            padding: 16,
+            paddingTop: 0,
+            paddingBottom: 24,
+          }}
           showsVerticalScrollIndicator={false}
         />
       )}
