@@ -300,7 +300,7 @@ export default function DashboardScreen() {
               subtitle="Analyze Plant Health"
               iconBg="bg-[#FFEAF2]"
               icon={<Ionicons name="medkit-outline" size={22} color="#DB2777" />}
-              onPress={() => go("Scan")}
+              onPress={() => navigation.navigate("LeafHealth")}
             />
           </View>
 

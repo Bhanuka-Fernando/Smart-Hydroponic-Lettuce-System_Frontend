@@ -6,10 +6,12 @@ import { useAuth } from "../auth/useAuth";
 import AuthNavigator from "./AuthNavigator";
 import AppNavigator from "./AppNavigator";
 import SpoilageNavigator from "./SpoilageNavigator";
+import LeafHealthNavigator from "./LeafHealthNavigator";
 
 export type RootStackParamList = {
   Auth: undefined;
   App: undefined;
+  LeafHealth: undefined;
 
   // ✅ Spoilage module entry point
   Spoilage: undefined;
@@ -39,6 +41,8 @@ export default function RootNavigator() {
 
       {/* ✅ whole spoilage module */}
       <Stack.Screen name="Spoilage" component={SpoilageNavigator} />
+
+      <Stack.Screen name="LeafHealth" component={LeafHealthNavigator} />
     </Stack.Navigator>
   );
 }
