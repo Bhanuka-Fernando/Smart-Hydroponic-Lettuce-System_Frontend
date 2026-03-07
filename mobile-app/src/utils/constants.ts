@@ -1,4 +1,4 @@
-const HOST = "192.168.8.102";
+const HOST = "172.20.10.12";
 
 export const API_BASE_URL = `http://${HOST}:8000`;
 export const WATER_BASE_URL = `http://${HOST}:8006`;
