@@ -334,8 +334,8 @@ export default function GrowthForecastingScreen() {
         contentInsetAdjustmentBehavior="never"
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
       >
-        <Text className="text-[20px] font-extrabold text-gray-900">Please Start Analysis</Text>
-        <Text className="text-[11px] text-gray-500 mt-1">{dateLabel}</Text>
+        <Text className="text-[20px] font-extrabold text-gray-900 text-center mt-2">Please Start Analysis</Text>
+        <Text className="text-[11px] text-gray-500 mt-1 text-center">{dateLabel}</Text>
 
         {/* Preview */}
         <View className="bg-white rounded-[18px] shadow-sm mt-4 p-4">
