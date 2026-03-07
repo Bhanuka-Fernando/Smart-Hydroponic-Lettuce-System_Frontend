@@ -294,79 +294,9 @@ const openSpoilageModule = (
               </View>
             </View>
 
-            {/* Quick Actions */}
-            <Text className="text-[13px] font-extrabold text-gray-900 mt-6 mb-3">
-              Quick Actions
-            </Text>
+            {/* Quick Actions section removed */}
 
-            <View className="flex-row justify-between">
-              <QuickAction
-                top="Estimate"
-                bottom="Weight"
-                iconBg="bg-[#EAF4FF]"
-                icon={<MaterialCommunityIcons name="scale-bathroom" size={20} color="#0046AD" />}
-                onPress={() => go("Scan")}
-              />
-              <QuickAction
-                top="Monitor"
-                bottom="Growth"
-                iconBg="bg-[#E9FBEF]"
-                icon={<Ionicons name="analytics-outline" size={20} color="#16A34A" />}
-                onPress={() => go("Scan")}
-              />
-              <QuickAction
-                top="Detect"
-                bottom="Disease"
-                iconBg="bg-[#FFEAF2]"
-                icon={<Ionicons name="medkit-outline" size={20} color="#DB2777" />}
-                onPress={() => go("Scan")}
-              />
-              <QuickAction
-                top="Spoilage"
-                bottom="Check"
-                iconBg="bg-[#FFF6E5]"
-                icon={<Ionicons name="warning-outline" size={20} color="#F59E0B" />}
-                onPress={() => navigation.navigate("SpoilageDetails")}
-              />
-            </View>
-
-            {/* Notifications */}
-            {notifications.length > 0 && (
-              <>
-                <View className="flex-row items-center justify-between mt-6 mb-3">
-                  <Text className="text-[13px] font-extrabold text-gray-900">
-                    Notifications
-                  </Text>
-
-                  <View className="flex-row items-center gap-2">
-                    <View className="bg-red-500 rounded-full px-3 py-1">
-                      <Text className="text-white text-[11px] font-extrabold">
-                        {notifications.length} New
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={handleClearAllNotifications}
-                      activeOpacity={0.7}
-                      className="px-3 py-1 rounded-full bg-gray-100"
-                    >
-                      <Text className="text-[11px] font-extrabold text-gray-600">
-                        Clear All
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {notifications.map((notification, index) => (
-                  <React.Fragment key={notification.id}>
-                    <NotificationCard
-                      {...notification}
-                      onDismiss={() => handleDismissNotification(notification.id)}
-                    />
-                    {index < notifications.length - 1 && <View className="h-3" />}
-                  </React.Fragment>
-                ))}
-              </>
-            )}
+            {/* Notifications section removed */}
 
             {/* Recent Activities */}
             {activities.length > 0 && (
