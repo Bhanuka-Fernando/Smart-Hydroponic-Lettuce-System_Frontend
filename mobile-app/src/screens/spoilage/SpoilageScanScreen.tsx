@@ -87,25 +87,43 @@ async function ensureLocalUri(uri: string) {
 
 function getFriendlyPredictionError(detail: any) {
   if (!detail) {
-    return "Invalid image. Please capture a clear top-view lettuce image only.";
+    return "Could not verify the image. Please capture one clear top-view photo of a single lettuce plant.";
   }
 
   if (typeof detail === "string") {
     const msg = detail.toLowerCase();
 
     if (
-      msg.includes("invalid image") ||
-      msg.includes("top-view lettuce") ||
-      msg.includes("not a lettuce") ||
-      msg.includes("low confidence")
+      msg.includes("not recognized as lettuce") ||
+      msg.includes("object not recognized as lettuce") ||
+      msg.includes("one lettuce plant only")
     ) {
-      return "Wrong image detected. Please capture a clear top-view photo of the lettuce only.";
+      return "Wrong object detected. Capture only one lettuce plant from the top view, with less background.";
+    }
+
+    if (msg.includes("prediction is uncertain") || msg.includes("uncertain")) {
+      return "The image is unclear for prediction. Try better lighting, closer framing, and a clear top-view lettuce image.";
+    }
+
+    if (msg.includes("too dark")) {
+      return "The image is too dark. Capture the lettuce in better lighting.";
+    }
+
+    if (msg.includes("too bright")) {
+      return "The image is too bright. Avoid strong glare and capture again.";
+    }
+
+    if (
+      msg.includes("invalid image") ||
+      msg.includes("top-view lettuce")
+    ) {
+      return "Invalid image. Please capture a clear top-view photo of one lettuce plant only.";
     }
 
     return detail;
   }
 
-  return "Wrong image detected. Please capture a clear top-view photo of the lettuce only.";
+  return "Could not verify the image. Please capture one clear top-view photo of a single lettuce plant.";
 }
 
 function clampDemoIndex(index: number | undefined | null) {
@@ -537,7 +555,7 @@ Image: ${sample.image_name ?? "none"}`
                   Demo Time Progression
                 </Text>
                 <Text className="text-[11px] text-gray-500 mt-0.5">
-                  Use this only for panel/demo validation.
+              
                 </Text>
               </View>
             </View>
@@ -591,6 +609,9 @@ Image: ${sample.image_name ?? "none"}`
                 </Text>
                 <Text className="text-[12px] text-red-600 mt-1 leading-5">
                   {scanError}
+                </Text>
+                <Text className="text-[11px] text-gray-500 mt-2">
+                  Tip: keep one lettuce centered, avoid hands/background objects, and use a clear top-view image.
                 </Text>
               </View>
             </View>

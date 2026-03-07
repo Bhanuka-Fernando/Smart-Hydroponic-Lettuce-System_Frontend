@@ -14,8 +14,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
 import { useAuth } from "../../auth/useAuth";
-import { getDashboardLatest, DashboardMetricsResponse } from "../../api/dashboardApi";
+import {
+  getDashboardLatest,
+  DashboardMetricsResponse,
+} from "../../api/dashboardApi";
+import type { DashboardStackParamList } from "../../navigation/AppNavigator";
 
 type NotificationItem = {
   id: string;
@@ -91,94 +97,104 @@ function formatHeaderDate(d: Date) {
   return `${month} ${day} • Sunny 24°C`;
 }
 
+type DashboardNav = NativeStackNavigationProp<
+  DashboardStackParamList,
+  "DashboardHome"
+>;
+
 export default function DashboardScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<DashboardNav>();
   const headerDate = useMemo(() => formatHeaderDate(new Date()), []);
 
   const { user, signOut, accessToken } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
-  
-  // Dashboard state
+
   const [metrics, setMetrics] = useState<DashboardMetricsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Notifications and Activities state
-  const [notifications, setNotifications] = useState<NotificationItem[]>(mockNotifications);
-  const [activities, setActivities] = useState<ActivityItem[]>(mockActivities);
+  const [notifications, setNotifications] =
+    useState<NotificationItem[]>(mockNotifications);
+  const [activities] = useState<ActivityItem[]>(mockActivities);
 
-  // Fetch dashboard metrics
-  const fetchDashboard = useCallback(async (isRefreshing = false) => {
-    try {
-      if (!isRefreshing) setLoading(true);
-      const data = await getDashboardLatest({ token: accessToken });
-      setMetrics(data);
-    } catch (error: any) {
-      console.error("Failed to fetch dashboard:", error);
-      
-      // Use mock data if API is not available
-      const mockData: DashboardMetricsResponse = {
-        zone_id: "all",
-        zone_name: "All Zones",
-        plant_count: 24,
-        harvest_ready_count: 5,
-        avg_growth_pct: 78.5,
-        temperature_c: 23.5,
-        humidity_pct: 62.0,
-        ec_ms_cm: 1.4,
-        ph: 6.2,
-        last_updated: new Date().toISOString(),
-      };
-      setMetrics(mockData);
-      
-      if (!isRefreshing) {
-        console.warn("Using mock data - backend endpoint not available");
+  const fetchDashboard = useCallback(
+    async (isRefreshing = false) => {
+      try {
+        if (!isRefreshing) setLoading(true);
+        const data = await getDashboardLatest({ token: accessToken });
+        setMetrics(data);
+      } catch (error: any) {
+        console.error("Failed to fetch dashboard:", error);
+
+        const mockData: DashboardMetricsResponse = {
+          zone_id: "all",
+          zone_name: "All Zones",
+          plant_count: 24,
+          harvest_ready_count: 5,
+          avg_growth_pct: 78.5,
+          temperature_c: 23.5,
+          humidity_pct: 62.0,
+          ec_ms_cm: 1.4,
+          ph: 6.2,
+          last_updated: new Date().toISOString(),
+        };
+        setMetrics(mockData);
+
+        if (!isRefreshing) {
+          console.warn("Using mock data - backend endpoint not available");
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [accessToken]);
+    },
+    [accessToken]
+  );
 
-  // Fetch on mount
   useEffect(() => {
     fetchDashboard();
-  }, []);
+  }, [fetchDashboard]);
 
-  // Pull to refresh
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchDashboard(true);
   }, [fetchDashboard]);
 
-  // gesika new changers
-  const rootNavigation =
-  navigation.getParent?.()?.getParent?.() ??
-  navigation.getParent?.() ??
-  navigation;
-
-const openSpoilageModule = (
+ const openSpoilageModule = (
   screen: "SpoilageDetails" | "SpoilageScan" = "SpoilageDetails",
-  params?: any
+  params?: {
+    plantId?: string;
+    demoMode?: boolean;
+    initialDemoDayIndex?: number;
+  }
 ) => {
   try {
-    rootNavigation.navigate("Spoilage", { screen, params });
+    if (screen === "SpoilageDetails") {
+      navigation.navigate("SpoilageModule", {
+        screen: "SpoilageDetails",
+      });
+      return;
+    }
+
+    navigation.navigate("SpoilageModule", {
+      screen: "SpoilageScan",
+      params,
+    });
   } catch {
     Alert.alert("Navigation", "Spoilage module route is not available.");
   }
 };
 
-
-  const go = (routeName: string) => {
+  const go = (routeName: keyof DashboardStackParamList | "Scan" | "History") => {
     try {
-      navigation.navigate(routeName);
+      navigation.navigate(routeName as never);
     } catch {
-      Alert.alert("Navigation", `Route not found: ${routeName}`);
+      Alert.alert("Navigation", `Route not found: ${String(routeName)}`);
     }
   };
 
   const handleDismissNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
   const handleClearAllNotifications = () => {
@@ -200,7 +216,6 @@ const openSpoilageModule = (
     try {
       setProfileOpen(false);
       await signOut();
-      // RootNavigator will automatically switch back to Auth screens
     } catch {
       Alert.alert("Logout failed", "Please try again.");
     }
@@ -208,9 +223,10 @@ const openSpoilageModule = (
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
-      {/* HEADER */}
       <View className="px-4 pt-4 pb-3">
-        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">{headerDate}</Text>
+        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">
+          {headerDate}
+        </Text>
 
         <View className="flex-row items-start justify-between mt-2">
           <View>
@@ -222,7 +238,6 @@ const openSpoilageModule = (
             </Text>
           </View>
 
-          {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => setProfileOpen(true)}
@@ -237,7 +252,6 @@ const openSpoilageModule = (
         </View>
       </View>
 
-      {/* BODY */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
@@ -257,21 +271,32 @@ const openSpoilageModule = (
           </View>
         ) : metrics ? (
           <>
-            {/* Feature 2x2 grid */}
             <View className="mt-4">
               <View className="flex-row justify-between">
                 <FeatureCard
                   title="Weight & Growth"
                   subtitle="Forecasting & Estimation"
                   iconBg="bg-[#EAF4FF]"
-                  icon={<MaterialCommunityIcons name="sprout" size={22} color="#0046AD" />}
+                  icon={
+                    <MaterialCommunityIcons
+                      name="sprout"
+                      size={22}
+                      color="#0046AD"
+                    />
+                  }
                   onPress={() => go("WeightGrowth")}
                 />
                 <FeatureCard
                   title="Disease Detection"
                   subtitle="Analyze Plant Health"
                   iconBg="bg-[#FFEAF2]"
-                  icon={<Ionicons name="medkit-outline" size={22} color="#DB2777" />}
+                  icon={
+                    <Ionicons
+                      name="medkit-outline"
+                      size={22}
+                      color="#DB2777"
+                    />
+                  }
                   onPress={() => go("Scan")}
                 />
               </View>
@@ -281,20 +306,31 @@ const openSpoilageModule = (
                   title="Spoilage Detection"
                   subtitle="Identify Crop Issues"
                   iconBg="bg-[#FFF6E5]"
-                  icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
+                  icon={
+                    <Ionicons
+                      name="warning-outline"
+                      size={22}
+                      color="#F59E0B"
+                    />
+                  }
                   onPress={() => openSpoilageModule("SpoilageDetails")}
                 />
                 <FeatureCard
                   title="Water Quality"
                   subtitle="Monitor Sensor data"
                   iconBg="bg-[#E8F7FF]"
-                  icon={<Ionicons name="water-outline" size={22} color="#0284C7" />}
+                  icon={
+                    <Ionicons
+                      name="water-outline"
+                      size={22}
+                      color="#0284C7"
+                    />
+                  }
                   onPress={() => (navigation.getParent() as any)?.navigate("WaterQuality")}
                 />
               </View>
             </View>
 
-            {/* Quick Actions */}
             <Text className="text-[13px] font-extrabold text-gray-900 mt-6 mb-3">
               Quick Actions
             </Text>
@@ -304,33 +340,56 @@ const openSpoilageModule = (
                 top="Estimate"
                 bottom="Weight"
                 iconBg="bg-[#EAF4FF]"
-                icon={<MaterialCommunityIcons name="scale-bathroom" size={20} color="#0046AD" />}
+                icon={
+                  <MaterialCommunityIcons
+                    name="scale-bathroom"
+                    size={20}
+                    color="#0046AD"
+                  />
+                }
                 onPress={() => go("Scan")}
               />
               <QuickAction
                 top="Monitor"
                 bottom="Growth"
                 iconBg="bg-[#E9FBEF]"
-                icon={<Ionicons name="analytics-outline" size={20} color="#16A34A" />}
+                icon={
+                  <Ionicons
+                    name="analytics-outline"
+                    size={20}
+                    color="#16A34A"
+                  />
+                }
                 onPress={() => go("Scan")}
               />
               <QuickAction
                 top="Detect"
                 bottom="Disease"
                 iconBg="bg-[#FFEAF2]"
-                icon={<Ionicons name="medkit-outline" size={20} color="#DB2777" />}
+                icon={
+                  <Ionicons
+                    name="medkit-outline"
+                    size={20}
+                    color="#DB2777"
+                  />
+                }
                 onPress={() => go("Scan")}
               />
               <QuickAction
                 top="Spoilage"
                 bottom="Check"
                 iconBg="bg-[#FFF6E5]"
-                icon={<Ionicons name="warning-outline" size={20} color="#F59E0B" />}
-                onPress={() => navigation.navigate("SpoilageDetails")}
+                icon={
+                  <Ionicons
+                    name="warning-outline"
+                    size={20}
+                    color="#F59E0B"
+                  />
+                }
+                onPress={() => openSpoilageModule("SpoilageDetails")}
               />
             </View>
 
-            {/* Notifications */}
             {notifications.length > 0 && (
               <>
                 <View className="flex-row items-center justify-between mt-6 mb-3">
@@ -368,14 +427,16 @@ const openSpoilageModule = (
               </>
             )}
 
-            {/* Recent Activities */}
             {activities.length > 0 && (
               <>
                 <View className="flex-row items-center justify-between mt-6 mb-3">
                   <Text className="text-[13px] font-extrabold text-gray-900">
                     Recent Activities
                   </Text>
-                  <TouchableOpacity onPress={() => go("History")} activeOpacity={0.85}>
+                  <TouchableOpacity
+                    onPress={() => go("History")}
+                    activeOpacity={0.85}
+                  >
                     <Text className="text-[11px] font-extrabold text-[#0046AD]">
                       View All
                     </Text>
@@ -406,19 +467,18 @@ const openSpoilageModule = (
         ) : null}
       </ScrollView>
 
-      {/* ✅ Profile Bottom Sheet Modal */}
       <Modal
         visible={profileOpen}
         transparent
         animationType="slide"
         onRequestClose={() => setProfileOpen(false)}
       >
-        {/* Backdrop */}
-        <Pressable className="flex-1 bg-black/40" onPress={() => setProfileOpen(false)} />
+        <Pressable
+          className="flex-1 bg-black/40"
+          onPress={() => setProfileOpen(false)}
+        />
 
-        {/* Sheet */}
         <View className="bg-white rounded-t-3xl px-5 pt-4 pb-6">
-          {/* Grab handle */}
           <View className="w-12 h-1.5 bg-gray-200 rounded-full self-center mb-4" />
 
           <View className="flex-row items-center">
@@ -462,8 +522,6 @@ const openSpoilageModule = (
     </SafeAreaView>
   );
 }
-
-/* ---------- components ---------- */
 
 function FeatureCard({
   title,
@@ -552,6 +610,7 @@ function NotificationCard({
     green: { bar: "bg-green-500", iconBg: "bg-[#E9FBEF]", iconColor: "#16A34A" },
     red: { bar: "bg-red-500", iconBg: "bg-[#FFE5E5]", iconColor: "#EF4444" },
   };
+
   const { bar, iconBg, iconColor } = colors[accent];
 
   return (
@@ -638,50 +697,4 @@ function ActivityRow({
 
 function Divider() {
   return <View className="h-px bg-gray-100 mx-4" />;
-}
-
-function MetricItem({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <View className="flex-row items-center bg-gray-50 rounded-xl p-3">
-      <View className="mr-3">{icon}</View>
-      <View className="flex-1">
-        <Text className="text-[11px] text-gray-500">{label}</Text>
-        <Text className="text-[16px] font-extrabold text-gray-900 mt-0.5">
-          {value}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function SensorMetric({
-  icon,
-  label,
-  value,
-  bgColor,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  bgColor: string;
-}) {
-  return (
-    <View className={`${bgColor} rounded-xl p-3`}>
-      <View className="flex-row items-center mb-2">
-        {icon}
-        <Text className="text-[11px] text-gray-600 ml-2 font-semibold">
-          {label}
-        </Text>
-      </View>
-      <Text className="text-[15px] font-extrabold text-gray-900">{value}</Text>
-    </View>
-  );
 }

@@ -20,6 +20,10 @@ import HistoryScreen from "../screens/main/HistoryScreen";
 import SettingsScreen from "../screens/main/SettingsScreen";
 import ProfileScreen from "../screens/main/ProfileScreen";
 
+import SpoilageNavigator, {
+  type SpoilageStackParamList,
+} from "./SpoilageNavigator";
+
 export type DashboardStackParamList = {
   DashboardHome: undefined;
   WeightGrowth: undefined;
@@ -27,6 +31,7 @@ export type DashboardStackParamList = {
   EstimateWeightScan: undefined;
   GrowthForecasting: undefined;
   PlantLists: undefined;
+
   EstimateWeightResults: {
     imageUri: string;
     accuracy?: number;
@@ -37,6 +42,7 @@ export type DashboardStackParamList = {
     plantAgeDays?: number;
     capturedAtISO?: string;
   };
+
   GrowthPredictionResults: {
     dateLabel?: string;
     predictedWeight?: number;
@@ -48,8 +54,10 @@ export type DashboardStackParamList = {
     predicted?: number[];
   };
 
-  // pass ONLY plant_id
   PlantDetails: { plant_id: string };
+
+  // ✅ add spoilage navigator as nested module inside dashboard stack
+  SpoilageModule: NavigatorScreenParams<SpoilageStackParamList> | undefined;
 };
 
 const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
@@ -80,6 +88,12 @@ function DashboardStackNavigator() {
       <DashboardStack.Screen
         name="EstimateWeightResults"
         component={EstimateWeightResultsScreen}
+      />
+
+      {/* ✅ nested spoilage module */}
+      <DashboardStack.Screen
+        name="SpoilageModule"
+        component={SpoilageNavigator}
       />
     </DashboardStack.Navigator>
   );
@@ -178,4 +192,3 @@ export default function AppNavigator() {
     </Tab.Navigator>
   );
 }
-
