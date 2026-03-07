@@ -16,6 +16,9 @@ import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../../auth/useAuth";
 import { getDashboardLatest, DashboardMetricsResponse } from "../../api/dashboardApi";
+import { getDeviceSensors } from "../../api/deviceApi";
+import axios from 'axios';
+import { ML_BASE_URL } from '../../utils/constants';
 
 type NotificationItem = {
   id: string;
@@ -103,6 +106,9 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // ✅ Add loading state for "Check for Updates"
+  const [loadingUpdate, setLoadingUpdate] = useState(false);
+
   // ✅ Add state for water quality data (turbidity)
   const [turbidity, setTurbidity] = useState<number | null>(null);
 
@@ -134,14 +140,12 @@ export default function DashboardScreen() {
       }
 
       // ✅ Fetch chiller room data (mock for now - replace with actual API)
-      // TODO: Replace with actual chiller room API call
-      setChillerTemp(18.5); // Mock temperature
-      setChillerHumidity(65); // Mock humidity in %
+      setChillerTemp(18.5);
+      setChillerHumidity(65);
       
     } catch (error: any) {
       console.error("Failed to fetch dashboard:", error);
       
-      // Use mock data if API is not available
       const mockData: DashboardMetricsResponse = {
         zone_id: "all",
         zone_name: "All Zones",
@@ -155,9 +159,9 @@ export default function DashboardScreen() {
         last_updated: new Date().toISOString(),
       };
       setMetrics(mockData);
-      setTurbidity(2.5); // Mock turbidity value
-      setChillerTemp(18.5); // Mock chiller temperature
-      setChillerHumidity(65); // Mock chiller humidity
+      setTurbidity(2.5);
+      setChillerTemp(18.5);
+      setChillerHumidity(65);
       
       if (!isRefreshing) {
         console.warn("Using mock data - backend endpoint not available");
@@ -167,6 +171,84 @@ export default function DashboardScreen() {
       setRefreshing(false);
     }
   }, [accessToken]);
+
+  // ✅ New function: Fetch fresh sensor readings from device simulator
+  const handleCheckForUpdates = async () => {
+    try {
+      setLoadingUpdate(true);
+
+      const ZONE_ID = "z01";
+      const deviceSensors = await getDeviceSensors(ZONE_ID, "NORMAL");
+
+      // Update metrics with fresh sensor data
+      const updatedMetrics: DashboardMetricsResponse = {
+        ...metrics,
+        zone_id: deviceSensors.zone_id,
+        zone_name: "Zone 01",
+        temperature_c: deviceSensors.temperature_c,
+        humidity_pct: deviceSensors.humidity_pct,
+        ec_ms_cm: deviceSensors.ec_ms_cm,
+        ph: deviceSensors.ph,
+        last_updated: deviceSensors.timestamp,
+        plant_count: metrics?.plant_count ?? 0,
+        harvest_ready_count: metrics?.harvest_ready_count ?? 0,
+        avg_growth_pct: metrics?.avg_growth_pct ?? 0,
+      };
+
+      setMetrics(updatedMetrics);
+
+      // Fetch turbidity
+      try {
+        const { getWaterHistory } = await import('../../api/WaterQualityApi');
+        const hist = await getWaterHistory('TANK_01', 1);
+        if (hist.readings && hist.readings.length > 0) {
+          setTurbidity(hist.readings[hist.readings.length - 1].turb_ntu);
+        }
+      } catch (waterErr) {
+        console.warn('Failed to fetch turbidity:', waterErr);
+      }
+
+      // Optional: Ingest to ML backend
+      try {
+        const payload = {
+          device_id: deviceSensors.device_id,
+          zone_id: deviceSensors.zone_id,
+          plant_id: "p04",
+          ts: deviceSensors.timestamp,
+          air_temp_c: deviceSensors.temperature_c,
+          humidity_pct: deviceSensors.humidity_pct,
+          ec_ms_cm: deviceSensors.ec_ms_cm,
+          ph: deviceSensors.ph,
+        };
+
+        await axios.post(`${ML_BASE_URL}/infer/iot/ingest`, payload, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        });
+        
+        console.log("✅ ML backend ingested successfully");
+      } catch (e: any) {
+        console.warn("⚠️  Failed to ingest sensor data to ML backend:", {
+          status: e?.response?.status,
+          data: e?.response?.data,
+          message: e?.message,
+        });
+      }
+
+      // ✅ Show success feedback
+      Alert.alert("✅ Updated", "Sensor readings refreshed successfully", [{ text: "OK" }]);
+    } catch (error: any) {
+      Alert.alert(
+        "Update Failed",
+        error?.message || "Failed to fetch sensor readings. Ensure device simulator is running.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setLoadingUpdate(false);
+    }
+  };
 
   // Fetch on mount
   useEffect(() => {
@@ -350,6 +432,26 @@ const openSpoilageModule = (
                 {/* Empty card to maintain layout */}
                 <View className="w-[48%]" />
               </View>
+
+              {/* ✅ Check for Updates Button */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleCheckForUpdates}
+                disabled={loadingUpdate}
+                className="mt-4 bg-white rounded-[14px] px-4 py-3 flex-row items-center justify-center shadow-sm"
+              >
+                {loadingUpdate ? (
+                  <>
+                    <ActivityIndicator size="small" color="#1D4ED8" />
+                    <Text className="ml-2 text-[12px] font-bold text-gray-700">Updating...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="sync-outline" size={18} color="#1D4ED8" />
+                    <Text className="ml-2 text-[12px] font-bold text-gray-700">Check for Updates</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </View>
 
             {/* Chiller Room Section */}
