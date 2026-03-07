@@ -1,12 +1,17 @@
 import axios from "axios";
-
-const BASE_URL =
-  process.env.EXPO_PUBLIC_SPOILAGE_API_URL || "http://10.0.2.2:8002";
+import { SPOILAGE_BASE_URL } from "../utils/constants";
 
 const client = axios.create({
-  baseURL: BASE_URL,
+  baseURL: SPOILAGE_BASE_URL,
   timeout: 20000,
 });
+
+// ---- TYPES ----
+export type SpoilageStage =
+  | "fresh"
+  | "slightly_aged"
+  | "near_spoilage"
+  | "spoiled";
 
 export type StageProbs = {
   fresh: number;
@@ -16,17 +21,60 @@ export type StageProbs = {
 };
 
 export type StageOnlyResponse = {
-  plant_id: string;       // "P-001"
-  captured_at: string;    // ISO
-  stage: string;          // label
+  plant_id: string;
+  captured_at: string;
+  stage: SpoilageStage;
   stage_probs: StageProbs;
-  status: string;         // from make_status()
+  status: string;
 };
 
 export type SpoilagePredictResponse = StageOnlyResponse & {
   remaining_days: number;
 };
 
+export type SpoilagePredictionRow = {
+  id: number;
+  plant_id: string;
+  captured_at: string;
+  temperature: number;
+  humidity: number;
+  stage: SpoilageStage;
+  status: string;
+  remaining_days: number;
+  p_fresh: number;
+  p_slightly_aged: number;
+  p_near_spoilage: number;
+  p_spoiled: number;
+  image_url?: string | null;
+};
+
+export type SimSampleResponse = {
+  plant_id: string;
+  temperature: number;
+  humidity: number;
+  label: SpoilageStage;
+  image_name?: string | null;
+  image_url?: string | null;
+  remaining_days: number;
+
+  // optional debug
+  mode?: "random" | "time";
+  picked_label?: string | null;
+  now?: string;
+};
+
+export type SimSampleParams = {
+  plant_id?: string;
+  label?: string;
+
+  // ✅ UPDATED
+  mode?: "random" | "time";
+
+  // optional override for testing
+  now_iso?: string;
+};
+
+// ---- HELPERS ----
 function makeFormData(input: {
   imageUri: string;
   temperature: number;
@@ -50,8 +98,7 @@ function makeFormData(input: {
   return form;
 }
 
-// AUTH_ENABLED=false => no token needed.
-// If later you enable auth, add Authorization header here.
+// ---- API ----
 export async function predictAll(input: {
   imageUri: string;
   temperature: number;
@@ -94,5 +141,43 @@ export async function remainingDaysOnly(payload: {
     payload,
     { headers: { "Content-Type": "application/json" } }
   );
+  return res.data;
+}
+
+export async function getRecentPredictions(limit = 20) {
+  const res = await client.get<SpoilagePredictionRow[]>(
+    `/spoilage/predictions?limit=${limit}`
+  );
+  return res.data;
+}
+
+export async function startSimulation(params: {
+  plant_id: string;
+  interval_sec?: number;
+  loop?: boolean;
+}) {
+  const res = await client.post("/sim/start", null, {
+    params: {
+      plant_id: params.plant_id,
+      interval_sec: params.interval_sec ?? 15,
+      loop: params.loop ?? false,
+    },
+  });
+  return res.data;
+}
+
+export async function stopSimulation() {
+  const res = await client.post("/sim/stop");
+  return res.data;
+}
+
+export async function getSimulationStatus() {
+  const res = await client.get("/sim/status");
+  return res.data;
+}
+
+// ✅ FIXED FUNCTION (no stray braces)
+export async function getSimSample(params?: SimSampleParams) {
+  const res = await client.get<SimSampleResponse>("/sim/sample", { params });
   return res.data;
 }

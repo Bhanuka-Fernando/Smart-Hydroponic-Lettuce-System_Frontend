@@ -1,24 +1,65 @@
-import React from "react";
-import { View, Text, ScrollView, TouchableOpacity, Image } from "react-native";
+import React, { useMemo } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { SpoilageStackParamList } from "../../navigation/SpoilageNavigator";
 
+import type { SpoilagePredictResponse } from "../../api/SpoilageApi";
+
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageConfirm">;
 
-export default function SpoilageConfirmScreen({ navigation, route }: Props) {
-  const imageUri = route.params?.imageUri;
+function stageTitle(stage: string) {
+  if (stage === "fresh") return "Stage 1: Fresh";
+  if (stage === "slightly_aged") return "Stage 2: Slightly Aged";
+  if (stage === "near_spoilage") return "Stage 3: Near Spoilage";
+  return "Stage 4: Spoiled";
+}
 
-  // ✅ mock results for now
-  const confidence = 0.95;
-  const stageTitle = "Stage 3: Near Spoilage";
-  const desc =
-    "Analysis indicates marginal necrosis (tip burn) and slight slime formation on basal leaves.";
-  const temp = "5°C";
-  const humidity = "94%";
-  const plantId = "P-051";
-  const batchId = "#BUT-2291";
+function stageDesc(stage: string) {
+  if (stage === "fresh")
+    return "Analysis indicates the plant is fresh with minimal spoilage indicators.";
+  if (stage === "slightly_aged")
+    return "Analysis indicates early aging signs. Monitor storage conditions.";
+  if (stage === "near_spoilage")
+    return "Analysis indicates spoilage risk is increasing. Inspect and take action soon.";
+  return "Analysis indicates spoiled indicators. Discard/segregate to prevent contamination.";
+}
+
+function confidenceFromProbs(p?: any) {
+  if (!p) return null;
+  return Math.max(p.fresh, p.slightly_aged, p.near_spoilage, p.spoiled);
+}
+
+export default function SpoilageConfirmScreen({ navigation, route }: Props) {
+  // ✅ Expect these from SpoilageScanScreen
+  const { imageUri, result, temperature, humidity, plantId } = route.params as any as {
+    imageUri: string;
+    result: SpoilagePredictResponse;
+    temperature: number;
+    humidity: number;
+    plantId: string;
+  };
+
+  const conf = useMemo(() => confidenceFromProbs(result?.stage_probs), [result]);
+  const tempText = Number.isFinite(temperature) ? `${temperature}°C` : "--";
+  const humText = Number.isFinite(humidity) ? `${humidity}%` : "--";
+
+  const onViewResults = () => {
+    if (!result) {
+      Alert.alert("Missing", "No prediction result found.");
+      return;
+    }
+    navigation.navigate("SpoilageShelfLifeResult", { imageUri, result } as any);
+  };
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
@@ -60,17 +101,19 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
           </View>
 
           {/* confidence pill */}
-          <View className="absolute top-3 right-3">
-            <View
-              className="px-3 py-1 rounded-full bg-white/95 flex-row items-center"
-              style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
-            >
-              <View className="w-2 h-2 rounded-full bg-[#16A34A]" />
-              <Text className="ml-2 text-[12px] font-extrabold text-gray-900">
-                {(confidence * 100).toFixed(0)}% Confidence
-              </Text>
+          {conf !== null ? (
+            <View className="absolute top-3 right-3">
+              <View
+                className="px-3 py-1 rounded-full bg-white/95 flex-row items-center"
+                style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
+              >
+                <View className="w-2 h-2 rounded-full bg-[#16A34A]" />
+                <Text className="ml-2 text-[12px] font-extrabold text-gray-900">
+                  {Math.round(conf * 100)}% Confidence
+                </Text>
+              </View>
             </View>
-          </View>
+          ) : null}
 
           {/* Stage details */}
           <View className="p-4">
@@ -80,11 +123,14 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
                   AI DETECTED STAGE
                 </Text>
                 <Text className="text-[16px] font-extrabold text-gray-900 mt-1">
-                  {stageTitle}
+                  {stageTitle(result.stage)}
                 </Text>
               </View>
 
-              <TouchableOpacity activeOpacity={0.85} onPress={() => {}}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => Alert.alert("Report", "Add report flow later.")}
+              >
                 <Text className="text-[12px] font-semibold text-[#2563EB]">
                   Report wrong
                 </Text>
@@ -92,7 +138,7 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
             </View>
 
             <Text className="text-[12px] text-gray-600 mt-2 leading-4">
-              {desc}
+              {stageDesc(result.stage)}
             </Text>
           </View>
         </View>
@@ -106,14 +152,14 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
           <MiniStat
             icon="thermometer-outline"
             label="Temperature"
-            value={temp}
+            value={tempText}
             iconBg="#FFF2E6"
             iconColor="#F59E0B"
           />
           <MiniStat
             icon="water-outline"
             label="Humidity"
-            value={humidity}
+            value={humText}
             iconBg="#EAF4FF"
             iconColor="#2563EB"
           />
@@ -125,9 +171,9 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
         </Text>
 
         <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
-          <RowItem left="Plant ID" right={plantId} />
+          <RowItem left="Plant ID" right={plantId || "-"} />
           <Divider />
-          <RowItem left="Batch ID" right={batchId} />
+          <RowItem left="Batch ID" right="#BUT-2291" />
         </View>
 
         {/* Retake */}
@@ -140,19 +186,20 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
           <Text className="font-extrabold text-gray-900">Retake</Text>
         </TouchableOpacity>
 
-        {/* Predict Shelf Life */}
+        {/* View Results */}
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() =>
-  navigation.navigate("SpoilageShelfLifeResult", { imageUri: imageUri })
-}
+          onPress={onViewResults}
           className="mt-4 rounded-[12px] items-center justify-center"
-          style={{ backgroundColor: "#0046AD", height: 54 }}
+          style={{
+            backgroundColor: "#0046AD",
+            height: 54,
+          }}
         >
           <View className="flex-row items-center">
             <Ionicons name="sparkles" size={18} color="#fff" />
             <Text className="ml-2 text-[14px] font-extrabold text-white">
-              Predict Shelf Life
+              View Results
             </Text>
           </View>
         </TouchableOpacity>

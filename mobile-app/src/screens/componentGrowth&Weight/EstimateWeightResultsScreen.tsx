@@ -13,7 +13,7 @@ type RouteParams = {
   plantId?: string;
   plantAgeDays?: number;
   capturedAtISO?: string;
-  rawPayload?: any; // ✅ added
+  rawPayload?: any;
 };
 
 function formatCapturedLabel(iso?: string) {
@@ -32,7 +32,37 @@ function formatCapturedLabel(iso?: string) {
   }
 }
 
-function MiniStatCard({
+function formatPrettyDateTime(iso?: string) {
+  try {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "—";
+  }
+}
+
+function getQualityLabel(accuracy: number) {
+  if (accuracy >= 90) return { label: "Excellent", icon: "sparkles" as const, color: "#16A34A" };
+  if (accuracy >= 75) return { label: "Good", icon: "thumbs-up" as const, color: "#2563EB" };
+  if (accuracy >= 60) return { label: "Fair", icon: "alert-circle" as const, color: "#F97316" };
+  return { label: "Low", icon: "warning" as const, color: "#DC2626" };
+}
+
+function getNextTip(accuracy: number) {
+  if (accuracy >= 90) return "You can save this scan and continue with monitoring.";
+  if (accuracy >= 75) return "Good scan. For best results, keep the leaf centered and flat.";
+  if (accuracy >= 60) return "Try better lighting and reduce motion blur for a cleaner mask.";
+  return "Retake: use brighter light, steady hands, and keep the leaf fully visible.";
+}
+
+function InfoRow({
   icon,
   label,
   value,
@@ -42,12 +72,15 @@ function MiniStatCard({
   value: string;
 }) {
   return (
-    <View className="flex-1 bg-white rounded-[18px] shadow-sm px-4 py-4">
-      <View className="w-10 h-10 rounded-full bg-[#EAF4FF] items-center justify-center">
-        {icon}
+    <View className="flex-row items-center justify-between py-3">
+      <View className="flex-row items-center">
+        <View className="w-9 h-9 rounded-full bg-[#EAF4FF] items-center justify-center">
+          {icon}
+        </View>
+        <Text className="ml-3 text-[12px] font-extrabold text-gray-700">{label}</Text>
       </View>
-      <Text className="text-[11px] text-gray-500 font-semibold mt-3">{label}</Text>
-      <Text className="text-[14px] font-extrabold text-gray-900 mt-1">{value}</Text>
+
+      <Text className="text-[12px] font-extrabold text-gray-900">{value}</Text>
     </View>
   );
 }
@@ -63,29 +96,27 @@ export default function EstimateWeightResultsScreen() {
     const biomassG = params.biomassG ?? 0;
     const leafAreaCm2 = params.leafAreaCm2 ?? 0;
     const leafDiameterCm = params.leafDiameterCm ?? 0;
-    const plantId = params.plantId ?? "Plant";
-    const plantAgeDays = params.plantAgeDays ?? 0;
     const capturedAtISO = params.capturedAtISO ?? new Date().toISOString();
     const capturedLabel = formatCapturedLabel(capturedAtISO);
+
+    const quality = getQualityLabel(accuracy);
+    const nextTip = getNextTip(accuracy);
 
     return {
       accuracy,
       biomassG,
       leafAreaCm2,
       leafDiameterCm,
-      plantId,
-      plantAgeDays,
       capturedLabel,
       capturedAtISO,
+      prettyCaptured: formatPrettyDateTime(capturedAtISO),
+      quality,
+      nextTip,
     };
   }, [params]);
 
   const onNewScan = () => {
     navigation.navigate("EstimateWeightScan", { reset: true });
-  };
-
-  const onViewGrowthForecast = () => {
-    navigation.navigate("GrowthForecasting");
   };
 
   return (
@@ -144,7 +175,7 @@ export default function EstimateWeightResultsScreen() {
 
             <View className="flex-row items-end mt-1">
               <Text className="text-[25px] font-extrabold text-gray-900 leading-[48px]">
-                {computed.biomassG}
+                {computed.biomassG.toFixed(2)}
               </Text>
               <Text className="text-[20px] font-extrabold text-gray-700 mb-4 ml-2">
                 g
@@ -153,45 +184,70 @@ export default function EstimateWeightResultsScreen() {
 
             <View className="mt-3 items-center">
               <Text className="text-[11px] text-gray-700 font-semibold">
-                Leaf Area : {computed.leafAreaCm2} cm2
+                Leaf Area : {computed.leafAreaCm2.toFixed(2)} cm2
               </Text>
               <Text className="text-[11px] text-gray-700 font-semibold mt-1">
-                Leaf Diameter : {computed.leafDiameterCm} cm
+                Leaf Diameter : {computed.leafDiameterCm.toFixed(2)} cm
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Two mini cards */}
-        <View className="flex-row mt-4" style={{ gap: 12 }}>
-          <MiniStatCard
-            icon={<Ionicons name="heart-outline" size={18} color="#0046AD" />}
-            label="Plant ID"
-            value={computed.plantId}
-          />
-          <MiniStatCard
-            icon={<Ionicons name="calendar-outline" size={18} color="#F97316" />}
-            label="Plant Age"
-            value={`${computed.plantAgeDays} Days`}
-          />
+        {/* New: Scan Summary card (fills the empty space nicely) */}
+        <View className="bg-white rounded-[18px] shadow-sm px-5 py-4 mt-4">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-[12px] font-extrabold text-gray-900">
+              Scan Summary
+            </Text>
+
+            <View
+              className="px-3 py-1 rounded-full flex-row items-center"
+              style={{ backgroundColor: "#EEF2FF" }}
+            >
+              <Ionicons
+                name={computed.quality.icon as any}
+                size={14}
+                color={computed.quality.color}
+              />
+              <Text
+                className="ml-2 text-[10px] font-extrabold"
+                style={{ color: computed.quality.color }}
+              >
+                {computed.quality.label}
+              </Text>
+            </View>
+          </View>
+
+          <View className="mt-2">
+            <InfoRow
+              icon={<Ionicons name="time-outline" size={18} color="#0046AD" />}
+              label="Captured"
+              value={computed.prettyCaptured}
+            />            
+
+            <View className="h-[1px] bg-gray-100" />
+
+            <View className="py-3">
+              <View className="flex-row items-center">
+                <View className="w-9 h-9 rounded-full bg-[#FFF7ED] items-center justify-center">
+                  <Ionicons name="bulb-outline" size={18} color="#F97316" />
+                </View>
+                <Text className="ml-3 text-[12px] font-extrabold text-gray-700">
+                  Tip
+                </Text>
+              </View>
+              <Text className="text-[11px] text-gray-700 font-semibold mt-2 leading-5">
+                {computed.nextTip}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* Action Buttons */}
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={onViewGrowthForecast}
-          className="mt-5 bg-[#003B8F] rounded-[16px] py-4 items-center justify-center flex-row"
-        >
-          <Ionicons name="trending-up" size={18} color="#FFFFFF" />
-          <Text className="ml-2 text-[12px] font-extrabold text-white">
-            View Growth Forecast
-          </Text>
-        </TouchableOpacity>
-
+        {/* Action Buttons (only keep New Scan) */}
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={onNewScan}
-          className="mt-3 bg-white rounded-[16px] border border-gray-200 py-4 items-center justify-center flex-row"
+          className="mt-5 bg-white rounded-[16px] border border-gray-200 py-4 items-center justify-center flex-row"
         >
           <Ionicons name="camera-outline" size={18} color="#111827" />
           <Text className="ml-2 text-[12px] font-extrabold text-gray-900">

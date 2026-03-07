@@ -47,6 +47,8 @@ export type DashboardStackParamList = {
     actual?: number[];
     predicted?: number[];
   };
+
+  // pass ONLY plant_id
   PlantDetails: { plant_id: string };
 };
 
@@ -57,13 +59,28 @@ function DashboardStackNavigator() {
     <DashboardStack.Navigator screenOptions={{ headerShown: false }}>
       <DashboardStack.Screen name="DashboardHome" component={DashboardScreen} />
       <DashboardStack.Screen name="WeightGrowth" component={WeightGrowthScreen} />
-      <DashboardStack.Screen name="ScheduleTimeSlots" component={ScheduleTimeSlotsScreen} />
-      <DashboardStack.Screen name="EstimateWeightScan" component={EstimateWeightScanScreen} />
-      <DashboardStack.Screen name="GrowthForecasting" component={GrowthForecastingScreen} />
-      <DashboardStack.Screen name="GrowthPredictionResults" component={GrowthPredictionResultsScreen} />
+      <DashboardStack.Screen
+        name="ScheduleTimeSlots"
+        component={ScheduleTimeSlotsScreen}
+      />
+      <DashboardStack.Screen
+        name="EstimateWeightScan"
+        component={EstimateWeightScanScreen}
+      />
+      <DashboardStack.Screen
+        name="GrowthForecasting"
+        component={GrowthForecastingScreen}
+      />
+      <DashboardStack.Screen
+        name="GrowthPredictionResults"
+        component={GrowthPredictionResultsScreen}
+      />
       <DashboardStack.Screen name="PlantLists" component={PlantListsScreen} />
       <DashboardStack.Screen name="PlantDetails" component={PlantDetailsScreen} />
-      <DashboardStack.Screen name="EstimateWeightResults" component={EstimateWeightResultsScreen} />
+      <DashboardStack.Screen
+        name="EstimateWeightResults"
+        component={EstimateWeightResultsScreen}
+      />
     </DashboardStack.Navigator>
   );
 }
@@ -161,3 +178,4 @@ export default function AppNavigator() {
     </Tab.Navigator>
   );
 }
+
