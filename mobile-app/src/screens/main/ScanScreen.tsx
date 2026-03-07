@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -19,30 +18,44 @@ export default function ScanScreen() {
 
   const handleScanSelect = (type: ScanType) => {
     setSelectedScan(type);
-    
+
     switch (type) {
       case "weight":
         try {
-          navigation.navigate("EstimateWeightScan");
+          navigation.navigate("Dashboard", {
+            screen: "EstimateWeightScan",
+          });
         } catch {
-          Alert.alert("Navigation", "Weight estimation feature available in Growth & Weight section");
+          Alert.alert(
+            "Navigation",
+            "Weight estimation feature available in Growth & Weight section"
+          );
         }
         break;
-      
+
       case "disease":
         Alert.alert(
           "Disease Detection",
           "This feature is under development by Team Member 2.\n\nComing soon!"
         );
         break;
-      
+
       case "spoilage":
-        Alert.alert(
-          "Spoilage Detection",
-          "This feature is under development by Team Member 3.\n\nComing soon!"
-        );
+        try {
+          navigation.navigate("Dashboard", {
+            screen: "SpoilageModule",
+            params: {
+              screen: "SpoilageDetails",
+            },
+          });
+        } catch {
+          Alert.alert(
+            "Navigation",
+            "Spoilage detection feature is not available right now."
+          );
+        }
         break;
-      
+
       case "quality":
         Alert.alert(
           "Quality Assessment",
@@ -54,7 +67,6 @@ export default function ScanScreen() {
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
-      {/* Header */}
       <View className="px-4 pt-4 pb-3">
         <Text className="text-[24px] font-extrabold text-gray-900">
           Scan & Analyze
@@ -68,11 +80,13 @@ export default function ScanScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
       >
-        {/* Featured Scan - Weight Estimation */}
-        <View className="bg-gradient-to-br from-[#0046AD] to-[#0062FF] rounded-[20px] p-5 mb-4 overflow-hidden">
+        <View
+          className="rounded-[20px] p-5 mb-4 overflow-hidden"
+          style={{ backgroundColor: "#0046AD" }}
+        >
           <View className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
           <View className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12" />
-          
+
           <View className="flex-row items-center justify-between mb-3">
             <View className="flex-1">
               <Text className="text-white/80 text-[12px] font-semibold mb-1">
@@ -86,7 +100,11 @@ export default function ScanScreen() {
               </Text>
             </View>
             <View className="w-14 h-14 rounded-full bg-white/20 items-center justify-center">
-              <MaterialCommunityIcons name="scale-bathroom" size={28} color="white" />
+              <MaterialCommunityIcons
+                name="scale-bathroom"
+                size={28}
+                color="white"
+              />
             </View>
           </View>
 
@@ -104,7 +122,6 @@ export default function ScanScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Scan Options Grid */}
         <Text className="text-[13px] font-extrabold text-gray-900 mb-3">
           All Scan Types
         </Text>
@@ -113,7 +130,13 @@ export default function ScanScreen() {
           <ScanCard
             title="Weight Estimation"
             subtitle="AI-powered measurement"
-            icon={<MaterialCommunityIcons name="scale-bathroom" size={28} color="#0046AD" />}
+            icon={
+              <MaterialCommunityIcons
+                name="scale-bathroom"
+                size={28}
+                color="#0046AD"
+              />
+            }
             iconBg="bg-[#EAF4FF]"
             badge="Active"
             badgeColor="bg-green-500"
@@ -137,8 +160,8 @@ export default function ScanScreen() {
             subtitle="Detect crop issues"
             icon={<Ionicons name="warning-outline" size={28} color="#F59E0B" />}
             iconBg="bg-[#FFF6E5]"
-            badge="Soon"
-            badgeColor="bg-yellow-500"
+            badge="Active"
+            badgeColor="bg-green-500"
             onPress={() => handleScanSelect("spoilage")}
           />
 
@@ -153,7 +176,6 @@ export default function ScanScreen() {
           />
         </View>
 
-        {/* Quick Actions */}
         <View className="bg-white rounded-[18px] p-4 shadow-sm mt-4 mb-4">
           <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
             QUICK ACTIONS
@@ -162,7 +184,9 @@ export default function ScanScreen() {
           <TouchableOpacity
             onPress={() => {
               try {
-                navigation.navigate("PlantLists");
+                navigation.navigate("Dashboard", {
+                  screen: "PlantLists",
+                });
               } catch {
                 Alert.alert("Navigation", "Please use the Growth & Weight section");
               }
@@ -189,7 +213,9 @@ export default function ScanScreen() {
           <TouchableOpacity
             onPress={() => {
               try {
-                navigation.navigate("GrowthForecasting");
+                navigation.navigate("Dashboard", {
+                  screen: "GrowthForecasting",
+                });
               } catch {
                 Alert.alert("Navigation", "Please use the Growth & Weight section");
               }
@@ -216,7 +242,9 @@ export default function ScanScreen() {
           <TouchableOpacity
             onPress={() => {
               try {
-                navigation.navigate("ScheduleTimeSlot");
+                navigation.navigate("Dashboard", {
+                  screen: "ScheduleTimeSlots",
+                });
               } catch {
                 Alert.alert("Navigation", "Please use the Growth & Weight section");
               }
@@ -241,7 +269,6 @@ export default function ScanScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Info Card */}
         <View className="bg-blue-50 rounded-[18px] p-4 mb-4">
           <View className="flex-row items-start">
             <View className="w-10 h-10 rounded-full bg-blue-100 items-center justify-center mr-3">
@@ -261,7 +288,6 @@ export default function ScanScreen() {
           </View>
         </View>
 
-        {/* Recent Scans Preview */}
         <View className="bg-white rounded-[18px] p-4 shadow-sm">
           <View className="flex-row items-center justify-between mb-3">
             <Text className="text-[13px] font-extrabold text-gray-900 tracking-[0.6px]">
@@ -270,7 +296,9 @@ export default function ScanScreen() {
             <TouchableOpacity
               onPress={() => {
                 try {
-                  navigation.navigate("PlantLists");
+                  navigation.navigate("Dashboard", {
+                    screen: "PlantLists",
+                  });
                 } catch {
                   Alert.alert("History", "View all scans in Plant Lists");
                 }
@@ -286,7 +314,13 @@ export default function ScanScreen() {
           <RecentScanItem
             title="Lettuce #L-042"
             subtitle="Weight: 245g • 2 hours ago"
-            icon={<MaterialCommunityIcons name="scale-bathroom" size={18} color="#0046AD" />}
+            icon={
+              <MaterialCommunityIcons
+                name="scale-bathroom"
+                size={18}
+                color="#0046AD"
+              />
+            }
             iconBg="bg-[#EAF4FF]"
           />
 
@@ -295,7 +329,13 @@ export default function ScanScreen() {
           <RecentScanItem
             title="Lettuce #L-038"
             subtitle="Weight: 198g • 5 hours ago"
-            icon={<MaterialCommunityIcons name="scale-bathroom" size={18} color="#0046AD" />}
+            icon={
+              <MaterialCommunityIcons
+                name="scale-bathroom"
+                size={18}
+                color="#0046AD"
+              />
+            }
             iconBg="bg-[#EAF4FF]"
           />
 
@@ -304,7 +344,13 @@ export default function ScanScreen() {
           <RecentScanItem
             title="Lettuce #L-035"
             subtitle="Weight: 212g • Yesterday"
-            icon={<MaterialCommunityIcons name="scale-bathroom" size={18} color="#0046AD" />}
+            icon={
+              <MaterialCommunityIcons
+                name="scale-bathroom"
+                size={18}
+                color="#0046AD"
+              />
+            }
             iconBg="bg-[#EAF4FF]"
           />
         </View>
@@ -312,8 +358,6 @@ export default function ScanScreen() {
     </SafeAreaView>
   );
 }
-
-/* Components */
 
 function ScanCard({
   title,

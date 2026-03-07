@@ -15,7 +15,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../../auth/useAuth";
-import { getDashboardLatest, DashboardMetricsResponse } from "../../api/dashboardApi";
+import {
+  getDashboardLatest,
+  DashboardMetricsResponse,
+} from "../../api/dashboardApi";
 
 type NotificationItem = {
   id: string;
@@ -97,55 +100,65 @@ export default function DashboardScreen() {
 
   const { user, signOut, accessToken } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
-  
-  // Dashboard state
+
   const [metrics, setMetrics] = useState<DashboardMetricsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Notifications and Activities state
-  const [notifications, setNotifications] = useState<NotificationItem[]>(mockNotifications);
-  const [activities, setActivities] = useState<ActivityItem[]>(mockActivities);
+  const [notifications, setNotifications] =
+    useState<NotificationItem[]>(mockNotifications);
+  const [activities, setActivities] =
+    useState<ActivityItem[]>(mockActivities);
 
-  // Fetch dashboard metrics
-  const fetchDashboard = useCallback(async (isRefreshing = false) => {
-    try {
-      if (!isRefreshing) setLoading(true);
-      const data = await getDashboardLatest({ token: accessToken });
-      setMetrics(data);
-    } catch (error: any) {
-      console.error("Failed to fetch dashboard:", error);
-      
-      // Use mock data if API is not available
-      const mockData: DashboardMetricsResponse = {
-        zone_id: "all",
-        zone_name: "All Zones",
-        plant_count: 24,
-        harvest_ready_count: 5,
-        avg_growth_pct: 78.5,
-        temperature_c: 23.5,
-        humidity_pct: 62.0,
-        ec_ms_cm: 1.4,
-        ph: 6.2,
-        last_updated: new Date().toISOString(),
-      };
-      setMetrics(mockData);
-      
-      if (!isRefreshing) {
-        console.warn("Using mock data - backend endpoint not available");
+  const fetchDashboard = useCallback(
+    async (isRefreshing = false) => {
+      try {
+        if (!isRefreshing) setLoading(true);
+        const data = await getDashboardLatest({ token: accessToken });
+        setMetrics(data);
+      } catch (error: any) {
+        console.error("Failed to fetch dashboard:", error);
+
+        const mockData: DashboardMetricsResponse = {
+          zone_id: "all",
+          zone_name: "All Zones",
+          plant_count: 24,
+          harvest_ready_count: 5,
+          avg_growth_pct: 78.5,
+          temperature_c: 23.5,
+          humidity_pct: 62.0,
+          ec_ms_cm: 1.4,
+          ph: 6.2,
+          last_updated: new Date().toISOString(),
+        };
+        setMetrics(mockData);
+
+        if (!isRefreshing) {
+          console.warn("Using mock data - backend endpoint not available");
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [accessToken]);
+    },
+    [accessToken]
+  );
 
-  // Fetch on mount
   useEffect(() => {
-    fetchDashboard();
-  }, []);
+    let isActive = true;
 
-  // Pull to refresh
+    const run = async () => {
+      if (!isActive) return;
+      await fetchDashboard();
+    };
+
+    run();
+
+    return () => {
+      isActive = false;
+    };
+  }, [fetchDashboard]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchDashboard(true);
@@ -159,8 +172,14 @@ export default function DashboardScreen() {
     }
   };
 
+  const openSpoilageModule = () => {
+    navigation.navigate("SpoilageModule", {
+      screen: "SpoilageDetails",
+    });
+  };
+
   const handleDismissNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
   const handleClearAllNotifications = () => {
@@ -182,7 +201,6 @@ export default function DashboardScreen() {
     try {
       setProfileOpen(false);
       await signOut();
-      // RootNavigator will automatically switch back to Auth screens
     } catch {
       Alert.alert("Logout failed", "Please try again.");
     }
@@ -190,9 +208,10 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
-      {/* HEADER */}
       <View className="px-4 pt-4 pb-3">
-        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">{headerDate}</Text>
+        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">
+          {headerDate}
+        </Text>
 
         <View className="flex-row items-start justify-between mt-2">
           <View>
@@ -204,7 +223,6 @@ export default function DashboardScreen() {
             </Text>
           </View>
 
-          {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => setProfileOpen(true)}
@@ -219,7 +237,6 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {/* BODY */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
@@ -239,21 +256,73 @@ export default function DashboardScreen() {
           </View>
         ) : metrics ? (
           <>
-            {/* Feature 2x2 grid */}
+            <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
+              <Text className="text-[16px] font-extrabold text-gray-900 mb-3">
+                System Overview
+              </Text>
+              <View className="flex-row justify-between mb-3">
+                <View className="flex-1 mr-2">
+                  <MetricItem
+                    icon={
+                      <MaterialCommunityIcons
+                        name="sprout"
+                        size={18}
+                        color="#0046AD"
+                      />
+                    }
+                    label="Total Plants"
+                    value={metrics.plant_count.toString()}
+                  />
+                </View>
+                <View className="flex-1 ml-2">
+                  <MetricItem
+                    icon={
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={18}
+                        color="#16A34A"
+                      />
+                    }
+                    label="Harvest Ready"
+                    value={metrics.harvest_ready_count.toString()}
+                  />
+                </View>
+              </View>
+              <MetricItem
+                icon={
+                  <Ionicons name="trending-up" size={18} color="#0046AD" />
+                }
+                label="Avg Growth"
+                value={`${metrics.avg_growth_pct.toFixed(1)}%`}
+              />
+            </View>
+
             <View className="mt-4">
               <View className="flex-row justify-between">
                 <FeatureCard
                   title="Weight & Growth"
                   subtitle="Forecasting & Estimation"
                   iconBg="bg-[#EAF4FF]"
-                  icon={<MaterialCommunityIcons name="sprout" size={22} color="#0046AD" />}
+                  icon={
+                    <MaterialCommunityIcons
+                      name="sprout"
+                      size={22}
+                      color="#0046AD"
+                    />
+                  }
                   onPress={() => go("WeightGrowth")}
                 />
                 <FeatureCard
                   title="Disease Detection"
                   subtitle="Analyze Plant Health"
                   iconBg="bg-[#FFEAF2]"
-                  icon={<Ionicons name="medkit-outline" size={22} color="#DB2777" />}
+                  icon={
+                    <Ionicons
+                      name="medkit-outline"
+                      size={22}
+                      color="#DB2777"
+                    />
+                  }
                   onPress={() => go("Scan")}
                 />
               </View>
@@ -263,20 +332,31 @@ export default function DashboardScreen() {
                   title="Spoilage Detection"
                   subtitle="Identify Crop Issues"
                   iconBg="bg-[#FFF6E5]"
-                  icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
-                  onPress={() => (navigation.getParent() as any)?.navigate("Spoilage")}
+                  icon={
+                    <Ionicons
+                      name="warning-outline"
+                      size={22}
+                      color="#F59E0B"
+                    />
+                  }
+                  onPress={openSpoilageModule}
                 />
                 <FeatureCard
                   title="Water Quality"
                   subtitle="Monitor Sensor data"
                   iconBg="bg-[#E8F7FF]"
-                  icon={<Ionicons name="water-outline" size={22} color="#0284C7" />}
-                  onPress={() => (navigation.getParent() as any)?.navigate("WaterQuality")}
+                  icon={
+                    <Ionicons
+                      name="water-outline"
+                      size={22}
+                      color="#0284C7"
+                    />
+                  }
+                  onPress={() => go("Scan")}
                 />
               </View>
             </View>
 
-            {/* Quick Actions */}
             <Text className="text-[13px] font-extrabold text-gray-900 mt-6 mb-3">
               Quick Actions
             </Text>
@@ -286,33 +366,56 @@ export default function DashboardScreen() {
                 top="Estimate"
                 bottom="Weight"
                 iconBg="bg-[#EAF4FF]"
-                icon={<MaterialCommunityIcons name="scale-bathroom" size={20} color="#0046AD" />}
+                icon={
+                  <MaterialCommunityIcons
+                    name="scale-bathroom"
+                    size={20}
+                    color="#0046AD"
+                  />
+                }
                 onPress={() => go("Scan")}
               />
               <QuickAction
                 top="Monitor"
                 bottom="Growth"
                 iconBg="bg-[#E9FBEF]"
-                icon={<Ionicons name="analytics-outline" size={20} color="#16A34A" />}
+                icon={
+                  <Ionicons
+                    name="analytics-outline"
+                    size={20}
+                    color="#16A34A"
+                  />
+                }
                 onPress={() => go("Scan")}
               />
               <QuickAction
                 top="Detect"
                 bottom="Disease"
                 iconBg="bg-[#FFEAF2]"
-                icon={<Ionicons name="medkit-outline" size={20} color="#DB2777" />}
+                icon={
+                  <Ionicons
+                    name="medkit-outline"
+                    size={20}
+                    color="#DB2777"
+                  />
+                }
                 onPress={() => go("Scan")}
               />
               <QuickAction
                 top="Spoilage"
                 bottom="Check"
                 iconBg="bg-[#FFF6E5]"
-                icon={<Ionicons name="warning-outline" size={20} color="#F59E0B" />}
-                onPress={() => navigation.navigate("SpoilageDetails")}
+                icon={
+                  <Ionicons
+                    name="warning-outline"
+                    size={20}
+                    color="#F59E0B"
+                  />
+                }
+                onPress={openSpoilageModule}
               />
             </View>
 
-            {/* Notifications */}
             {notifications.length > 0 && (
               <>
                 <View className="flex-row items-center justify-between mt-6 mb-3">
@@ -342,22 +445,28 @@ export default function DashboardScreen() {
                   <React.Fragment key={notification.id}>
                     <NotificationCard
                       {...notification}
-                      onDismiss={() => handleDismissNotification(notification.id)}
+                      onDismiss={() =>
+                        handleDismissNotification(notification.id)
+                      }
                     />
-                    {index < notifications.length - 1 && <View className="h-3" />}
+                    {index < notifications.length - 1 && (
+                      <View className="h-3" />
+                    )}
                   </React.Fragment>
                 ))}
               </>
             )}
 
-            {/* Recent Activities */}
             {activities.length > 0 && (
               <>
                 <View className="flex-row items-center justify-between mt-6 mb-3">
                   <Text className="text-[13px] font-extrabold text-gray-900">
                     Recent Activities
                   </Text>
-                  <TouchableOpacity onPress={() => go("History")} activeOpacity={0.85}>
+                  <TouchableOpacity
+                    onPress={() => go("History")}
+                    activeOpacity={0.85}
+                  >
                     <Text className="text-[11px] font-extrabold text-[#0046AD]">
                       View All
                     </Text>
@@ -388,19 +497,18 @@ export default function DashboardScreen() {
         ) : null}
       </ScrollView>
 
-      {/* ✅ Profile Bottom Sheet Modal */}
       <Modal
         visible={profileOpen}
         transparent
         animationType="slide"
         onRequestClose={() => setProfileOpen(false)}
       >
-        {/* Backdrop */}
-        <Pressable className="flex-1 bg-black/40" onPress={() => setProfileOpen(false)} />
+        <Pressable
+          className="flex-1 bg-black/40"
+          onPress={() => setProfileOpen(false)}
+        />
 
-        {/* Sheet */}
         <View className="bg-white rounded-t-3xl px-5 pt-4 pb-6">
-          {/* Grab handle */}
           <View className="w-12 h-1.5 bg-gray-200 rounded-full self-center mb-4" />
 
           <View className="flex-row items-center">
@@ -445,8 +553,6 @@ export default function DashboardScreen() {
   );
 }
 
-/* ---------- components ---------- */
-
 function FeatureCard({
   title,
   subtitle,
@@ -466,7 +572,9 @@ function FeatureCard({
       activeOpacity={0.85}
       className="bg-white rounded-[18px] p-4 w-[48%]"
     >
-      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
+      <View
+        className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}
+      >
         {icon}
       </View>
 
@@ -497,7 +605,9 @@ function QuickAction({
       activeOpacity={0.85}
       className="bg-white rounded-[18px] w-[23%] pt-4 pb-3 items-center shadow-sm"
     >
-      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
+      <View
+        className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}
+      >
         {icon}
       </View>
 
@@ -529,10 +639,26 @@ function NotificationCard({
   onDismiss: () => void;
 }) {
   const colors = {
-    orange: { bar: "bg-orange-400", iconBg: "bg-[#FFF6E5]", iconColor: "#F59E0B" },
-    blue: { bar: "bg-blue-600", iconBg: "bg-[#EAF2FF]", iconColor: "#2563EB" },
-    green: { bar: "bg-green-500", iconBg: "bg-[#E9FBEF]", iconColor: "#16A34A" },
-    red: { bar: "bg-red-500", iconBg: "bg-[#FFE5E5]", iconColor: "#EF4444" },
+    orange: {
+      bar: "bg-orange-400",
+      iconBg: "bg-[#FFF6E5]",
+      iconColor: "#F59E0B",
+    },
+    blue: {
+      bar: "bg-blue-600",
+      iconBg: "bg-[#EAF2FF]",
+      iconColor: "#2563EB",
+    },
+    green: {
+      bar: "bg-green-500",
+      iconBg: "bg-[#E9FBEF]",
+      iconColor: "#16A34A",
+    },
+    red: {
+      bar: "bg-red-500",
+      iconBg: "bg-[#FFE5E5]",
+      iconColor: "#EF4444",
+    },
   };
   const { bar, iconBg, iconColor } = colors[accent];
 
@@ -542,7 +668,9 @@ function NotificationCard({
         <View className={`w-1.5 ${bar}`} />
         <View className="flex-1 px-4 py-4">
           <View className="flex-row items-center">
-            <View className={`w-10 h-10 rounded-[14px] ${iconBg} items-center justify-center mr-3`}>
+            <View
+              className={`w-10 h-10 rounded-[14px] ${iconBg} items-center justify-center mr-3`}
+            >
               <Ionicons name={iconName as any} size={18} color={iconColor} />
             </View>
 
@@ -590,11 +718,17 @@ function ActivityRow({
     const iconColor = iconBg.includes("EAF4FF")
       ? "#0046AD"
       : iconBg.includes("E9FBEF")
-      ? "#16A34A"
-      : "#7C3AED";
+        ? "#16A34A"
+        : "#7C3AED";
 
     if (iconLib === "material") {
-      return <MaterialCommunityIcons name={iconName as any} size={18} color={iconColor} />;
+      return (
+        <MaterialCommunityIcons
+          name={iconName as any}
+          size={18}
+          color={iconColor}
+        />
+      );
     } else if (iconLib === "ionicons") {
       return <Ionicons name={iconName as any} size={18} color={iconColor} />;
     } else {
@@ -604,7 +738,9 @@ function ActivityRow({
 
   return (
     <View className="flex-row items-center px-4 py-4">
-      <View className={`w-10 h-10 rounded-full ${iconBg} items-center justify-center mr-3`}>
+      <View
+        className={`w-10 h-10 rounded-full ${iconBg} items-center justify-center mr-3`}
+      >
         {renderIcon()}
       </View>
 
@@ -640,30 +776,6 @@ function MetricItem({
           {value}
         </Text>
       </View>
-    </View>
-  );
-}
-
-function SensorMetric({
-  icon,
-  label,
-  value,
-  bgColor,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  bgColor: string;
-}) {
-  return (
-    <View className={`${bgColor} rounded-xl p-3`}>
-      <View className="flex-row items-center mb-2">
-        {icon}
-        <Text className="text-[11px] text-gray-600 ml-2 font-semibold">
-          {label}
-        </Text>
-      </View>
-      <Text className="text-[15px] font-extrabold text-gray-900">{value}</Text>
     </View>
   );
 }
