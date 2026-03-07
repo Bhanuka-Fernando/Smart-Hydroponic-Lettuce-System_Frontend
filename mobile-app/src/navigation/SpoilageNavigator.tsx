@@ -14,12 +14,15 @@ import type { SpoilagePredictResponse } from "../api/SpoilageApi";
 export type SpoilageStackParamList = {
   SpoilageDetails: undefined;
   SpoilagePlants: undefined;
-
-  // ✅ new spoilage-owned plant details
   SpoilagePlantDetails: { plantId: string };
 
-  // ✅ scan can accept a plantId (passed from plant details)
-  SpoilageScan: { plantId?: string } | undefined;
+  SpoilageScan:
+    | {
+        plantId?: string;
+        demoMode?: boolean;
+        initialDemoDayIndex?: number;
+      }
+    | undefined;
 
   SpoilageConfirm: {
     imageUri: string;
@@ -27,9 +30,14 @@ export type SpoilageStackParamList = {
     temperature: number;
     humidity: number;
     plantId: string;
+    isSim?: boolean;
   };
 
-  SpoilageShelfLifeResult: { imageUri: string; result: SpoilagePredictResponse };
+  SpoilageShelfLifeResult: {
+    imageUri: string;
+    result: SpoilagePredictResponse;
+  };
+
   SpoilageAlerts: undefined;
 };
 
