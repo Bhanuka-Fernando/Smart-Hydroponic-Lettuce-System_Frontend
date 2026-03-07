@@ -1,12 +1,17 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Image, Switch } from "react-native";
+import React, { useMemo, useState, useEffect } from "react";
+import { View, Text, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import SensorReadingsModal from "../../components/Sensors/SensorReadingsModal";
+import ActionTile from "../../components/ui/ActionTile";
 import { useSensorReadings } from "../../context/SensorReadingsContext";
+import { getDeviceSensors } from "../../api/deviceApi";
+import axios from 'axios';
+import { ML_BASE_URL } from '../../utils/constants';
 
 function formatHeaderDate(d: Date) {
   const month = d.toLocaleString("en-US", { month: "short" });
@@ -15,6 +20,23 @@ function formatHeaderDate(d: Date) {
 }
 
 type Status = "Good" | "Optimal" | "Low";
+
+function statusFor(key: "airT" | "RH" | "EC" | "pH", value: number | null): Status {
+  if (value === null || value === undefined) return "Low";
+  
+  const ranges: Record<string, { optimal: [number, number]; good: [number, number] }> = {
+    airT: { optimal: [22, 28], good: [18, 32] },
+    RH: { optimal: [50, 70], good: [40, 80] },
+    EC: { optimal: [1.2, 1.8], good: [0.8, 2.2] },
+    pH: { optimal: [5.5, 6.5], good: [5.0, 7.0] },
+  };
+
+  const range = ranges[key];
+  const isOptimal = value >= range.optimal[0] && value <= range.optimal[1];
+  const isGood = value >= range.good[0] && value <= range.good[1];
+
+  return isOptimal ? "Optimal" : isGood ? "Good" : "Low";
+}
 
 function StatusPill({ status }: { status: Status }) {
   const map: Record<Status, { bg: string; text: string }> = {
@@ -38,6 +60,7 @@ function MetricCard({
   unit,
   status,
   onRetryPress,
+  loading,
 }: {
   iconBg: string;
   icon: React.ReactNode;
@@ -46,6 +69,7 @@ function MetricCard({
   unit?: string;
   status: Status;
   onRetryPress: () => void;
+  loading?: boolean;
 }) {
   return (
     <View className="bg-white rounded-[18px] p-4 w-[48%]">
@@ -65,8 +89,12 @@ function MetricCard({
         </View>
 
         {/* retry / edit */}
-        <TouchableOpacity onPress={onRetryPress} activeOpacity={0.85}>
-          <Ionicons name="sync-circle-outline" size={24} color="#1D4ED8" />
+        <TouchableOpacity onPress={onRetryPress} activeOpacity={0.85} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator size="small" color="#1D4ED8" />
+          ) : (
+            <Ionicons name="sync-circle-outline" size={24} color="#1D4ED8" />
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -93,6 +121,18 @@ function SmallActionButton({
     </TouchableOpacity>
   );
 }
+
+type Slot = {
+  id: string;
+  name: string;
+  timeLabel: string;
+  enabled: boolean;
+  hour24: number;
+  minute: number;
+};
+
+const STORAGE_KEY = '@schedule_time_slots';
+const LAST_AUTO_UPDATE_KEY = '@last_auto_update'; // ✅ New key
 
 function SlotRow({
   label,
@@ -124,59 +164,111 @@ function SlotRow({
   );
 }
 
-function ActionTile({
-  iconBg,
-  icon,
-  labelTop,
-  labelBottom,
-  onPress,
-}: {
-  iconBg: string;
-  icon: React.ReactNode;
-  labelTop: string;
-  labelBottom: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={onPress}
-      className="bg-white rounded-[18px] w-[31%] pt-4 pb-3 items-center shadow-sm"
-    >
-      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>{icon}</View>
-
-      <View className="mt-3 items-center">
-        <Text className="text-[12px] text-gray-800 font-extrabold leading-[15px]">{labelTop}</Text>
-        <Text className="text-[12px] text-gray-800 font-extrabold leading-[15px]">{labelBottom}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-const statusFor = (key: "airT" | "RH" | "EC" | "pH", v: number | null): Status => {
-  if (v == null) return "Low";
-  // simple demo rules (keep it light)
-  if (key === "EC") return v >= 1.2 && v <= 1.8 ? "Optimal" : "Low";
-  if (key === "pH") return v >= 5.8 && v <= 6.5 ? "Good" : "Low";
-  if (key === "RH") return v >= 50 ? "Good" : "Low";
-  return "Good";
-};
-
 export default function WeightGrowthScreen() {
   const navigation = useNavigation<any>();
   const tabBarHeight = useBottomTabBarHeight();
 
   const headerDate = useMemo(() => formatHeaderDate(new Date()), []);
 
-  const [morning, setMorning] = useState(true);
-  const [afternoon, setAfternoon] = useState(false);
-  const [evening, setEvening] = useState(true);
-
   const { readings, setAll, setOne } = useSensorReadings();
 
   const [sensorModalOpen, setSensorModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"all" | "single">("all");
   const [singleKey, setSingleKey] = useState<"airT" | "RH" | "EC" | "pH">("airT");
+
+  // Loading states for individual sensors
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [loadingTemp, setLoadingTemp] = useState(false);
+  const [loadingEC, setLoadingEC] = useState(false);
+  const [loadingRH, setLoadingRH] = useState(false);
+  const [loadingPH, setLoadingPH] = useState(false);
+
+  // Load schedules from AsyncStorage
+  const [schedules, setSchedules] = useState<Slot[]>([]);
+  
+  // ✅ Track last auto update
+  const [lastAutoUpdate, setLastAutoUpdate] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadSchedules();
+    loadLastAutoUpdate(); // ✅ Load last auto update time
+
+    // Listen for navigation focus to reload schedules when returning from ScheduleTimeSlotsScreen
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadSchedules();
+      loadLastAutoUpdate(); // ✅ Reload on focus
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  // ✅ Poll for auto-update changes every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadLastAutoUpdate();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadSchedules = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed: Slot[] = JSON.parse(saved);
+        setSchedules(parsed);
+      } else {
+        setSchedules([]);
+      }
+    } catch (error) {
+      console.error("Failed to load schedules:", error);
+      setSchedules([]);
+    }
+  };
+
+  // ✅ Load last auto-update timestamp
+  const loadLastAutoUpdate = async () => {
+    try {
+      const timestamp = await AsyncStorage.getItem(LAST_AUTO_UPDATE_KEY);
+      setLastAutoUpdate(timestamp);
+    } catch (error) {
+      console.error("Failed to load last auto update:", error);
+    }
+  };
+
+  // ✅ Format last update time
+  const formatLastUpdate = (timestamp: string | null): string => {
+    if (!timestamp) return "Never";
+    
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins === 1) return "1 min ago";
+    if (diffMins < 60) return `${diffMins} mins ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours === 1) return "1 hour ago";
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
+  const handleToggleSchedule = async (id: string, value: boolean) => {
+    try {
+      const updated = schedules.map((s) => (s.id === id ? { ...s, enabled: value } : s));
+      setSchedules(updated);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.error("Failed to update schedule:", error);
+    }
+  };
 
   const openAll = () => {
     setModalMode("all");
@@ -194,6 +286,125 @@ export default function WeightGrowthScreen() {
       navigation.navigate(routeName);
     } catch {
       // ignore
+    }
+  };
+
+  // Fetch all sensor readings from device simulator
+  const handleCheckForUpdates = async () => {
+    try {
+      setLoadingAll(true);
+
+      const ZONE_ID = "z01";
+      const deviceSensors = await getDeviceSensors(ZONE_ID, "NORMAL");
+
+      const mappedSensors = {
+        airT: deviceSensors.temperature_c,
+        RH: deviceSensors.humidity_pct,
+        EC: deviceSensors.ec_ms_cm,
+        pH: deviceSensors.ph,
+      };
+
+      setAll(mappedSensors);
+
+      // Optional: Ingest to ML backend
+      try {
+        // ✅ Fixed payload format
+        const payload = {
+          device_id: deviceSensors.device_id,
+          zone_id: deviceSensors.zone_id,
+          plant_id: "p04",
+          ts: deviceSensors.timestamp,
+          air_temp_c: deviceSensors.temperature_c,
+          humidity_pct: deviceSensors.humidity_pct,
+          ec_ms_cm: deviceSensors.ec_ms_cm,
+          ph: deviceSensors.ph,
+        };
+
+        await axios.post(`${ML_BASE_URL}/infer/iot/ingest`, payload, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        });
+        
+        console.log("✅ ML backend ingested successfully");
+      } catch (e: any) {
+        console.warn("⚠️  Failed to ingest sensor data to ML backend:", {
+          status: e?.response?.status,
+          data: e?.response?.data,
+          message: e?.message,
+        });
+      }
+
+      // ✅ Show success feedback
+      Alert.alert("✅ Updated", "Sensor readings refreshed successfully", [{ text: "OK" }]);
+    } catch (error: any) {
+      Alert.alert(
+        "Update Failed",
+        error?.message || "Failed to fetch sensor readings. Ensure device simulator is running.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setLoadingAll(false);
+    }
+  };
+
+  // Fetch individual sensor reading
+  const handleRetryOne = async (key: "airT" | "RH" | "EC" | "pH") => {
+    const setLoading = {
+      airT: setLoadingTemp,
+      RH: setLoadingRH,
+      EC: setLoadingEC,
+      pH: setLoadingPH,
+    }[key];
+
+    const sensorName = {
+      airT: "Temperature",
+      RH: "Humidity",
+      EC: "EC Level",
+      pH: "pH",
+    }[key];
+
+    try {
+      setLoading(true);
+
+      const ZONE_ID = "z01";
+      const deviceSensors = await getDeviceSensors(ZONE_ID, "NORMAL");
+
+      const value = {
+        airT: deviceSensors.temperature_c,
+        RH: deviceSensors.humidity_pct,
+        EC: deviceSensors.ec_ms_cm,
+        pH: deviceSensors.ph,
+      }[key];
+
+      setOne(key, value);
+
+      // Optional: Ingest to ML backend
+      try {
+        await axios.post(`${ML_BASE_URL}/infer/iot/ingest`, {
+          device_id: deviceSensors.device_id,
+          zone_id: deviceSensors.zone_id,
+          plant_id: "p04",
+          ts: deviceSensors.timestamp,
+          airT: deviceSensors.temperature_c,
+          RH: deviceSensors.humidity_pct,
+          EC: deviceSensors.ec_ms_cm,
+          pH: deviceSensors.ph,
+        });
+      } catch (e) {
+        console.warn("Failed to ingest sensor data to ML backend:", e);
+      }
+
+      // Success - no alert shown
+    } catch (error: any) {
+      Alert.alert(
+        "Update Failed",
+        error?.message || `Failed to fetch ${sensorName}. Ensure device simulator is running.`,
+        [{ text: "OK" }]
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -229,6 +440,30 @@ export default function WeightGrowthScreen() {
           </View>
         </View>
 
+        {/* ✅ Last Auto Update Banner */}
+        {lastAutoUpdate && (
+          <View className="mt-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex-row items-center">
+            <View className="w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-3">
+              <Ionicons name="time" size={16} color="#1D4ED8" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-[11px] font-extrabold text-blue-900 mb-0.5">
+                Auto-updated by schedule
+              </Text>
+              <Text className="text-[10px] font-semibold text-blue-600">
+                {formatLastUpdate(lastAutoUpdate)}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={loadLastAutoUpdate}
+              activeOpacity={0.7}
+              className="w-7 h-7 rounded-full bg-blue-100 items-center justify-center"
+            >
+              <Ionicons name="refresh" size={14} color="#1D4ED8" />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Metrics 2x2 */}
         <View className="mt-6">
           <View className="flex-row justify-between">
@@ -239,7 +474,8 @@ export default function WeightGrowthScreen() {
               value={readings.airT != null ? `${readings.airT}` : "--"}
               unit="°C"
               status={statusFor("airT", readings.airT)}
-              onRetryPress={() => openOne("airT")}
+              onRetryPress={() => handleRetryOne("airT")}
+              loading={loadingTemp}
             />
 
             <MetricCard
@@ -249,7 +485,8 @@ export default function WeightGrowthScreen() {
               value={readings.EC != null ? `${readings.EC}` : "--"}
               unit="ms/cm"
               status={statusFor("EC", readings.EC)}
-              onRetryPress={() => openOne("EC")}
+              onRetryPress={() => handleRetryOne("EC")}
+              loading={loadingEC}
             />
           </View>
 
@@ -261,7 +498,8 @@ export default function WeightGrowthScreen() {
               value={readings.RH != null ? `${readings.RH}` : "--"}
               unit="%"
               status={statusFor("RH", readings.RH)}
-              onRetryPress={() => openOne("RH")}
+              onRetryPress={() => handleRetryOne("RH")}
+              loading={loadingRH}
             />
 
             <MetricCard
@@ -270,18 +508,32 @@ export default function WeightGrowthScreen() {
               label="Water pH"
               value={readings.pH != null ? `${readings.pH}` : "--"}
               status={statusFor("pH", readings.pH)}
-              onRetryPress={() => openOne("pH")}
+              onRetryPress={() => handleRetryOne("pH")}
+              loading={loadingPH}
             />
           </View>
         </View>
 
         {/* Small actions row */}
         <View className="flex-row items-center justify-between mt-6">
-          <SmallActionButton
-            icon={<Ionicons name="sync-outline" size={16} color="#1D4ED8" />}
-            label="Check for Updates"
-            onPress={openAll}
-          />
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleCheckForUpdates}
+            disabled={loadingAll}
+            className="flex-row items-center bg-white rounded-[14px] px-3 py-2"
+          >
+            {loadingAll ? (
+              <>
+                <ActivityIndicator size="small" color="#1D4ED8" />
+                <Text className="ml-2 text-[12px] font-bold text-gray-700">Updating...</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="sync-outline" size={16} color="#1D4ED8" />
+                <Text className="ml-2 text-[12px] font-bold text-gray-700">Check for Updates</Text>
+              </>
+            )}
+          </TouchableOpacity>
           <SmallActionButton
             icon={<Ionicons name="time-outline" size={16} color="#1D4ED8" />}
             label="View All Past Activities"
@@ -289,7 +541,7 @@ export default function WeightGrowthScreen() {
           />
         </View>
 
-        {/* Scheduled time slots (CLICKABLE) */}
+        {/* Scheduled time slots (CLICKABLE) - Now dynamic */}
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => navigation.navigate("ScheduleTimeSlots")}
@@ -302,17 +554,32 @@ export default function WeightGrowthScreen() {
 
             <View className="flex-1">
               <Text className="text-[14px] font-extrabold text-gray-900">Scheduled Time Slots</Text>
-              <Text className="text-[11px] text-gray-500 mt-0.5">Daily sensor logging</Text>
+              <Text className="text-[11px] text-gray-500 mt-0.5">
+                {schedules.length > 0 ? "Daily sensor logging" : "No schedules set"}
+              </Text>
             </View>
 
             <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
           </View>
 
-          <SlotRow label="MORNING" time="09:00 AM" value={morning} onChange={setMorning} />
-          <View className="h-px bg-gray-100" />
-          <SlotRow label="AFTERNOON" time="01:00 PM" value={afternoon} onChange={setAfternoon} />
-          <View className="h-px bg-gray-100" />
-          <SlotRow label="EVENING" time="05:00 PM" value={evening} onChange={setEvening} />
+          {schedules.length > 0 ? (
+            schedules.map((slot, index) => (
+              <View key={slot.id}>
+                {index > 0 && <View className="h-px bg-gray-100" />}
+                <SlotRow
+                  label={slot.name.toUpperCase()}
+                  time={slot.timeLabel}
+                  value={slot.enabled}
+                  onChange={(v) => handleToggleSchedule(slot.id, v)}
+                />
+              </View>
+            ))
+          ) : (
+            <View className="py-4 items-center">
+              <Text className="text-[11px] text-gray-400">No time slots configured</Text>
+              <Text className="text-[10px] text-gray-400 mt-1">Tap to add schedules</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         {/* Actions */}

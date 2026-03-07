@@ -1,5 +1,7 @@
-export const API_BASE_URL = "http://192.168.43.226:8000";
-export const ML_BASE_URL = "http://192.168.43.226:8001";
-export const SPOILAGE_BASE_URL = "http://192.168.43.226:8002";
+const HOST = "192.168.8.102";
 
-
+export const API_BASE_URL = `http://${HOST}:8000`;
+export const WATER_BASE_URL = `http://${HOST}:8006`;
+export const ML_BASE_URL = `http://${HOST}:8001`;
+export const SPOILAGE_BASE_URL = `http://${HOST}:8002`;
+export const DEVICE_BASE_URL = `http://${HOST}:8010`;
