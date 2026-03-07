@@ -1,5 +1,4 @@
-// src/screens/spoilage/SpoilageScanScreen.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -23,7 +22,6 @@ import {
   useCameraPermissions,
 } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
-
 import * as FileSystem from "expo-file-system/legacy";
 
 import { predictAll, getSimSample } from "../../api/SpoilageApi";
@@ -31,8 +29,49 @@ import { SPOILAGE_BASE_URL } from "../../utils/constants";
 
 const PRIMARY = "#0046AD";
 
+const DEMO_DAY_OPTIONS = [
+  { label: "Day 0", daysAhead: 0 },
+  { label: "Day 2", daysAhead: 2 },
+  { label: "Day 4", daysAhead: 4 },
+  { label: "Day 7", daysAhead: 7 },
+] as const;
+
+function buildDemoIso(daysAhead: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  return d.toISOString();
+}
+
+function formatLocalDateTime(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+
+  let h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12;
+  h = h === 0 ? 12 : h;
+
+  return `${yyyy}.${mm}.${dd} • ${h}:${m} ${ampm}`;
+}
+
 type Mode = "Camera" | "Gallery";
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageScan">;
+
+const stripSim = (id: string) => (id ? id.replace(/^SIM-/i, "") : id);
+
+type SimLock = {
+  plantId: string;
+  imageUrl: string;
+  temperature: number;
+  humidity: number;
+  capturedAt: string;
+  sourceImageName?: string | null;
+};
 
 async function ensureLocalUri(uri: string) {
   if (uri.startsWith("file://")) return uri;
@@ -46,10 +85,51 @@ async function ensureLocalUri(uri: string) {
   return localPath;
 }
 
+function getFriendlyPredictionError(detail: any) {
+  if (!detail) {
+    return "Invalid image. Please capture a clear top-view lettuce image only.";
+  }
+
+  if (typeof detail === "string") {
+    const msg = detail.toLowerCase();
+
+    if (
+      msg.includes("invalid image") ||
+      msg.includes("top-view lettuce") ||
+      msg.includes("not a lettuce") ||
+      msg.includes("low confidence")
+    ) {
+      return "Wrong image detected. Please capture a clear top-view photo of the lettuce only.";
+    }
+
+    return detail;
+  }
+
+  return "Wrong image detected. Please capture a clear top-view photo of the lettuce only.";
+}
+
+function clampDemoIndex(index: number | undefined | null) {
+  const safe = Number(index ?? 0);
+  if (Number.isNaN(safe)) return 0;
+  return Math.max(0, Math.min(safe, DEMO_DAY_OPTIONS.length - 1));
+}
+
 export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [mode, setMode] = useState<Mode>("Camera");
 
-  const lockedPlantId = route.params?.plantId?.trim();
+  const rawLockedPlantId = route.params?.plantId?.trim();
+  const initialDemoMode = route.params?.demoMode ?? false;
+  const initialDemoDayIndex = clampDemoIndex(route.params?.initialDemoDayIndex);
+
+  const isLockedSimStream =
+    !!rawLockedPlantId && rawLockedPlantId.toUpperCase().startsWith("SIM-");
+
+  const effectiveDemoMode = isLockedSimStream ? true : initialDemoMode;
+
+  const lockedPlantId = rawLockedPlantId
+    ? stripSim(rawLockedPlantId)
+    : undefined;
+
   const isPlantLocked = !!lockedPlantId;
 
   const cameraRef = useRef<CameraViewRef | null>(null);
@@ -61,27 +141,48 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [torchOn, setTorchOn] = useState(false);
 
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
+  const [capturedAt, setCapturedAt] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [temperature, setTemperature] = useState<number>(6.5);
   const [humidity, setHumidity] = useState<number>(91.0);
 
   const [plantId, setPlantId] = useState<string>(lockedPlantId ?? "P-001");
+  const [simLock, setSimLock] = useState<SimLock | null>(null);
+
+  const [demoTimeIndex, setDemoTimeIndex] = useState(initialDemoDayIndex);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   useEffect(() => {
     if (lockedPlantId) setPlantId(lockedPlantId);
   }, [lockedPlantId]);
+
+  useEffect(() => {
+    if (effectiveDemoMode) {
+      setDemoTimeIndex(initialDemoDayIndex);
+    }
+  }, [effectiveDemoMode, initialDemoDayIndex, rawLockedPlantId]);
+
+  const selectedDemoOption =
+    DEMO_DAY_OPTIONS[demoTimeIndex] ?? DEMO_DAY_OPTIONS[0];
+  const selectedDemoLabel = selectedDemoOption.label;
+  const selectedDemoDaysAhead = selectedDemoOption.daysAhead;
+
+  const selectedDemoTime = useMemo(() => {
+    return buildDemoIso(selectedDemoDaysAhead);
+  }, [selectedDemoDaysAhead]);
 
   const tempText = `${temperature.toFixed(1)}°C`;
   const rhText = `${humidity.toFixed(0)}% RH`;
 
   useEffect(() => {
     if (!permission) requestPermission();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [permission, requestPermission]);
 
   const pickFromGallery = async () => {
     try {
+      setScanError(null);
+
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         Alert.alert("Permission", "Please allow gallery access.");
@@ -93,7 +194,11 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         quality: 1,
       });
 
-      if (!res.canceled) setCapturedUri(res.assets[0].uri);
+      if (!res.canceled) {
+        setCapturedUri(res.assets[0].uri);
+        setCapturedAt(new Date().toISOString());
+        setSimLock(null);
+      }
     } catch (e) {
       console.log("Gallery error:", e);
       Alert.alert("Error", "Could not open gallery.");
@@ -105,11 +210,18 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
 
     try {
       setBusy(true);
+      setScanError(null);
+
       const photo = await cameraRef.current.takePictureAsync({
         quality: 1,
         skipProcessing: true,
       });
-      if (photo?.uri) setCapturedUri(photo.uri);
+
+      if (photo?.uri) {
+        setCapturedUri(photo.uri);
+        setCapturedAt(new Date().toISOString());
+        setSimLock(null);
+      }
     } catch (e) {
       console.log("Camera error:", e);
       Alert.alert("Camera", "Failed to capture photo.");
@@ -118,28 +230,47 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
     }
   };
 
-  const retake = () => setCapturedUri(null);
+  const retake = () => {
+    setCapturedUri(null);
+    setCapturedAt(null);
+    setSimLock(null);
+    setScanError(null);
+  };
 
-  // ✅ captured_at-based progression
   const onUseLastSensor = async () => {
     try {
       setBusy(true);
 
-      const pid = (lockedPlantId ?? plantId)?.trim();
+      const pidForSimRequest = (rawLockedPlantId ?? plantId)?.trim() || "";
+      const pidForDisplay = stripSim(pidForSimRequest);
+
+      if (!pidForDisplay) {
+        Alert.alert("Missing", "Enter Plant ID (ex: P-001).");
+        return;
+      }
+
       const sample = await getSimSample({
-        plant_id: pid ? pid : undefined,
+        plant_id: pidForSimRequest,
         mode: "time",
+        now_iso: effectiveDemoMode
+          ? selectedDemoTime
+          : new Date().toISOString(),
       });
 
-      setTemperature(Number(sample.temperature));
-      setHumidity(Number(sample.humidity));
-      if (!isPlantLocked && sample.plant_id) setPlantId(sample.plant_id);
+      if (!simLock) {
+        setTemperature(Number(sample.temperature));
+        setHumidity(Number(sample.humidity));
+      }
+
+      if (!isPlantLocked && sample.plant_id) {
+        setPlantId(stripSim(sample.plant_id));
+      }
 
       Alert.alert(
         "Sensor Updated",
-        `Plant ${sample.plant_id ?? pid ?? "-"} • Temp ${Number(sample.temperature).toFixed(
-          1
-        )}°C • RH ${Number(sample.humidity).toFixed(0)}%`
+        `Plant ${stripSim(sample.plant_id ?? pidForDisplay ?? "-")} • Temp ${Number(
+          sample.temperature
+        ).toFixed(1)}°C • RH ${Number(sample.humidity).toFixed(0)}%`
       );
     } catch (e: any) {
       console.log("Sim sample error:", e?.message, e?.response?.data);
@@ -149,33 +280,74 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
     }
   };
 
-  // ✅ captured_at-based progression + dataset image preview
   const onSimulateCamera = async () => {
     try {
       setBusy(true);
+      setScanError(null);
 
-      const pid = (lockedPlantId ?? plantId)?.trim();
+      const pidForSimRequest = (rawLockedPlantId ?? plantId)?.trim() || "";
+      const pidForDisplay = stripSim(pidForSimRequest);
+
+      if (!pidForDisplay) {
+        Alert.alert("Missing", "Enter Plant ID (ex: P-001).");
+        return;
+      }
+
+      const effectiveNowIso = effectiveDemoMode
+        ? selectedDemoTime
+        : new Date().toISOString();
+
       const sample = await getSimSample({
-        plant_id: pid ? pid : undefined,
+        plant_id: pidForSimRequest,
         mode: "time",
+        now_iso: effectiveNowIso,
       });
 
-      setTemperature(Number(sample.temperature));
-      setHumidity(Number(sample.humidity));
-      if (!isPlantLocked && sample.plant_id) setPlantId(sample.plant_id);
-
       if (!sample.image_url) {
-        Alert.alert("No Image", "No matching image found in backend sim_images folder.");
+        Alert.alert(
+          "No Image",
+          "No matching image found in backend sim_images folder."
+        );
         return;
       }
 
       const fullUrl = `${SPOILAGE_BASE_URL}${sample.image_url}`;
-      setCapturedUri(fullUrl);
+      const t = Number(sample.temperature);
+      const h = Number(sample.humidity);
+      const simCapturedAt = effectiveNowIso;
 
-      Alert.alert(
-        "Simulated Camera",
-        `Loaded ${sample.image_name ?? "image"} (Plant ${sample.plant_id ?? pid ?? "-"})`
-      );
+      setCapturedUri(fullUrl);
+      setCapturedAt(simCapturedAt);
+      setTemperature(t);
+      setHumidity(h);
+
+      setSimLock({
+        plantId: pidForDisplay,
+        imageUrl: fullUrl,
+        temperature: t,
+        humidity: h,
+        capturedAt: simCapturedAt,
+        sourceImageName: sample.image_name ?? null,
+      });
+
+      if (effectiveDemoMode) {
+        Alert.alert(
+          "Simulated Camera",
+          `Plant: ${pidForDisplay}
+Day: ${selectedDemoLabel}
+Time: ${formatLocalDateTime(simCapturedAt)}
+CSV Label: ${sample.label}
+Image: ${sample.image_name ?? "none"}`
+        );
+      } else {
+        Alert.alert(
+          "Simulated Camera",
+          `Plant: ${pidForDisplay}
+Time: ${formatLocalDateTime(simCapturedAt)}
+CSV Label: ${sample.label}
+Image: ${sample.image_name ?? "none"}`
+        );
+      }
     } catch (e: any) {
       console.log("Simulate error:", e?.message, e?.response?.data);
       Alert.alert("Error", "Failed to simulate camera from dataset images");
@@ -190,34 +362,66 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
       return;
     }
 
-    const pid = (lockedPlantId ?? plantId)?.trim();
-    if (!pid) {
+    const pidClean = stripSim((lockedPlantId ?? plantId)?.trim() || "");
+
+    if (!pidClean) {
       Alert.alert("Missing", "Enter Plant ID (ex: P-001).");
       return;
     }
 
     try {
       setBusy(true);
+      setScanError(null);
+
+      if (simLock && capturedUri === simLock.imageUrl) {
+        setTemperature(simLock.temperature);
+        setHumidity(simLock.humidity);
+      }
 
       const localUri = await ensureLocalUri(capturedUri);
 
+      const isSim = !!simLock && capturedUri === simLock.imageUrl;
+      const pidToSave =
+        isSim || isLockedSimStream ? `SIM-${pidClean}` : pidClean;
+
+      const usedTemp = isSim ? simLock!.temperature : temperature;
+      const usedHumidity = isSim ? simLock!.humidity : humidity;
+
+      const usedCapturedAt = isSim
+        ? effectiveDemoMode
+          ? selectedDemoTime
+          : new Date().toISOString()
+        : capturedAt ?? new Date().toISOString();
+
       const result = await predictAll({
         imageUri: localUri,
-        temperature,
-        humidity,
-        plant_id: pid,
+        temperature: usedTemp,
+        humidity: usedHumidity,
+        plant_id: pidToSave,
+        captured_at: usedCapturedAt,
+        sim_source_image: isSim ? simLock?.sourceImageName ?? undefined : undefined,
       });
 
-      navigation.navigate("SpoilageConfirm", {
+      setCapturedUri(null);
+      setCapturedAt(null);
+      setSimLock(null);
+      setScanError(null);
+
+      navigation.replace("SpoilageConfirm", {
         imageUri: localUri,
         result,
-        temperature,
-        humidity,
-        plantId: pid,
-      } as any);
+        temperature: usedTemp,
+        humidity: usedHumidity,
+        plantId: pidClean,
+        isSim: isSim || isLockedSimStream,
+      });
     } catch (e: any) {
       console.log("Predict error:", e?.message, e?.response?.data);
-      Alert.alert("Error", e?.response?.data?.detail || "Prediction failed");
+
+      const detail = e?.response?.data?.detail;
+      const friendly = getFriendlyPredictionError(detail);
+
+      setScanError(friendly);
     } finally {
       setBusy(false);
     }
@@ -229,61 +433,86 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 18 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
       >
-        {/* Header */}
         <View className="pt-3 pb-2 flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             activeOpacity={0.85}
-            className="w-10 h-10 items-center justify-center"
+            className="w-10 h-10 items-center justify-center rounded-full bg-white"
+            style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
           >
-            <Ionicons name="close" size={22} color="#111827" />
+            <Ionicons name="close" size={20} color="#111827" />
           </TouchableOpacity>
 
           <Text className="text-[16px] font-extrabold text-gray-900">
-            Scan Spoilage
+            {effectiveDemoMode ? "Scan Spoilage (Demo)" : "Scan Spoilage"}
           </Text>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            className="w-7 h-7 rounded-full bg-white items-center justify-center"
+          <View
+            className="w-10 h-10 items-center justify-center rounded-full bg-white"
             style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
-            onPress={() => {}}
           >
-            <Ionicons name="help" size={16} color="#64748B" />
-          </TouchableOpacity>
+            <Ionicons name="scan-outline" size={18} color="#64748B" />
+          </View>
         </View>
 
-        {/* Segmented Tabs */}
-        <View className="mt-2 bg-white rounded-full p-1 flex-row">
-          <Segment label="Camera" active={mode === "Camera"} onPress={() => setMode("Camera")} />
-          <Segment label="Gallery" active={mode === "Gallery"} onPress={() => setMode("Gallery")} />
+        <View className="mt-3 bg-white rounded-[22px] p-4 shadow-sm">
+          <Text className="text-[15px] font-extrabold text-gray-900">
+            Capture or Upload
+          </Text>
+          <Text className="text-[12px] text-gray-500 mt-1">
+            Use the camera, upload a top-view image, or simulate with dataset images.
+          </Text>
+
+          <View className="mt-4 bg-[#F4F7FB] rounded-full p-1 flex-row">
+            <Segment
+              label="Camera"
+              active={mode === "Camera"}
+              onPress={() => setMode("Camera")}
+            />
+            <Segment
+              label="Gallery"
+              active={mode === "Gallery"}
+              onPress={() => setMode("Gallery")}
+            />
+          </View>
         </View>
 
-        {/* Plant ID */}
         {isPlantLocked ? (
           <View
-            className="mt-4 bg-white rounded-[16px] px-4 py-3 shadow-sm"
+            className="mt-4 bg-white rounded-[18px] px-4 py-4 shadow-sm"
             style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
           >
-            <Text className="text-[12px] font-extrabold text-gray-700">Plant ID</Text>
-            <Text className="mt-2 text-[14px] font-extrabold text-gray-900">
-              {lockedPlantId}
+            <Text className="text-[12px] font-extrabold text-gray-700">
+              Plant ID
             </Text>
-            <Text className="text-[11px] text-gray-500 mt-1">
-              Selected from plant list
-            </Text>
+            <View className="flex-row items-center mt-2">
+              <View className="w-9 h-9 rounded-full bg-[#EAF4FF] items-center justify-center mr-3">
+                <Ionicons name="leaf-outline" size={18} color={PRIMARY} />
+              </View>
+              <View>
+                <Text className="text-[14px] font-extrabold text-gray-900">
+                  {lockedPlantId}
+                  {isLockedSimStream ? " (Sim)" : ""}
+                </Text>
+                <Text className="text-[11px] text-gray-500 mt-0.5">
+                  Selected from plant list
+                </Text>
+              </View>
+            </View>
           </View>
         ) : (
           <View
-            className="mt-4 bg-white rounded-[16px] px-4 py-3 shadow-sm"
+            className="mt-4 bg-white rounded-[18px] px-4 py-4 shadow-sm"
             style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
           >
-            <Text className="text-[12px] font-extrabold text-gray-700">Plant ID</Text>
+            <Text className="text-[12px] font-extrabold text-gray-700">
+              Plant ID
+            </Text>
             <TextInput
               value={plantId}
-              onChangeText={setPlantId}
+              onChangeText={(t) => setPlantId(stripSim(t))}
               placeholder="P-001"
               autoCapitalize="characters"
               className="mt-2 text-[14px] font-bold text-gray-900"
@@ -294,11 +523,84 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
           </View>
         )}
 
-        {/* CAMERA MODE */}
+        {effectiveDemoMode ? (
+          <View
+            className="mt-4 bg-white rounded-[18px] px-4 py-4 shadow-sm"
+            style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
+          >
+            <View className="flex-row items-center">
+              <View className="w-9 h-9 rounded-full bg-[#FFF7ED] items-center justify-center mr-3">
+                <Ionicons name="time-outline" size={18} color="#F59E0B" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[12px] font-extrabold text-gray-700">
+                  Demo Time Progression
+                </Text>
+                <Text className="text-[11px] text-gray-500 mt-0.5">
+                  Use this only for panel/demo validation.
+                </Text>
+              </View>
+            </View>
+
+            <View className="flex-row mt-4 flex-wrap">
+              {DEMO_DAY_OPTIONS.map((item, index) => {
+                const active = index === demoTimeIndex;
+                return (
+                  <TouchableOpacity
+                    key={item.label}
+                    activeOpacity={0.9}
+                    onPress={() => setDemoTimeIndex(index)}
+                    className="mr-2 mb-2 px-4 py-2 rounded-full"
+                    style={{
+                      backgroundColor: active ? PRIMARY : "#FFFFFF",
+                      borderWidth: 1,
+                      borderColor: active ? PRIMARY : "#E5E7EB",
+                    }}
+                  >
+                    <Text
+                      className="text-[11px] font-extrabold"
+                      style={{ color: active ? "#FFFFFF" : "#374151" }}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text className="text-[11px] text-gray-500 mt-1">
+              Selected: {selectedDemoLabel} • {formatLocalDateTime(selectedDemoTime)}
+            </Text>
+          </View>
+        ) : null}
+
+        {scanError ? (
+          <View
+            className="mt-4 rounded-[18px] px-4 py-4"
+            style={{
+              backgroundColor: "#FEF2F2",
+              borderWidth: 1,
+              borderColor: "#FECACA",
+            }}
+          >
+            <View className="flex-row items-start">
+              <Ionicons name="warning-outline" size={18} color="#DC2626" />
+              <View className="ml-2 flex-1">
+                <Text className="text-[13px] font-extrabold text-red-700">
+                  Invalid capture
+                </Text>
+                <Text className="text-[12px] text-red-600 mt-1 leading-5">
+                  {scanError}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
         {mode === "Camera" ? (
           <>
-            <View className="mt-4 rounded-[22px] overflow-hidden bg-white shadow-sm">
-              <View style={{ height: 470 }} className="bg-black">
+            <View className="mt-4 rounded-[24px] overflow-hidden bg-white shadow-sm">
+              <View style={{ height: 490 }} className="bg-black">
                 {capturedUri ? (
                   <View className="flex-1">
                     <Image
@@ -335,7 +637,6 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                     <Text className="text-white/70 text-center mt-2">
                       Tap below to allow camera access.
                     </Text>
-
                     <TouchableOpacity
                       className="mt-4 bg-white px-4 py-2 rounded-full"
                       onPress={requestPermission}
@@ -363,73 +664,110 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                       </View>
 
                       <View className="flex-row items-center">
-                        <OverlayChip icon="thermometer-outline" text={tempText} />
+                        <OverlayChip
+                          icon="thermometer-outline"
+                          text={tempText}
+                        />
                         <View className="w-2" />
                         <OverlayChip icon="water-outline" text={rhText} />
                       </View>
                     </View>
 
-                    <View className="absolute bottom-3 left-0 right-0 px-4">
-                      <View className="bg-[#0B1220]/70 rounded-[18px] px-4 py-3">
-                        <Text className="text-[12px] font-extrabold text-white">
-                          CAPTURE GUIDANCE
-                        </Text>
-                        <Text className="text-[12px] text-white/80 mt-1 leading-4">
-                          Top-down photo, full lettuce butt/center visible, good light
-                        </Text>
-                      </View>
+                    <View className="absolute bottom-24 left-0 right-0 flex-row justify-center px-4">
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        onPress={() => setTorchOn((prev) => !prev)}
+                        className="w-11 h-11 rounded-full bg-black/55 items-center justify-center mr-3"
+                      >
+                        <Ionicons
+                          name={torchOn ? "flash" : "flash-off"}
+                          size={18}
+                          color="#fff"
+                        />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        onPress={() =>
+                          setFacing((prev) => (prev === "back" ? "front" : "back"))
+                        }
+                        className="w-11 h-11 rounded-full bg-black/55 items-center justify-center"
+                      >
+                        <Ionicons
+                          name="camera-reverse-outline"
+                          size={18}
+                          color="#fff"
+                        />
+                      </TouchableOpacity>
+                    </View>
+
+                    <View className="absolute bottom-5 left-0 right-0 items-center">
+                      <TouchableOpacity
+                        onPress={takePhoto}
+                        activeOpacity={0.9}
+                        disabled={busy}
+                        style={{
+                          width: 78,
+                          height: 78,
+                          borderRadius: 39,
+                          backgroundColor: "#fff",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderWidth: 6,
+                          borderColor: "#D1D5DB",
+                          opacity: busy ? 0.6 : 1,
+                        }}
+                      >
+                        {busy ? (
+                          <ActivityIndicator color={PRIMARY} />
+                        ) : (
+                          <View
+                            style={{
+                              width: 54,
+                              height: 54,
+                              borderRadius: 27,
+                              backgroundColor: PRIMARY,
+                            }}
+                          />
+                        )}
+                      </TouchableOpacity>
                     </View>
                   </View>
                 )}
               </View>
             </View>
 
-            {/* Buttons */}
             <View className="mt-3 flex-row justify-between">
-              <TouchableOpacity
-                activeOpacity={0.9}
+              <ActionButton
+                label="Use Last Sensor"
+                icon="pulse-outline"
+                color={PRIMARY}
                 onPress={onUseLastSensor}
                 disabled={busy}
-                className="bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                  width: "48%",
-                  opacity: busy ? 0.6 : 1,
-                }}
-              >
-                <Ionicons name="pulse-outline" size={16} color={PRIMARY} />
-                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
-                  Use Last Sensor
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.9}
+                width="48%"
+              />
+              <ActionButton
+                label="Gallery"
+                icon="images-outline"
+                color="#111827"
                 onPress={() => setMode("Gallery")}
-                className="bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
-                style={{ borderWidth: 1, borderColor: "#E5E7EB", width: "48%" }}
-              >
-                <Ionicons name="images-outline" size={16} color="#111827" />
-                <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
-                  Gallery
-                </Text>
-              </TouchableOpacity>
+                width="48%"
+              />
             </View>
 
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={onSimulateCamera}
               disabled={busy}
-              className="mt-3 bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
+              className="mt-3 bg-white rounded-[16px] px-5 py-4 flex-row items-center justify-center shadow-sm"
               style={{
                 borderWidth: 1,
                 borderColor: "#E5E7EB",
                 opacity: busy ? 0.6 : 1,
               }}
             >
-              <Ionicons name="camera-outline" size={16} color={PRIMARY} />
-              <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
+              <Ionicons name="camera-outline" size={17} color={PRIMARY} />
+              <Text className="ml-2 text-[13px] font-extrabold text-gray-900">
                 Simulate Camera (Dataset Image)
               </Text>
             </TouchableOpacity>
@@ -438,7 +776,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
               activeOpacity={0.9}
               onPress={startAnalysis}
               disabled={!canStart}
-              className="mt-4 rounded-[14px] items-center justify-center"
+              className="mt-4 rounded-[16px] items-center justify-center"
               style={{
                 backgroundColor: PRIMARY,
                 height: 56,
@@ -466,13 +804,12 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
           </>
         ) : (
           <>
-            {/* GALLERY MODE */}
-            <View className="mt-4 bg-white rounded-[20px] p-4 shadow-sm">
-              <Text className="text-[24px] font-extrabold text-gray-900">
+            <View className="mt-4 bg-white rounded-[22px] p-4 shadow-sm">
+              <Text className="text-[22px] font-extrabold text-gray-900">
                 Analyze Plant
               </Text>
-              <Text className="text-[12px] text-gray-500 mt-2 leading-4">
-                Upload a top-view leaf photo or simulate the camera using dataset images.
+              <Text className="text-[12px] text-gray-500 mt-2 leading-5">
+                Upload a top-view leaf image or use a simulated dataset image for testing.
               </Text>
 
               <View
@@ -481,22 +818,30 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                   borderWidth: 2,
                   borderStyle: "dashed",
                   borderColor: "#7AA7E6",
-                  height: 190,
+                  height: 210,
                   overflow: "hidden",
                 }}
               >
                 {capturedUri ? (
-                  <Image source={{ uri: capturedUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                  <Image
+                    source={{ uri: capturedUri }}
+                    style={{ width: "100%", height: "100%" }}
+                    resizeMode="cover"
+                  />
                 ) : (
                   <>
                     <View className="w-14 h-14 rounded-full bg-[#EAF4FF] items-center justify-center">
-                      <Ionicons name="arrow-up" size={22} color={PRIMARY} />
+                      <Ionicons
+                        name="cloud-upload-outline"
+                        size={24}
+                        color={PRIMARY}
+                      />
                     </View>
                     <Text className="mt-3 font-extrabold text-gray-900">
-                      Drop / Click to upload
+                      Upload Image
                     </Text>
                     <Text className="text-[12px] text-gray-500 mt-1">
-                      Top-view leaf image
+                      Top-view lettuce image
                     </Text>
                   </>
                 )}
@@ -506,10 +851,14 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={pickFromGallery}
-                  className="bg-white rounded-[12px] px-4 py-3 flex-row items-center justify-center"
-                  style={{ borderWidth: 1, borderColor: "#CBD5E1", width: "48%" }}
+                  className="bg-white rounded-[14px] px-4 py-3 flex-row items-center justify-center"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: "#CBD5E1",
+                    width: "48%",
+                  }}
                 >
-                  <Ionicons name="search-outline" size={18} color="#111827" />
+                  <Ionicons name="images-outline" size={18} color="#111827" />
                   <Text className="ml-2 font-extrabold text-gray-900 text-[12px]">
                     Upload Photo
                   </Text>
@@ -518,8 +867,12 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={onSimulateCamera}
-                  className="bg-white rounded-[12px] px-4 py-3 flex-row items-center justify-center"
-                  style={{ borderWidth: 1, borderColor: "#CBD5E1", width: "48%" }}
+                  className="bg-white rounded-[14px] px-4 py-3 flex-row items-center justify-center"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: "#CBD5E1",
+                    width: "48%",
+                  }}
                 >
                   <Ionicons name="camera-outline" size={18} color={PRIMARY} />
                   <Text className="ml-2 font-extrabold text-gray-900 text-[12px]">
@@ -532,7 +885,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 activeOpacity={0.9}
                 onPress={onUseLastSensor}
                 disabled={busy}
-                className="mt-3 bg-white rounded-full px-5 py-3 flex-row items-center justify-center shadow-sm"
+                className="mt-3 bg-white rounded-[16px] px-5 py-4 flex-row items-center justify-center shadow-sm"
                 style={{
                   borderWidth: 1,
                   borderColor: "#E5E7EB",
@@ -549,8 +902,12 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
                 activeOpacity={0.9}
                 onPress={startAnalysis}
                 disabled={!canStart}
-                className="mt-4 rounded-[12px] items-center justify-center"
-                style={{ backgroundColor: PRIMARY, height: 52, opacity: canStart ? 1 : 0.5 }}
+                className="mt-4 rounded-[16px] items-center justify-center"
+                style={{
+                  backgroundColor: PRIMARY,
+                  height: 54,
+                  opacity: canStart ? 1 : 0.5,
+                }}
               >
                 <View className="flex-row items-center">
                   {busy ? (
@@ -575,8 +932,6 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
   );
 }
 
-/* ---------- small components ---------- */
-
 function Segment({
   label,
   active,
@@ -590,7 +945,7 @@ function Segment({
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={onPress}
-      className={`flex-1 py-2 rounded-full items-center justify-center ${
+      className={`flex-1 py-3 rounded-full items-center justify-center ${
         active ? "bg-white" : "bg-transparent"
       }`}
       style={{
@@ -627,27 +982,38 @@ function OverlayChip({
   );
 }
 
-function TipRow({
+function ActionButton({
+  label,
   icon,
-  iconBg,
-  title,
-  desc,
+  color,
+  onPress,
+  disabled,
+  width,
 }: {
+  label: string;
   icon: keyof typeof Ionicons.glyphMap;
-  iconBg: string;
-  title: string;
-  desc: string;
+  color: string;
+  onPress: () => void;
+  disabled?: boolean;
+  width: string;
 }) {
   return (
-    <View className="mt-3 bg-[#F8FAFC] rounded-[14px] px-4 py-3 flex-row">
-      <View className="w-9 h-9 rounded-[10px] items-center justify-center" style={{ backgroundColor: iconBg }}>
-        <Ionicons name={icon} size={16} color="#111827" />
-      </View>
-
-      <View className="ml-3 flex-1">
-        <Text className="font-extrabold text-gray-900">{title}</Text>
-        <Text className="text-[12px] text-gray-600 mt-1">{desc}</Text>
-      </View>
-    </View>
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      disabled={disabled}
+      className="bg-white rounded-[16px] px-5 py-4 flex-row items-center justify-center shadow-sm"
+      style={{
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        width: width as any,
+        opacity: disabled ? 0.6 : 1,
+      }}
+    >
+      <Ionicons name={icon} size={16} color={color} />
+      <Text className="ml-2 text-[12.5px] font-extrabold text-gray-900">
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 }

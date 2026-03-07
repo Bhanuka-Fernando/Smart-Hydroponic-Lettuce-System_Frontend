@@ -151,6 +151,24 @@ export default function DashboardScreen() {
     fetchDashboard(true);
   }, [fetchDashboard]);
 
+  // gesika new changers
+  const rootNavigation =
+  navigation.getParent?.()?.getParent?.() ??
+  navigation.getParent?.() ??
+  navigation;
+
+const openSpoilageModule = (
+  screen: "SpoilageDetails" | "SpoilageScan" = "SpoilageDetails",
+  params?: any
+) => {
+  try {
+    rootNavigation.navigate("Spoilage", { screen, params });
+  } catch {
+    Alert.alert("Navigation", "Spoilage module route is not available.");
+  }
+};
+
+
   const go = (routeName: string) => {
     try {
       navigation.navigate(routeName);
@@ -264,7 +282,7 @@ export default function DashboardScreen() {
                   subtitle="Identify Crop Issues"
                   iconBg="bg-[#FFF6E5]"
                   icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
-                  onPress={() => (navigation.getParent() as any)?.navigate("Spoilage")}
+                  onPress={() => openSpoilageModule("SpoilageDetails")}
                 />
                 <FeatureCard
                   title="Water Quality"
