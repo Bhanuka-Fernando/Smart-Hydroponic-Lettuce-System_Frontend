@@ -8,6 +8,7 @@ import {
   Switch,
   Alert,
   ActivityIndicator,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -25,10 +26,8 @@ export default function SettingsScreen({ navigation }: any) {
     setAutoSync,
     darkMode,
     setDarkMode,
-    language,
     clearCache,
     getStorageInfo,
-    loading,
   } = usePreferences();
 
   const [storageInfo, setStorageInfo] = useState({
@@ -39,7 +38,6 @@ export default function SettingsScreen({ navigation }: any) {
   });
   const [clearingCache, setClearingCache] = useState(false);
 
-  // Load storage info on mount
   React.useEffect(() => {
     loadStorageInfo();
   }, []);
@@ -75,368 +73,275 @@ export default function SettingsScreen({ navigation }: any) {
     );
   };
 
-  const handleViewProfile = () => {
-    navigation.navigate("Profile");
-  };
-
   const handleLogout = async () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Logout",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await signOut();
-            } catch (error) {
-              Alert.alert("Error", "Failed to logout");
-            }
-          },
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut();
+          } catch (error) {
+            Alert.alert("Error", "Failed to logout");
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
-    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
-      {/* Header */}
-      <View className="px-4 pt-4 pb-3">
-        <Text className="text-[24px] font-extrabold text-gray-900">
-          Settings
-        </Text>
+    <SafeAreaView edges={["top"]} className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      {/* Header - Matching DashboardScreen */}
+      <View className="px-4 pt-4 pb-3 bg-white">
+        <Text className="text-[24px] font-extrabold text-gray-900">Settings</Text>
         <Text className="text-[11px] text-gray-500 mt-1 font-semibold tracking-[0.4px]">
-          Manage your account and preferences
+          Manage your preferences
         </Text>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
-      >
+      <View className="flex-1 bg-[#F4F6FA]">
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
+        >
         {/* Profile Section */}
-        <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
-            PROFILE
-          </Text>
-
-          <View className="flex-row items-center mb-4">
-            <Image
-              source={{ uri: "https://i.pravatar.cc/100?img=12" }}
-              className="w-16 h-16 rounded-full"
-            />
-            <View className="ml-4 flex-1">
-              <Text className="text-[18px] font-extrabold text-gray-900">
-                {user?.name || "User Name"}
-              </Text>
-              <Text className="text-[13px] text-gray-500 mt-1">
-                {user?.email || "user@example.com"}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => Alert.alert("Edit Profile", "Feature coming soon")}
-              className="w-9 h-9 rounded-full bg-[#F3F4F6] items-center justify-center"
-              activeOpacity={0.7}
-            >
-              <Ionicons name="pencil" size={16} color="#0F172A" />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            onPress={handleViewProfile}
-            className="py-3 border-t border-gray-100"
-            activeOpacity={0.7}
-          >
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <Ionicons name="person-outline" size={20} color="#6B7280" />
-                <Text className="text-[14px] text-gray-700 ml-3 font-semibold">
-                  View Full Profile
+        <View className="mt-4">
+          <Text className="text-[20px] font-extrabold text-gray-900 mb-3">Profile</Text>
+          
+          <View className="bg-white rounded-[18px] p-4 shadow-slate-50">
+            <View className="flex-row items-center">
+              <Image
+                source={{ uri: "https://i.pravatar.cc/100?img=12" }}
+                className="w-14 h-14 rounded-full"
+              />
+              <View className="ml-3 flex-1">
+                <Text className="text-[16px] font-extrabold text-gray-900">
+                  {user?.name || "User Name"}
+                </Text>
+                <Text className="text-[12px] text-gray-500 mt-0.5">
+                  {user?.email || "user@example.com"}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+              <TouchableOpacity
+                onPress={() => Alert.alert("Edit Profile", "Feature coming soon")}
+                className="w-9 h-9 rounded-full bg-[#F3F4F6] items-center justify-center"
+                activeOpacity={0.85}
+              >
+                <Ionicons name="pencil" size={16} color="#0F172A" />
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* Notifications */}
-        <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
-            NOTIFICATIONS
-          </Text>
+        <View className="mt-6">
+          <Text className="text-[20px] font-extrabold text-gray-900 mb-3">Notifications</Text>
 
-          <SettingRow
-            icon={<Ionicons name="notifications-outline" size={20} color="#6B7280" />}
-            title="Push Notifications"
-            subtitle="Receive alerts on your device"
-            rightComponent={
-              <Switch
-                value={pushNotifications}
-                onValueChange={setPushNotifications}
-                trackColor={{ false: "#D1D5DB", true: "#0046AD" }}
-                thumbColor="#FFFFFF"
-              />
-            }
-          />
+          <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
+            <SettingRow
+              icon={<Ionicons name="notifications-outline" size={20} color="#0046AD" />}
+              iconBg="bg-[#EAF4FF]"
+              title="Push Notifications"
+              subtitle="Receive alerts on device"
+              rightComponent={
+                <Switch
+                  value={pushNotifications}
+                  onValueChange={setPushNotifications}
+                  trackColor={{ false: "#D1D5DB", true: "#0046AD" }}
+                  thumbColor="#FFFFFF"
+                />
+              }
+            />
 
-          <View className="h-px bg-gray-100 my-3" />
+            <Divider />
 
-          <SettingRow
-            icon={<Ionicons name="mail-outline" size={20} color="#6B7280" />}
-            title="Email Notifications"
-            subtitle="Get updates via email"
-            rightComponent={
-              <Switch
-                value={emailNotifications}
-                onValueChange={setEmailNotifications}
-                trackColor={{ false: "#D1D5DB", true: "#0046AD" }}
-                thumbColor="#FFFFFF"
-              />
-            }
-          />
+            <SettingRow
+              icon={<Ionicons name="mail-outline" size={20} color="#16A34A" />}
+              iconBg="bg-[#E9FBEF]"
+              title="Email Notifications"
+              subtitle="Get updates via email"
+              rightComponent={
+                <Switch
+                  value={emailNotifications}
+                  onValueChange={setEmailNotifications}
+                  trackColor={{ false: "#D1D5DB", true: "#0046AD" }}
+                  thumbColor="#FFFFFF"
+                />
+              }
+            />
+          </View>
         </View>
 
         {/* App Settings */}
-        <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
-            APP SETTINGS
-          </Text>
+        <View className="mt-6">
+          <Text className="text-[20px] font-extrabold text-gray-900 mb-3">App Settings</Text>
 
-          <SettingRow
-            icon={<Ionicons name="sync-outline" size={20} color="#6B7280" />}
-            title="Auto Sync"
-            subtitle="Automatically sync data"
-            rightComponent={
-              <Switch
-                value={autoSync}
-                onValueChange={setAutoSync}
-                trackColor={{ false: "#D1D5DB", true: "#0046AD" }}
-                thumbColor="#FFFFFF"
-              />
-            }
-          />
-
-          <View className="h-px bg-gray-100 my-3" />
-
-          <SettingRow
-            icon={<Ionicons name="moon-outline" size={20} color="#6B7280" />}
-            title="Dark Mode"
-            subtitle="Switch between light and dark theme"
-            rightComponent={
-              <Switch
-                value={darkMode}
-                onValueChange={setDarkMode}
-                trackColor={{ false: "#D1D5DB", true: "#0046AD" }}
-                thumbColor="#FFFFFF"
-              />
-            }
-          />
-
-          <View className="h-px bg-gray-100 my-3" />
-
-          <TouchableOpacity
-            onPress={() => Alert.alert("Language", "Feature coming soon")}
-            activeOpacity={0.7}
-          >
+          <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
             <SettingRow
-              icon={<Ionicons name="language-outline" size={20} color="#6B7280" />}
-              title="Language"
-              subtitle="English"
+              icon={<Ionicons name="sync-outline" size={20} color="#0284C7" />}
+              iconBg="bg-[#E8F7FF]"
+              title="Auto Sync"
+              subtitle="Sync data automatically"
               rightComponent={
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                <Switch
+                  value={autoSync}
+                  onValueChange={setAutoSync}
+                  trackColor={{ false: "#D1D5DB", true: "#0046AD" }}
+                  thumbColor="#FFFFFF"
+                />
               }
             />
-          </TouchableOpacity>
+
+            <Divider />
+
+            <SettingRow
+              icon={<Ionicons name="moon-outline" size={20} color="#7C3AED" />}
+              iconBg="bg-[#F3E8FF]"
+              title="Dark Mode"
+              subtitle="Toggle dark theme"
+              rightComponent={
+                <Switch
+                  value={darkMode}
+                  onValueChange={setDarkMode}
+                  trackColor={{ false: "#D1D5DB", true: "#0046AD" }}
+                  thumbColor="#FFFFFF"
+                />
+              }
+            />
+
+            <Divider />
+
+            <TouchableOpacity
+              onPress={() => Alert.alert("Language", "Feature coming soon")}
+              activeOpacity={0.85}
+            >
+              <SettingRow
+                icon={<Ionicons name="language-outline" size={20} color="#F59E0B" />}
+                iconBg="bg-[#FFF6E5]"
+                title="Language"
+                subtitle="English"
+                rightComponent={<Ionicons name="chevron-forward" size={18} color="#9CA3AF" />}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* System */}
-        <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
-            SYSTEM
-          </Text>
+        <View className="mt-6">
+          <Text className="text-[20px] font-extrabold text-gray-900 mb-3">System</Text>
 
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert(
-                "Storage",
-                `App data: ${storageInfo.appData}\nCache: ${storageInfo.cache}\nImages: ${storageInfo.images}\n\nTotal: ${storageInfo.total}`
-              )
-            }
-            activeOpacity={0.7}
-          >
-            <SettingRow
-              icon={<Ionicons name="folder-outline" size={20} color="#6B7280" />}
-              title="Storage"
-              subtitle={storageInfo.total + " used"}
-              rightComponent={
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              }
-            />
-          </TouchableOpacity>
-
-          <View className="h-px bg-gray-100 my-3" />
-
-          <TouchableOpacity
-            onPress={handleClearCache}
-            activeOpacity={0.7}
-            disabled={clearingCache}
-          >
-            <SettingRow
-              icon={<Ionicons name="trash-outline" size={20} color="#6B7280" />}
-              title="Clear Cache"
-              subtitle="Free up storage space"
-              rightComponent={
-                clearingCache ? (
-                  <ActivityIndicator size="small" color="#0046AD" />
-                ) : (
-                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+          <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
+            <TouchableOpacity
+              onPress={() =>
+                Alert.alert(
+                  "Storage",
+                  `App data: ${storageInfo.appData}\nCache: ${storageInfo.cache}\nImages: ${storageInfo.images}\n\nTotal: ${storageInfo.total}`
                 )
               }
-            />
-          </TouchableOpacity>
+              activeOpacity={0.85}
+            >
+              <SettingRow
+                icon={<Ionicons name="folder-outline" size={20} color="#0046AD" />}
+                iconBg="bg-[#EAF4FF]"
+                title="Storage"
+                subtitle={storageInfo.total + " used"}
+                rightComponent={<Ionicons name="chevron-forward" size={18} color="#9CA3AF" />}
+              />
+            </TouchableOpacity>
+
+            <Divider />
+
+            <TouchableOpacity onPress={handleClearCache} activeOpacity={0.85} disabled={clearingCache}>
+              <SettingRow
+                icon={<Ionicons name="trash-outline" size={20} color="#EF4444" />}
+                iconBg="bg-[#FFEAF2]"
+                title="Clear Cache"
+                subtitle="Free up storage"
+                rightComponent={
+                  clearingCache ? (
+                    <ActivityIndicator size="small" color="#0046AD" />
+                  ) : (
+                    <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                  )
+                }
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* About */}
-        <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
-            ABOUT
-          </Text>
+        <View className="mt-6">
+          <Text className="text-[20px] font-extrabold text-gray-900 mb-3">About</Text>
 
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert(
-                "Terms & Conditions",
-                "Terms and conditions content here..."
-              )
-            }
-            activeOpacity={0.7}
-          >
-            <SettingRow
-              icon={<Ionicons name="document-text-outline" size={20} color="#6B7280" />}
-              title="Terms & Conditions"
-              rightComponent={
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+          <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
+            <TouchableOpacity
+              onPress={() => Alert.alert("Terms & Conditions", "Terms content here...")}
+              activeOpacity={0.85}
+            >
+              <SettingRow
+                icon={<Ionicons name="document-text-outline" size={20} color="#6B7280" />}
+                iconBg="bg-gray-100"
+                title="Terms & Conditions"
+                rightComponent={<Ionicons name="chevron-forward" size={18} color="#9CA3AF" />}
+              />
+            </TouchableOpacity>
+
+            <Divider />
+
+            <TouchableOpacity
+              onPress={() => Alert.alert("Privacy Policy", "Privacy policy content here...")}
+              activeOpacity={0.85}
+            >
+              <SettingRow
+                icon={<Ionicons name="shield-checkmark-outline" size={20} color="#6B7280" />}
+                iconBg="bg-gray-100"
+                title="Privacy Policy"
+                rightComponent={<Ionicons name="chevron-forward" size={18} color="#9CA3AF" />}
+              />
+            </TouchableOpacity>
+
+            <Divider />
+
+            <TouchableOpacity
+              onPress={() =>
+                Alert.alert(
+                  "App Version",
+                  "Version 1.0.0 (Build 1)\n\nSmart Hydroponic Lettuce System\n© 2026"
+                )
               }
-            />
-          </TouchableOpacity>
-
-          <View className="h-px bg-gray-100 my-3" />
-
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert("Privacy Policy", "Privacy policy content here...")
-            }
-            activeOpacity={0.7}
-          >
-            <SettingRow
-              icon={<Ionicons name="shield-checkmark-outline" size={20} color="#6B7280" />}
-              title="Privacy Policy"
-              rightComponent={
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              }
-            />
-          </TouchableOpacity>
-
-          <View className="h-px bg-gray-100 my-3" />
-
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert(
-                "App Version",
-                "Version 1.0.0 (Build 1)\n\nSmart Hydroponic Lettuce System\n© 2026"
-              )
-            }
-            activeOpacity={0.7}
-          >
-            <SettingRow
-              icon={<Ionicons name="information-circle-outline" size={20} color="#6B7280" />}
-              title="App Version"
-              subtitle="1.0.0"
-              rightComponent={
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              }
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Help & Support */}
-        <View className="bg-white rounded-[18px] p-4 shadow-sm mb-4">
-          <Text className="text-[13px] font-extrabold text-gray-900 mb-4 tracking-[0.6px]">
-            HELP & SUPPORT
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => Alert.alert("Help Center", "Opening help center...")}
-            activeOpacity={0.7}
-          >
-            <SettingRow
-              icon={<Ionicons name="help-circle-outline" size={20} color="#6B7280" />}
-              title="Help Center"
-              rightComponent={
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              }
-            />
-          </TouchableOpacity>
-
-          <View className="h-px bg-gray-100 my-3" />
-
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert("Contact Support", "Email: support@hydroponics.com")
-            }
-            activeOpacity={0.7}
-          >
-            <SettingRow
-              icon={<Ionicons name="chatbubble-outline" size={20} color="#6B7280" />}
-              title="Contact Support"
-              rightComponent={
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              }
-            />
-          </TouchableOpacity>
-
-          <View className="h-px bg-gray-100 my-3" />
-
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert(
-                "Report a Bug",
-                "Please describe the issue you encountered"
-              )
-            }
-            activeOpacity={0.7}
-          >
-            <SettingRow
-              icon={<MaterialCommunityIcons name="bug-outline" size={20} color="#6B7280" />}
-              title="Report a Bug"
-              rightComponent={
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              }
-            />
-          </TouchableOpacity>
+              activeOpacity={0.85}
+            >
+              <SettingRow
+                icon={<Ionicons name="information-circle-outline" size={20} color="#6B7280" />}
+                iconBg="bg-gray-100"
+                title="App Version"
+                subtitle="1.0.0"
+                rightComponent={<Ionicons name="chevron-forward" size={18} color="#9CA3AF" />}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Logout Button */}
         <TouchableOpacity
           onPress={handleLogout}
-          className="bg-white rounded-[18px] p-4 shadow-sm mb-4"
-          activeOpacity={0.7}
+          className="mt-6 bg-white rounded-[18px] p-4 shadow-slate-50"
+          activeOpacity={0.85}
         >
           <View className="flex-row items-center justify-center">
             <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-            <Text className="text-[16px] font-extrabold text-red-500 ml-2">
-              Logout
-            </Text>
+            <Text className="text-[16px] font-extrabold text-red-500 ml-2">Logout</Text>
           </View>
         </TouchableOpacity>
 
         {/* Footer */}
-        <Text className="text-center text-[12px] text-gray-400 mt-4">
+        <Text className="text-center text-[11px] text-gray-400 mt-6">
           Smart Hydroponic Lettuce System{"\n"}Version 1.0.0 © 2026
         </Text>
-      </ScrollView>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -445,30 +350,31 @@ export default function SettingsScreen({ navigation }: any) {
 
 function SettingRow({
   icon,
+  iconBg,
   title,
   subtitle,
   rightComponent,
 }: {
   icon: React.ReactNode;
+  iconBg: string;
   title: string;
   subtitle?: string;
   rightComponent?: React.ReactNode;
 }) {
   return (
-    <View className="flex-row items-center justify-between">
-      <View className="flex-row items-center flex-1">
+    <View className="flex-row items-center p-4">
+      <View className={`w-10 h-10 rounded-full ${iconBg} items-center justify-center mr-3`}>
         {icon}
-        <View className="ml-3 flex-1">
-          <Text className="text-[14px] font-semibold text-gray-900">
-            {title}
-          </Text>
-          {subtitle && (
-            <Text className="text-[12px] text-gray-500 mt-0.5">{subtitle}</Text>
-          )}
-        </View>
+      </View>
+      <View className="flex-1">
+        <Text className="text-[14px] font-extrabold text-gray-900">{title}</Text>
+        {subtitle && <Text className="text-[11px] text-gray-500 mt-0.5">{subtitle}</Text>}
       </View>
       {rightComponent}
     </View>
   );
 }
 
+function Divider() {
+  return <View className="h-px bg-gray-100 mx-4" />;
+}

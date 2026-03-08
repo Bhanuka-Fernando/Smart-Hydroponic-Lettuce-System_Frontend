@@ -10,12 +10,18 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../auth/useAuth";
 import { getDashboardLatest, DashboardMetricsResponse } from "../../api/dashboardApi";
+import { getDeviceSensors } from "../../api/deviceApi";
+import axios from 'axios';
+import { ML_BASE_URL } from '../../utils/constants';
+// ✅ Import activity utilities
+import { getActivities, type ActivityItem, type ActivityType } from "../../utils/activityLog";
 
 type NotificationItem = {
   id: string;
@@ -26,16 +32,7 @@ type NotificationItem = {
   time: string;
 };
 
-type ActivityItem = {
-  id: string;
-  iconBg: string;
-  iconName: string;
-  iconLib: "ionicons" | "material" | "feather";
-  title: string;
-  subtitle: string;
-  time: string;
-};
-
+// ✅ Remove mock activities
 const mockNotifications: NotificationItem[] = [
   {
     id: "n1",
@@ -52,36 +49,6 @@ const mockNotifications: NotificationItem[] = [
     title: "Nutrient Schedule",
     body: "Weekly nutrient mix top-up is scheduled for tomorrow morning.",
     time: "1 hour ago",
-  },
-];
-
-const mockActivities: ActivityItem[] = [
-  {
-    id: "a1",
-    iconBg: "bg-[#EAF4FF]",
-    iconName: "sprout",
-    iconLib: "material",
-    title: "Scanned Lettuce #4",
-    subtitle: "Weight recorded: 245g",
-    time: "10:42 AM",
-  },
-  {
-    id: "a2",
-    iconBg: "bg-[#E9FBEF]",
-    iconName: "water-outline",
-    iconLib: "ionicons",
-    title: "pH Adjustment",
-    subtitle: "Auto-balanced to 6.2",
-    time: "09:15 AM",
-  },
-  {
-    id: "a3",
-    iconBg: "bg-[#F3E8FF]",
-    iconName: "sun",
-    iconLib: "feather",
-    title: "Light Cycle Started",
-    subtitle: "Day mode activated",
-    time: "08:00 AM",
   },
 ];
 
@@ -102,10 +69,29 @@ export default function DashboardScreen() {
   const [metrics, setMetrics] = useState<DashboardMetricsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingUpdate, setLoadingUpdate] = useState(false);
+  const [turbidity, setTurbidity] = useState<number | null>(null);
+  const [chillerTemp, setChillerTemp] = useState<number | null>(null);
+  const [chillerHumidity, setChillerHumidity] = useState<number | null>(null);
 
   // Notifications and Activities state
   const [notifications, setNotifications] = useState<NotificationItem[]>(mockNotifications);
-  const [activities, setActivities] = useState<ActivityItem[]>(mockActivities);
+  // ✅ Use real activities from storage
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+
+  // ✅ Load activities from storage
+  const loadActivities = useCallback(async () => {
+    const items = await getActivities();
+    // Show only the 3 most recent activities on dashboard
+    setActivities(items.slice(0, 3));
+  }, []);
+
+  // ✅ Reload activities when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      loadActivities();
+    }, [loadActivities])
+  );
 
   // Fetch dashboard metrics
   const fetchDashboard = useCallback(async (isRefreshing = false) => {
@@ -113,10 +99,22 @@ export default function DashboardScreen() {
       if (!isRefreshing) setLoading(true);
       const data = await getDashboardLatest({ token: accessToken });
       setMetrics(data);
-    } catch (error: any) {
-      console.error("Failed to fetch dashboard:", error);
       
-      // Use mock data if API is not available
+      try {
+        const { getWaterHistory } = await import('../../api/WaterQualityApi');
+        const hist = await getWaterHistory('TANK_01', 1);
+        if (hist.readings && hist.readings.length > 0) {
+          setTurbidity(hist.readings[hist.readings.length - 1].turb_ntu);
+        }
+      } catch (waterErr) {
+        console.warn('Failed to fetch turbidity:', waterErr);
+        setTurbidity(null);
+      }
+
+      setChillerTemp(5);
+      setChillerHumidity(88);
+      
+    } catch (error: any) {
       const mockData: DashboardMetricsResponse = {
         zone_id: "all",
         zone_name: "All Zones",
@@ -130,6 +128,9 @@ export default function DashboardScreen() {
         last_updated: new Date().toISOString(),
       };
       setMetrics(mockData);
+      setTurbidity(2.5);
+      setChillerTemp(5);
+      setChillerHumidity(88);
       
       if (!isRefreshing) {
         console.warn("Using mock data - backend endpoint not available");
@@ -140,16 +141,105 @@ export default function DashboardScreen() {
     }
   }, [accessToken]);
 
-  // Fetch on mount
+  const handleCheckForUpdates = async () => {
+    try {
+      setLoadingUpdate(true);
+
+      const ZONE_ID = "z01";
+      const deviceSensors = await getDeviceSensors(ZONE_ID, "NORMAL");
+
+      const updatedMetrics: DashboardMetricsResponse = {
+        ...metrics,
+        zone_id: deviceSensors.zone_id,
+        zone_name: "Zone 01",
+        temperature_c: deviceSensors.temperature_c,
+        humidity_pct: deviceSensors.humidity_pct,
+        ec_ms_cm: deviceSensors.ec_ms_cm,
+        ph: deviceSensors.ph,
+        last_updated: deviceSensors.timestamp,
+        plant_count: metrics?.plant_count ?? 0,
+        harvest_ready_count: metrics?.harvest_ready_count ?? 0,
+        avg_growth_pct: metrics?.avg_growth_pct ?? 0,
+      };
+
+      setMetrics(updatedMetrics);
+
+      try {
+        const { getWaterHistory } = await import('../../api/WaterQualityApi');
+        const hist = await getWaterHistory('TANK_01', 1);
+        if (hist.readings && hist.readings.length > 0) {
+          setTurbidity(hist.readings[hist.readings.length - 1].turb_ntu);
+        }
+      } catch (waterErr) {
+        console.warn('Failed to fetch turbidity:', waterErr);
+      }
+
+      try {
+        const payload = {
+          device_id: deviceSensors.device_id,
+          zone_id: deviceSensors.zone_id,
+          plant_id: "p04",
+          ts: deviceSensors.timestamp,
+          air_temp_c: deviceSensors.temperature_c,
+          humidity_pct: deviceSensors.humidity_pct,
+          ec_ms_cm: deviceSensors.ec_ms_cm,
+          ph: deviceSensors.ph,
+        };
+
+        await axios.post(`${ML_BASE_URL}/infer/iot/ingest`, payload, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        });
+        
+        console.log("✅ ML backend ingested successfully");
+      } catch (e: any) {
+        console.warn("⚠️  Failed to ingest sensor data to ML backend:", {
+          status: e?.response?.status,
+          data: e?.response?.data,
+          message: e?.message,
+        });
+      }
+
+      Alert.alert("✅ Updated", "Sensor readings refreshed successfully", [{ text: "OK" }]);
+    } catch (error: any) {
+      Alert.alert(
+        "Update Failed",
+        error?.message || "Failed to fetch sensor readings. Ensure device simulator is running.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setLoadingUpdate(false);
+    }
+  };
+
   useEffect(() => {
     fetchDashboard();
+    loadActivities();
   }, []);
 
-  // Pull to refresh
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchDashboard(true);
-  }, [fetchDashboard]);
+    loadActivities();
+  }, [fetchDashboard, loadActivities]);
+
+  const rootNavigation =
+    navigation.getParent?.()?.getParent?.() ??
+    navigation.getParent?.() ??
+    navigation;
+
+  const openSpoilageModule = (
+    screen: "SpoilageDetails" | "SpoilageScan" = "SpoilageDetails",
+    params?: any
+  ) => {
+    try {
+      rootNavigation.navigate("Spoilage", { screen, params });
+    } catch {
+      Alert.alert("Navigation", "Spoilage module route is not available.");
+    }
+  };
 
   const go = (routeName: string) => {
     try {
@@ -182,16 +272,74 @@ export default function DashboardScreen() {
     try {
       setProfileOpen(false);
       await signOut();
-      // RootNavigator will automatically switch back to Auth screens
     } catch {
       Alert.alert("Logout failed", "Please try again.");
     }
   };
 
+  // ✅ Helper function to get activity icon
+  const getActivityIcon = (type: ActivityType) => {
+    switch (type) {
+      case "weight_scan":
+        return { name: "scale-bathroom", lib: "material" as const, color: "#0046AD" };
+      case "growth_forecast":
+        return { name: "analytics-outline", lib: "ionicons" as const, color: "#16A34A" };
+      case "spoilage_check":
+        return { name: "food-apple-outline", lib: "material" as const, color: "#F59E0B" };
+      case "water_quality":
+        return { name: "water-outline", lib: "ionicons" as const, color: "#0284C7" };
+      case "system":
+        return { name: "sun", lib: "feather" as const, color: "#7C3AED" };
+      case "disease_check":
+        return { name: "medkit-outline", lib: "ionicons" as const, color: "#DB2777" };
+      default:
+        return { name: "time-outline", lib: "ionicons" as const, color: "#6B7280" };
+    }
+  };
+
+  // ✅ Helper function to get icon background color
+  const getIconBg = (type: ActivityType) => {
+    switch (type) {
+      case "weight_scan":
+        return "bg-[#EAF4FF]";
+      case "growth_forecast":
+        return "bg-[#E9FBEF]";
+      case "spoilage_check":
+        return "bg-[#FFF6E5]";
+      case "water_quality":
+        return "bg-[#E8F7FF]";
+      case "system":
+        return "bg-[#F3E8FF]";
+      case "disease_check":
+        return "bg-[#FFEAF2]";
+      default:
+        return "bg-gray-100";
+    }
+  };
+
+  // ✅ Helper function to format time
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 60) {
+      return `${diffMins}m ago`;
+    } else if (diffMins < 1440) {
+      const hours = Math.floor(diffMins / 60);
+      return `${hours}h ago`;
+    } else {
+      const days = Math.floor(diffMins / 1440);
+      return `${days}d ago`;
+    }
+  };
+
   return (
-    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
+    <SafeAreaView edges={["top"]} className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       {/* HEADER */}
-      <View className="px-4 pt-4 pb-3">
+      <View className="px-4 pt-4 pb-3 bg-white">
         <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">{headerDate}</Text>
 
         <View className="flex-row items-start justify-between mt-2">
@@ -204,7 +352,6 @@ export default function DashboardScreen() {
             </Text>
           </View>
 
-          {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => setProfileOpen(true)}
@@ -219,28 +366,139 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {/* BODY */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentInsetAdjustmentBehavior="never"
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 0,
-          paddingBottom: 16,
-        }}
-      >
-        {loading ? (
-          <View className="flex-1 items-center justify-center py-20">
-            <ActivityIndicator size="large" color="#0046AD" />
-            <Text className="text-gray-500 mt-4">Loading dashboard...</Text>
-          </View>
-        ) : metrics ? (
-          <>
-            {/* Feature 2x2 grid */}
+      <View className="flex-1 bg-[#F4F6FA]">
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentInsetAdjustmentBehavior="never"
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 0,
+            paddingBottom: 16,
+          }}
+        >
+          {loading ? (
+            <View className="flex-1 items-center justify-center py-20">
+              <ActivityIndicator size="large" color="#0046AD" />
+              <Text className="text-gray-500 mt-4">Loading dashboard...</Text>
+            </View>
+          ) : metrics ? (
+            <>
+            {/* Environment Metrics */}
             <View className="mt-4">
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-[20px] font-extrabold text-gray-900">Environment</Text>
+                
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleCheckForUpdates}
+                  disabled={loadingUpdate}
+                  className="px-3 py-1.5 rounded-full bg-[#e5e6e7] flex-row items-center"
+                >
+                  {loadingUpdate ? (
+                    <>
+                      <ActivityIndicator size="small" color="#4F46E5" />
+                      <Text className="ml-1.5 text-[11px] font-extrabold text-[#4F46E5]">Updating...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="sync-outline" size={20} color="#00178a" />
+                      <Text className="ml-1.5 text-[15px] font-extrabold text-[#00178a]">Update</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View className="flex-row justify-between">
+                <EnvironmentMetricCard
+                  iconBg="bg-[#FFEAF2]"
+                  icon={<Feather name="thermometer" size={20} color="#DB2777" />}
+                  label="Temperature"
+                  value={metrics?.temperature_c != null ? `${metrics.temperature_c}` : "--"}
+                  unit="°C"
+                  status={getStatus("airT", metrics?.temperature_c ?? null)}
+                />
+
+                <EnvironmentMetricCard
+                  iconBg="bg-[#F3E8FF]"
+                  icon={<Ionicons name="flash-outline" size={20} color="#7C3AED" />}
+                  label="EC Level"
+                  value={metrics?.ec_ms_cm != null ? `${metrics.ec_ms_cm}` : "--"}
+                  unit="ms/cm"
+                  status={getStatus("EC", metrics?.ec_ms_cm ?? null)}
+                />
+              </View>
+
+              <View className="flex-row justify-between mt-3">
+                <EnvironmentMetricCard
+                  iconBg="bg-[#E8F7FF]"
+                  icon={<Ionicons name="water-outline" size={20} color="#0284C7" />}
+                  label="Humidity"
+                  value={metrics?.humidity_pct != null ? `${metrics.humidity_pct}` : "--"}
+                  unit="%"
+                  status={getStatus("RH", metrics?.humidity_pct ?? null)}
+                />
+
+                <EnvironmentMetricCard
+                  iconBg="bg-[#EAF4FF]"
+                  icon={<MaterialCommunityIcons name="water-check-outline" size={20} color="#0046AD" />}
+                  label="Water pH"
+                  value={metrics?.ph != null ? `${metrics.ph}` : "--"}
+                  status={getStatus("pH", metrics?.ph ?? null)}
+                />
+              </View>
+
+              <View className="flex-row justify-between mt-3">
+                <EnvironmentMetricCard
+                  iconBg="bg-[#F0FDF4]"
+                  icon={<Ionicons name="eye-outline" size={20} color="#10B981" />}
+                  label="Turbidity"
+                  value={turbidity != null ? `${turbidity.toFixed(1)}` : "--"}
+                  unit="NTU"
+                  status={getStatus("turbidity", turbidity)}
+                />
+
+                <View className="w-[48%]" />
+              </View>
+            </View>
+
+            {/* Chiller Room Section */}
+            <View className="mt-6">
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-[20px] font-extrabold text-gray-900">Chiller Room</Text>
+                <View className="flex-row items-center">
+                  <View className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+                  <Text className="text-[11px] font-bold text-gray-500">Monitored</Text>
+                </View>
+              </View>
+
+              <View className="flex-row justify-between">
+                <EnvironmentMetricCard
+                  iconBg="bg-[#DBEAFE]"
+                  icon={<Feather name="thermometer" size={20} color="#1D4ED8" />}
+                  label="Temperature"
+                  value={chillerTemp != null ? `${chillerTemp}` : "--"}
+                  unit="°C"
+                  status={getStatus("chillerTemp", chillerTemp)}
+                />
+
+                <EnvironmentMetricCard
+                  iconBg="bg-[#E0F2FE]"
+                  icon={<Ionicons name="water-outline" size={20} color="#0284C7" />}
+                  label="Humidity"
+                  value={chillerHumidity != null ? `${chillerHumidity}` : "--"}
+                  unit="%"
+                  status={getStatus("chillerHumidity", chillerHumidity)}
+                />
+              </View>
+            </View>
+
+            {/* Feature 2x2 grid */}
+            <View className="mt-6">
+              <Text className="text-[20px] font-extrabold text-gray-900 mb-3">Features</Text>
+              
               <View className="flex-row justify-between">
                 <FeatureCard
                   title="Weight & Growth"
@@ -254,7 +512,7 @@ export default function DashboardScreen() {
                   subtitle="Analyze Plant Health"
                   iconBg="bg-[#FFEAF2]"
                   icon={<Ionicons name="medkit-outline" size={22} color="#DB2777" />}
-                  onPress={() => go("Scan")}
+                  onPress={() => navigation.navigate("LeafHealth")}
                 />
               </View>
 
@@ -264,97 +522,23 @@ export default function DashboardScreen() {
                   subtitle="Identify Crop Issues"
                   iconBg="bg-[#FFF6E5]"
                   icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
-                  onPress={() => (navigation.getParent() as any)?.navigate("Spoilage")}
+                  onPress={() => navigation.navigate("Spoilage")}
                 />
                 <FeatureCard
                   title="Water Quality"
                   subtitle="Monitor Sensor data"
                   iconBg="bg-[#E8F7FF]"
                   icon={<Ionicons name="water-outline" size={22} color="#0284C7" />}
-                  onPress={() => (navigation.getParent() as any)?.navigate("WaterQuality")}
+                  onPress={() => navigation.navigate("WaterQuality")}
                 />
               </View>
             </View>
 
-            {/* Quick Actions */}
-            <Text className="text-[13px] font-extrabold text-gray-900 mt-6 mb-3">
-              Quick Actions
-            </Text>
-
-            <View className="flex-row justify-between">
-              <QuickAction
-                top="Estimate"
-                bottom="Weight"
-                iconBg="bg-[#EAF4FF]"
-                icon={<MaterialCommunityIcons name="scale-bathroom" size={20} color="#0046AD" />}
-                onPress={() => go("Scan")}
-              />
-              <QuickAction
-                top="Monitor"
-                bottom="Growth"
-                iconBg="bg-[#E9FBEF]"
-                icon={<Ionicons name="analytics-outline" size={20} color="#16A34A" />}
-                onPress={() => go("Scan")}
-              />
-              <QuickAction
-                top="Detect"
-                bottom="Disease"
-                iconBg="bg-[#FFEAF2]"
-                icon={<Ionicons name="medkit-outline" size={20} color="#DB2777" />}
-                onPress={() => go("Scan")}
-              />
-              <QuickAction
-                top="Spoilage"
-                bottom="Check"
-                iconBg="bg-[#FFF6E5]"
-                icon={<Ionicons name="warning-outline" size={20} color="#F59E0B" />}
-                onPress={() => navigation.navigate("SpoilageDetails")}
-              />
-            </View>
-
-            {/* Notifications */}
-            {notifications.length > 0 && (
-              <>
-                <View className="flex-row items-center justify-between mt-6 mb-3">
-                  <Text className="text-[13px] font-extrabold text-gray-900">
-                    Notifications
-                  </Text>
-
-                  <View className="flex-row items-center gap-2">
-                    <View className="bg-red-500 rounded-full px-3 py-1">
-                      <Text className="text-white text-[11px] font-extrabold">
-                        {notifications.length} New
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={handleClearAllNotifications}
-                      activeOpacity={0.7}
-                      className="px-3 py-1 rounded-full bg-gray-100"
-                    >
-                      <Text className="text-[11px] font-extrabold text-gray-600">
-                        Clear All
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {notifications.map((notification, index) => (
-                  <React.Fragment key={notification.id}>
-                    <NotificationCard
-                      {...notification}
-                      onDismiss={() => handleDismissNotification(notification.id)}
-                    />
-                    {index < notifications.length - 1 && <View className="h-3" />}
-                  </React.Fragment>
-                ))}
-              </>
-            )}
-
-            {/* Recent Activities */}
+            {/* ✅ Recent Activities - Using real data */}
             {activities.length > 0 && (
               <>
                 <View className="flex-row items-center justify-between mt-6 mb-3">
-                  <Text className="text-[13px] font-extrabold text-gray-900">
+                  <Text className="text-[20px] font-extrabold text-gray-900">
                     Recent Activities
                   </Text>
                   <TouchableOpacity onPress={() => go("History")} activeOpacity={0.85}>
@@ -365,12 +549,32 @@ export default function DashboardScreen() {
                 </View>
 
                 <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
-                  {activities.map((activity, index) => (
-                    <React.Fragment key={activity.id}>
-                      <ActivityRow {...activity} />
-                      {index < activities.length - 1 && <Divider />}
-                    </React.Fragment>
-                  ))}
+                  {activities.map((activity, index) => {
+                    const iconData = getActivityIcon(activity.type);
+                    return (
+                      <React.Fragment key={activity.id}>
+                        <View className="flex-row items-center px-4 py-4">
+                          <View className={`w-10 h-10 rounded-full ${getIconBg(activity.type)} items-center justify-center mr-3`}>
+                            {iconData.lib === "material" ? (
+                              <MaterialCommunityIcons name={iconData.name as any} size={18} color={iconData.color} />
+                            ) : iconData.lib === "ionicons" ? (
+                              <Ionicons name={iconData.name as any} size={18} color={iconData.color} />
+                            ) : (
+                              <Feather name={iconData.name as any} size={18} color={iconData.color} />
+                            )}
+                          </View>
+
+                          <View className="flex-1">
+                            <Text className="text-[14px] font-extrabold text-gray-900">{activity.title}</Text>
+                            <Text className="text-[11px] text-gray-500 mt-0.5">{activity.description}</Text>
+                          </View>
+
+                          <Text className="text-[11px] text-gray-400">{formatTime(activity.timestamp)}</Text>
+                        </View>
+                        {index < activities.length - 1 && <Divider />}
+                      </React.Fragment>
+                    );
+                  })}
 
                   <TouchableOpacity
                     className="py-4 items-center"
@@ -384,23 +588,21 @@ export default function DashboardScreen() {
                 </View>
               </>
             )}
-          </>
-        ) : null}
-      </ScrollView>
+            </>
+          ) : null}
+        </ScrollView>
+      </View>
 
-      {/* ✅ Profile Bottom Sheet Modal */}
+      {/* Profile Bottom Sheet Modal */}
       <Modal
         visible={profileOpen}
         transparent
         animationType="slide"
         onRequestClose={() => setProfileOpen(false)}
       >
-        {/* Backdrop */}
         <Pressable className="flex-1 bg-black/40" onPress={() => setProfileOpen(false)} />
 
-        {/* Sheet */}
         <View className="bg-white rounded-t-3xl px-5 pt-4 pb-6">
-          {/* Grab handle */}
           <View className="w-12 h-1.5 bg-gray-200 rounded-full self-center mb-4" />
 
           <View className="flex-row items-center">
@@ -447,6 +649,76 @@ export default function DashboardScreen() {
 
 /* ---------- components ---------- */
 
+type Status = "Good" | "Optimal" | "Low";
+
+function getStatus(key: "airT" | "RH" | "EC" | "pH" | "turbidity" | "chillerTemp" | "chillerHumidity", value: number | null): Status {
+  if (value === null || value === undefined) return "Low";
+  
+  const ranges: Record<string, { optimal: [number, number]; good: [number, number] }> = {
+    airT: { optimal: [22, 28], good: [18, 32] },
+    RH: { optimal: [50, 70], good: [40, 80] },
+    EC: { optimal: [1.2, 1.8], good: [0.8, 2.2] },
+    pH: { optimal: [5.5, 6.5], good: [5.0, 7.0] },
+    turbidity: { optimal: [0, 3], good: [0, 5] },
+    chillerTemp: { optimal: [15, 20], good: [12, 22] },
+    chillerHumidity: { optimal: [60, 75], good: [50, 85] },
+  };
+
+  const range = ranges[key];
+  const isOptimal = value >= range.optimal[0] && value <= range.optimal[1];
+  const isGood = value >= range.good[0] && value <= range.good[1];
+
+  return isOptimal ? "Optimal" : isGood ? "Good" : "Low";
+}
+
+function StatusPill({ status }: { status: Status }) {
+  const map: Record<Status, { bg: string; text: string }> = {
+    Good: { bg: "bg-[#E9FBEF]", text: "text-[#16A34A]" },
+    Optimal: { bg: "bg-[#EEF2FF]", text: "text-[#4F46E5]" },
+    Low: { bg: "bg-[#FFF6E5]", text: "text-[#F59E0B]" },
+  };
+
+  return (
+    <View className={`px-2.5 py-1 rounded-full ${map[status].bg}`}>
+      <Text className={`text-[11px] font-extrabold ${map[status].text}`}>{status}</Text>
+    </View>
+  );
+}
+
+function EnvironmentMetricCard({
+  iconBg,
+  icon,
+  label,
+  value,
+  unit,
+  status,
+}: {
+  iconBg: string;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  unit?: string;
+  status: Status;
+}) {
+  return (
+    <View className="bg-white rounded-[18px] p-4 w-[48%]">
+      <View className="flex-row items-start justify-between">
+        <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
+          {icon}
+        </View>
+        <StatusPill status={status} />
+      </View>
+
+      <Text className="mt-3 text-[12px] text-gray-500 font-semibold">{label}</Text>
+
+      <View className="flex-row items-end mt-1">
+        <Text className="text-[20px] font-extrabold text-gray-900">{value}</Text>
+        {unit ? <Text className="text-[12px] text-gray-400 ml-1 mb-[2px]">{unit}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
 function FeatureCard({
   title,
   subtitle,
@@ -475,146 +747,6 @@ function FeatureCard({
       </Text>
       <Text className="mt-1 text-[12px] text-gray-500">{subtitle}</Text>
     </TouchableOpacity>
-  );
-}
-
-function QuickAction({
-  top,
-  bottom,
-  icon,
-  iconBg,
-  onPress,
-}: {
-  top: string;
-  bottom: string;
-  icon: React.ReactNode;
-  iconBg: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.85}
-      className="bg-white rounded-[18px] w-[23%] pt-4 pb-3 items-center shadow-sm"
-    >
-      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
-        {icon}
-      </View>
-
-      <View className="mt-3 items-center">
-        <Text className="text-[13px] text-gray-800 font-extrabold leading-[16px]">
-          {top}
-        </Text>
-        <Text className="text-[13px] text-gray-800 font-extrabold leading-[16px]">
-          {bottom}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-function NotificationCard({
-  accent,
-  iconName,
-  title,
-  body,
-  time,
-  onDismiss,
-}: {
-  accent: "orange" | "blue" | "green" | "red";
-  iconName: "alert-circle" | "calendar" | "check-circle" | "alert-triangle";
-  title: string;
-  body: string;
-  time: string;
-  onDismiss: () => void;
-}) {
-  const colors = {
-    orange: { bar: "bg-orange-400", iconBg: "bg-[#FFF6E5]", iconColor: "#F59E0B" },
-    blue: { bar: "bg-blue-600", iconBg: "bg-[#EAF2FF]", iconColor: "#2563EB" },
-    green: { bar: "bg-green-500", iconBg: "bg-[#E9FBEF]", iconColor: "#16A34A" },
-    red: { bar: "bg-red-500", iconBg: "bg-[#FFE5E5]", iconColor: "#EF4444" },
-  };
-  const { bar, iconBg, iconColor } = colors[accent];
-
-  return (
-    <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
-      <View className="flex-row">
-        <View className={`w-1.5 ${bar}`} />
-        <View className="flex-1 px-4 py-4">
-          <View className="flex-row items-center">
-            <View className={`w-10 h-10 rounded-[14px] ${iconBg} items-center justify-center mr-3`}>
-              <Ionicons name={iconName as any} size={18} color={iconColor} />
-            </View>
-
-            <View className="flex-1">
-              <Text className="text-[15px] font-extrabold text-gray-900">
-                {title}
-              </Text>
-              <Text className="text-[11px] text-gray-400 mt-0.5">{time}</Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={onDismiss}
-              activeOpacity={0.7}
-              className="w-8 h-8 rounded-full bg-red-50 items-center justify-center"
-            >
-              <Ionicons name="close" size={16} color="#EF4444" />
-            </TouchableOpacity>
-          </View>
-
-          <Text className="text-[12px] text-gray-600 mt-3 leading-[16px]">
-            {body}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function ActivityRow({
-  iconBg,
-  iconName,
-  iconLib,
-  title,
-  subtitle,
-  time,
-}: {
-  iconBg: string;
-  iconName: string;
-  iconLib: "ionicons" | "material" | "feather";
-  title: string;
-  subtitle: string;
-  time: string;
-}) {
-  const renderIcon = () => {
-    const iconColor = iconBg.includes("EAF4FF")
-      ? "#0046AD"
-      : iconBg.includes("E9FBEF")
-      ? "#16A34A"
-      : "#7C3AED";
-
-    if (iconLib === "material") {
-      return <MaterialCommunityIcons name={iconName as any} size={18} color={iconColor} />;
-    } else if (iconLib === "ionicons") {
-      return <Ionicons name={iconName as any} size={18} color={iconColor} />;
-    } else {
-      return <Feather name={iconName as any} size={18} color={iconColor} />;
-    }
-  };
-
-  return (
-    <View className="flex-row items-center px-4 py-4">
-      <View className={`w-10 h-10 rounded-full ${iconBg} items-center justify-center mr-3`}>
-        {renderIcon()}
-      </View>
-
-      <View className="flex-1">
-        <Text className="text-[14px] font-extrabold text-gray-900">{title}</Text>
-        <Text className="text-[11px] text-gray-500 mt-0.5">{subtitle}</Text>
-      </View>
-
-      <Text className="text-[11px] text-gray-400">{time}</Text>
-    </View>
   );
 }
 

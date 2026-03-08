@@ -1,8 +1,9 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { View, Text, TouchableOpacity, Image, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { logWeightActivity } from "../../utils/activityLog";
 
 type RouteParams = {
   imageUri: string;
@@ -14,10 +15,36 @@ type RouteParams = {
   plantAgeDays?: number;
   capturedAtISO?: string;
   rawPayload?: any;
+  imageName?: string; // ✅ Add this
+  shouldLogActivity?: boolean;
 };
 
-function formatCapturedLabel(iso?: string) {
+// ✅ Add this function to extract image name
+function getImageFileName(uri?: string, backendImageName?: string) {
+  if (backendImageName) {
+    return backendImageName;
+  }
+
+  if (!uri) return "image.jpg";
+  
   try {
+    const parts = uri.split('/');
+    const fileName = parts[parts.length - 1];
+    const cleanFileName = fileName.split('?')[0];
+    return cleanFileName || "image.jpg";
+  } catch {
+    return "image.jpg";
+  }
+}
+
+function formatCapturedLabel(iso?: string, imageName?: string) { // ✅ Add imageName parameter
+  try {
+    // ✅ If we have an image name from backend, return it
+    if (imageName) {
+      return imageName;
+    }
+    
+    // Otherwise, generate the formatted label as before
     if (!iso) return "";
     const d = new Date(iso);
     const hh = d.getHours();
@@ -88,8 +115,10 @@ function InfoRow({
 export default function EstimateWeightResultsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const hasLoggedActivityRef = useRef(false);
 
   const params: RouteParams = route.params || {};
+  const shouldLogActivity = params.shouldLogActivity !== false;
 
   const computed = useMemo(() => {
     const accuracy = params.accuracy ?? 0;
@@ -97,7 +126,10 @@ export default function EstimateWeightResultsScreen() {
     const leafAreaCm2 = params.leafAreaCm2 ?? 0;
     const leafDiameterCm = params.leafDiameterCm ?? 0;
     const capturedAtISO = params.capturedAtISO ?? new Date().toISOString();
-    const capturedLabel = formatCapturedLabel(capturedAtISO);
+    
+    // ✅ Get the real image name from backend
+    const imageFileName = getImageFileName(params.imageUri, params.imageName);
+    const capturedLabel = formatCapturedLabel(capturedAtISO, imageFileName); // ✅ Pass imageFileName
 
     const quality = getQualityLabel(accuracy);
     const nextTip = getNextTip(accuracy);
@@ -114,6 +146,20 @@ export default function EstimateWeightResultsScreen() {
       nextTip,
     };
   }, [params]);
+
+  useEffect(() => {
+    if (!shouldLogActivity || hasLoggedActivityRef.current) return;
+    hasLoggedActivityRef.current = true;
+
+    logWeightActivity({
+      plantId: params.plantId,
+      weightG: computed.biomassG,
+      accuracy: computed.accuracy,
+      capturedAtISO: computed.capturedAtISO,
+    }).catch((error) => {
+      console.error("Failed to log weight activity:", error);
+    });
+  }, [computed.accuracy, computed.biomassG, computed.capturedAtISO, params.plantId, shouldLogActivity]);
 
   const onNewScan = () => {
     navigation.navigate("EstimateWeightScan", { reset: true });
