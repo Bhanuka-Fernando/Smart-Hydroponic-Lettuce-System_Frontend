@@ -7,12 +7,12 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import {
+  getLeafHealthAllLogs,
   getLeafHealthDashboardCritical,
   getLeafHealthLogById,
   type LeafHealthRecentItem,
@@ -90,14 +90,50 @@ export default function LeafHealthDashboardScreen({ navigation }: any) {
   const headerDate = useMemo(() => formatHeaderDate(new Date()), []);
 
   const [items, setItems] = useState<LeafHealthRecentItem[]>([]);
+  const [allLogs, setAllLogs] = useState<LeafHealthRecentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [openingId, setOpeningId] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
-    const res = await getLeafHealthDashboardCritical(3);
-    setItems(res?.items ?? []);
+    const [criticalRes, allRes] = await Promise.all([
+      getLeafHealthDashboardCritical(3),
+      getLeafHealthAllLogs(100, 0),
+    ]);
+    setItems(criticalRes?.items ?? []);
+    setAllLogs(allRes?.items ?? []);
   }, []);
+
+  const insights = useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const recent = allLogs.filter((log) => {
+      const d = new Date(log.captured_at);
+      return !Number.isNaN(d.getTime()) && d >= sevenDaysAgo;
+    });
+
+    const totalScans7d = recent.length;
+    const avgHealthScore7d =
+      totalScans7d > 0
+        ? Math.round(
+            recent.reduce((sum, item) => sum + Number(item.health_score || 0), 0) /
+              totalScans7d
+          )
+        : 0;
+    const critical7d = recent.filter((item) => item.status === "ACT NOW").length;
+    const okCount = recent.filter((item) => item.status === "OK").length;
+    const watchCount = recent.filter((item) => item.status === "WATCH").length;
+    const actNowCount = recent.filter((item) => item.status === "ACT NOW").length;
+
+    return {
+      totalScans7d,
+      avgHealthScore7d,
+      critical7d,
+      okCount,
+      watchCount,
+      actNowCount,
+    };
+  }, [allLogs]);
 
   useEffect(() => {
     (async () => {
@@ -238,6 +274,71 @@ export default function LeafHealthDashboardScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
+        {/* Insights Summary */}
+        <View className="bg-white rounded-[18px] shadow-sm p-4 mb-4">
+          <View className="flex-row items-center mb-3">
+            <Ionicons name="bar-chart-outline" size={16} color="#1D4ED8" />
+            <Text className="ml-2 text-[13px] font-extrabold text-gray-900">
+              Insights Summary (Last 7 Days)
+            </Text>
+          </View>
+
+          <View className="flex-row justify-between mb-3">
+            <View className="w-[32%] rounded-[14px] bg-[#EEF4FF] px-2 py-3 items-center">
+              <Text className="text-[16px] font-extrabold text-[#1D4ED8]">
+                {insights.avgHealthScore7d}
+              </Text>
+              <Text className="text-[10px] text-[#1E3A8A] font-semibold mt-1">
+                Avg Score
+              </Text>
+            </View>
+
+            <View className="w-[32%] rounded-[14px] bg-[#FEF2F2] px-2 py-3 items-center">
+              <Text className="text-[16px] font-extrabold text-[#B91C1C]">
+                {insights.critical7d}
+              </Text>
+              <Text className="text-[10px] text-[#7F1D1D] font-semibold mt-1">
+                Critical
+              </Text>
+            </View>
+
+            <View className="w-[32%] rounded-[14px] bg-[#F5F3FF] px-2 py-3 items-center">
+              <Text className="text-[16px] font-extrabold text-[#6D28D9]">
+                {insights.totalScans7d}
+              </Text>
+              <Text className="text-[10px] text-[#4C1D95] font-semibold mt-1">
+                Total Scans
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-row items-center justify-between rounded-[14px] bg-[#F8FAFC] px-3 py-3">
+            <View className="items-center">
+              <View className="w-2.5 h-2.5 rounded-full bg-[#16A34A] mb-1.5" />
+              <Text className="text-[11px] font-extrabold text-[#166534]">
+                {insights.okCount}
+              </Text>
+              <Text className="text-[10px] text-gray-500">OK</Text>
+            </View>
+
+            <View className="items-center">
+              <View className="w-2.5 h-2.5 rounded-full bg-[#EA580C] mb-1.5" />
+              <Text className="text-[11px] font-extrabold text-[#9A3412]">
+                {insights.watchCount}
+              </Text>
+              <Text className="text-[10px] text-gray-500">WATCH</Text>
+            </View>
+
+            <View className="items-center">
+              <View className="w-2.5 h-2.5 rounded-full bg-[#DC2626] mb-1.5" />
+              <Text className="text-[11px] font-extrabold text-[#991B1B]">
+                {insights.actNowCount}
+              </Text>
+              <Text className="text-[10px] text-gray-500">ACT NOW</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Content */}
         {loading ? (
           <View className="bg-white rounded-[18px] shadow-sm p-8 items-center">
@@ -325,43 +426,6 @@ export default function LeafHealthDashboardScreen({ navigation }: any) {
             );
           })
         )}
-
-        {/* Quick Tips Card */}
-        <View className="bg-gradient-to-br from-[#003B8F] to-[#0046AD] rounded-[18px] shadow-sm p-5 mt-3">
-          <View className="flex-row items-center mb-4">
-            <Ionicons name="information-circle-outline" size={18} color="black" />
-            <Text className="ml-2 text-[13px] font-extrabold text-black">
-              Quick tips
-            </Text>
-          </View>
-
-          <View className="flex-row mb-3">
-            <View className="w-5 h-5 rounded-full bg-white/20 items-center justify-center mr-3 mt-0.5">
-              <Ionicons name="checkmark" size={12} color="black" />
-            </View>
-            <Text className="flex-1 text-[11px] text-black leading-[16px]">
-              Capture a clear top-view image of one leaf or one plant at a time.
-            </Text>
-          </View>
-
-          <View className="flex-row mb-3">
-            <View className="w-5 h-5 rounded-full bg-white/20 items-center justify-center mr-3 mt-0.5">
-              <Ionicons name="checkmark" size={12} color="black" />
-            </View>
-            <Text className="flex-1 text-[11px] text-black leading-[16px]">
-              Use good lighting and avoid blurry motion while scanning.
-            </Text>
-          </View>
-
-          <View className="flex-row">
-            <View className="w-5 h-5 rounded-full bg-white/20 items-center justify-center mr-3 mt-0.5">
-              <Ionicons name="checkmark" size={12} color="black" />
-            </View>
-            <Text className="flex-1 text-[11px] text-black leading-[16px]">
-              Saved reports can be reopened later from history for detailed review.
-            </Text>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
