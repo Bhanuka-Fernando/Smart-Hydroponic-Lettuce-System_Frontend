@@ -170,7 +170,12 @@ export default function GrowthForecastingScreen() {
       setForecast(points);
       Alert.alert("Done", "Growth analysis completed.");
     } catch (e: any) {
-      Alert.alert("Error", e?.message || "Failed to analyze.");
+      const errorMessage = e?.message || "Failed to analyze.";
+      const displayMessage = errorMessage.toLowerCase().includes("internal server error")
+        ? "Wrong Image Uploaded. Please Upload the correct image"
+        : errorMessage;
+      
+      Alert.alert("Error", displayMessage);
     } finally {
       setAnalyzing(false);
     }
@@ -295,7 +300,7 @@ export default function GrowthForecastingScreen() {
           pH: deviceSensors.ph,
         });
       } catch (e) {
-        console.warn("Failed to ingest sensor data to ML backend:", e);
+        // Silently handle error
       }
 
       // Success - no alert shown
