@@ -649,7 +649,7 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
             {/* Water confidence */}
             <View className="px-5 mt-5">
               <Section title="Water Model Confidence" icon="shield-checkmark">
-                <Text className="text-[12px] text-gray-600">Probabilities for OK / WARNING / CRITICAL.</Text>
+                <Text className="text-[12px] text-gray-600">Probabilities For Water Quality .</Text>
                 <View className="mt-3 bg-[#F5FAFF] rounded-[18px] border border-[#E5EEF9] p-4">
                   <ProbBar label="OK" value={waterProbs.OK ?? 0} color="#18A957" />
                   <ProbBar label="WARNING" value={waterProbs.WARNING ?? 0} color="#F59E0B" />
