@@ -575,7 +575,7 @@ export default function WeightGrowthScreen() {
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => navigation.navigate("ScheduleTimeSlots")}
-          className="bg-white rounded-[18px] shadow-sm mt-5 p-4"
+          className="bg-white rounded-[18px] mt-5 p-4"
         >
           <View className="flex-row items-center mb-3">
             <View className="w-10 h-10 rounded-[14px] bg-[#EEF2FF] items-center justify-center mr-3">

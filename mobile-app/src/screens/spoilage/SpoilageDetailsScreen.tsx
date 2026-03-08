@@ -38,13 +38,13 @@ type PredictionItem = {
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageDetails">;
 
 const COLORS = {
-  bg: "#F6F8FC",
+  bg: "#F4F6FA",
   card: "#FFFFFF",
   primary: "#0046AD",
-  primaryDark: "#16345F",
+  primaryDark: "#003B8F",
   navyAction: "#5F7396",
-  scanAccent: "#12C48B",
-  primarySoft: "#EAF1FF",
+  scanAccent: "",
+  primarySoft: "#FFFFFF",
   text: "#111827",
   subtext: "#6B7280",
   line: "#E5E7EB",
@@ -464,7 +464,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
         </View>
 
         <View
-          className="mt-4 rounded-[22px] px-4 py-4 shadow-sm"
+          className="mt-4 rounded-[22px] px-4 py-4"
           style={{ backgroundColor: COLORS.card }}
         >
           <View className="flex-row items-center justify-between">
@@ -518,7 +518,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
         <TouchableOpacity
           activeOpacity={0.92}
           onPress={openSpoilageScan}
-          className="mt-4 rounded-[24px] px-4 py-4 shadow-sm"
+          className="mt-4 rounded-[24px] px-4 py-4"
           style={{ backgroundColor: COLORS.primaryDark }}
         >
           <View className="flex-row items-center justify-between">
@@ -621,7 +621,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
                             plantId: item.plant_id,
                           })
                         }
-                        className="rounded-[20px] px-4 py-4 shadow-sm mb-3"
+                        className="rounded-[20px] px-4 py-4 mb-3"
                         style={{ backgroundColor: COLORS.card }}
                       >
                         <View className="flex-row items-center justify-between">
@@ -835,7 +835,7 @@ function MetricCard({
 }) {
   return (
     <View
-      className="w-[48.5%] rounded-[20px] px-4 py-4 shadow-sm"
+      className="w-[48.5%] rounded-[20px] px-4 py-4"
       style={{ backgroundColor: COLORS.card }}
     >
       <View className="flex-row items-center justify-between">
@@ -913,7 +913,7 @@ function MiniActionCard({
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={onPress}
-      className="w-[48.5%] rounded-[20px] px-4 py-4 shadow-sm"
+      className="w-[48.5%] rounded-[20px] px-4 py-4"
       style={{ backgroundColor: COLORS.card }}
     >
       <View className="flex-row items-center justify-between">
@@ -938,7 +938,7 @@ function MiniActionCard({
 function EmptyPanel({ text }: { text: string }) {
   return (
     <View
-      className="rounded-[18px] px-4 py-4 shadow-sm"
+      className="rounded-[18px] px-4 py-4"
       style={{ backgroundColor: COLORS.card }}
     >
       <Text className="text-[12px] font-semibold" style={{ color: COLORS.subtext }}>
@@ -982,7 +982,7 @@ function PredictionRow({
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={onPress}
-      className="rounded-[18px] overflow-hidden shadow-sm"
+      className="rounded-[18px] overflow-hidden"
       style={{ backgroundColor: COLORS.card }}
     >
       <View className="flex-row">
