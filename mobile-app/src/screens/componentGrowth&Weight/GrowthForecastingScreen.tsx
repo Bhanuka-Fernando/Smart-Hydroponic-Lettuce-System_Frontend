@@ -232,19 +232,24 @@ export default function GrowthForecastingScreen() {
     const labels = ["Today", ...forecast.map((_: any, i: number) => `D+${i + 1}`)];
 
     const wToday = Number(today.W_today_g);
-    const predicted = [wToday, ...forecast.map((p: any) => Number(p.W_pred_g))];
-    const actual = [wToday, ...forecast.map(() => wToday)];
-
+    
+    // ✅ Add 5g to current weight instead of using model prediction
+    const predictedWeightTomorrow = wToday + 5;
+    
+    // ✅ Calculate other metrics based on the original forecast
     const tmr = forecast[0];
-    const tmrWeight = Number(tmr.W_pred_g ?? 0);
     const tmrLeafArea = Number(tmr.A_leaf_pred_cm2 ?? 0);
     const tmrDiam = Number(tmr.D_pred_cm ?? 0);
 
-    const changePct = wToday > 0 ? ((tmrWeight - wToday) / wToday) * 100 : 0;
+    // ✅ Build predicted array with +5g increment
+    const predicted = [wToday, predictedWeightTomorrow, ...forecast.slice(1).map((p: any) => Number(p.W_pred_g))];
+    const actual = [wToday, ...forecast.map(() => wToday)];
+
+    const changePct = wToday > 0 ? ((predictedWeightTomorrow - wToday) / wToday) * 100 : 0;
 
     navigation.navigate("GrowthPredictionResults", {
       dateLabel: "Tomorrow",
-      predictedWeight: tmrWeight,
+      predictedWeight: predictedWeightTomorrow, // ✅ Using current weight + 5g
       predictedArea: tmrLeafArea,
       predictedDiameter: tmrDiam,
       changePct,
