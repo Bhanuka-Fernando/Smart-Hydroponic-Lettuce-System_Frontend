@@ -10,6 +10,7 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
@@ -143,8 +144,8 @@ export default function DashboardScreen() {
       }
 
       // ✅ Fetch chiller room data (mock for now - replace with actual API)
-      setChillerTemp(18.5);
-      setChillerHumidity(65);
+      setChillerTemp(5);
+      setChillerHumidity(88);
       
     } catch (error: any) {
       const mockData: DashboardMetricsResponse = {
@@ -161,8 +162,8 @@ export default function DashboardScreen() {
       };
       setMetrics(mockData);
       setTurbidity(2.5);
-      setChillerTemp(18.5);
-      setChillerHumidity(65);
+      setChillerTemp(5);
+      setChillerHumidity(88);
       
       if (!isRefreshing) {
         console.warn("Using mock data - backend endpoint not available");
@@ -318,9 +319,10 @@ const openSpoilageModule = (
   };
 
   return (
-    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
+    <SafeAreaView edges={["top"]} className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       {/* HEADER */}
-      <View className="px-4 pt-4 pb-3">
+      <View className="px-4 pt-4 pb-3 bg-white">
         <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">{headerDate}</Text>
 
         <View className="flex-row items-start justify-between mt-2">
@@ -348,34 +350,51 @@ const openSpoilageModule = (
         </View>
       </View>
 
-      {/* BODY */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentInsetAdjustmentBehavior="never"
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 0,
-          paddingBottom: 16,
-        }}
-      >
-        {loading ? (
-          <View className="flex-1 items-center justify-center py-20">
-            <ActivityIndicator size="large" color="#0046AD" />
-            <Text className="text-gray-500 mt-4">Loading dashboard...</Text>
-          </View>
-        ) : metrics ? (
-          <>
+      <View className="flex-1 bg-[#F4F6FA]">
+        {/* BODY */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentInsetAdjustmentBehavior="never"
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 0,
+            paddingBottom: 16,
+          }}
+        >
+          {loading ? (
+            <View className="flex-1 items-center justify-center py-20">
+              <ActivityIndicator size="large" color="#0046AD" />
+              <Text className="text-gray-500 mt-4">Loading dashboard...</Text>
+            </View>
+          ) : metrics ? (
+            <>
             {/* Environment Metrics */}
             <View className="mt-4">
               <View className="flex-row items-center justify-between mb-3">
                 <Text className="text-[20px] font-extrabold text-gray-900">Environment</Text>
-                <View className="flex-row items-center">
-                  <View className="w-2 h-2 rounded-full bg-green-500 mr-2" />
-                  <Text className="text-[11px] font-bold text-gray-500">Live Data</Text>
-                </View>
+                
+                {/* ✅ Check for Updates Button (replaces Live Data indicator) */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleCheckForUpdates}
+                  disabled={loadingUpdate}
+                  className="px-3 py-1.5 rounded-full bg-[#e5e6e7] flex-row items-center"
+                >
+                  {loadingUpdate ? (
+                    <>
+                      <ActivityIndicator size="small" color="#4F46E5" />
+                      <Text className="ml-1.5 text-[11px] font-extrabold text-[#4F46E5]">Updating...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="sync-outline" size={20} color="#00178a" />
+                      <Text className="ml-1.5 text-[15px] font-extrabold text-[#00178a]">Update</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
 
               {/* Metrics 2x2 Grid - Row 1 */}
@@ -433,26 +452,6 @@ const openSpoilageModule = (
                 {/* Empty card to maintain layout */}
                 <View className="w-[48%]" />
               </View>
-
-              {/* ✅ Check for Updates Button */}
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={handleCheckForUpdates}
-                disabled={loadingUpdate}
-                className="mt-4 bg-white rounded-[14px] px-4 py-3 flex-row items-center justify-center shadow-sm"
-              >
-                {loadingUpdate ? (
-                  <>
-                    <ActivityIndicator size="small" color="#1D4ED8" />
-                    <Text className="ml-2 text-[12px] font-bold text-gray-700">Updating...</Text>
-                  </>
-                ) : (
-                  <>
-                    <Ionicons name="sync-outline" size={18} color="#1D4ED8" />
-                    <Text className="ml-2 text-[12px] font-bold text-gray-700">Check for Updates</Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </View>
 
             {/* Chiller Room Section */}
@@ -525,10 +524,6 @@ const openSpoilageModule = (
               </View>
             </View>
 
-            {/* Quick Actions section removed */}
-
-            {/* Notifications section removed */}
-
             {/* Recent Activities */}
             {activities.length > 0 && (
               <>
@@ -563,23 +558,21 @@ const openSpoilageModule = (
                 </View>
               </>
             )}
-          </>
-        ) : null}
-      </ScrollView>
+            </>
+          ) : null}
+        </ScrollView>
+      </View>
 
-      {/* ✅ Profile Bottom Sheet Modal */}
+      {/* Profile Bottom Sheet Modal */}
       <Modal
         visible={profileOpen}
         transparent
         animationType="slide"
         onRequestClose={() => setProfileOpen(false)}
       >
-        {/* Backdrop */}
         <Pressable className="flex-1 bg-black/40" onPress={() => setProfileOpen(false)} />
 
-        {/* Sheet */}
         <View className="bg-white rounded-t-3xl px-5 pt-4 pb-6">
-          {/* Grab handle */}
           <View className="w-12 h-1.5 bg-gray-200 rounded-full self-center mb-4" />
 
           <View className="flex-row items-center">

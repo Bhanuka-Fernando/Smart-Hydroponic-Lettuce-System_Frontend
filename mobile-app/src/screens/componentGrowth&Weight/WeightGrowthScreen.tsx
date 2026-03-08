@@ -410,16 +410,15 @@ export default function WeightGrowthScreen() {
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
-      {/* ✅ Enhanced Header with Back Button */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 }}>
-        <View className="flex-row items-center justify-between mb-3">
+      {/* ✅ Centered Header */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 }}>
+        <View className="flex-row items-center justify-between mb-1">
           {/* Back Button */}
           <TouchableOpacity
             onPress={() => {
               if (navigation.canGoBack()) {
                 navigation.goBack();
               } else {
-                // Navigate to Dashboard if no history
                 navigation.navigate("Dashboard");
               }
             }}
@@ -430,23 +429,19 @@ export default function WeightGrowthScreen() {
             <Ionicons name="chevron-back" size={20} color="#111827" />
           </TouchableOpacity>
 
-          {/* Title */}
-          <Text className="text-[16px] font-extrabold text-gray-900">
-            Weight & Growth
-          </Text>
-
-          {/* Profile Avatar */}
-          <View className="relative">
-            <Image 
-              source={{ uri: "https://i.pravatar.cc/100?img=12" }} 
-              className="w-10 h-10 rounded-full" 
-            />
-            <View className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-white" />
+          {/* ✅ Centered Title */}
+          <View className="absolute left-0 right-0 items-center" style={{ pointerEvents: 'none' }}>
+            <Text className="text-[16px] font-extrabold text-gray-900">
+              Weight & Growth
+            </Text>
           </View>
+
+          {/* Empty spacer for balance */}
+          <View className="w-10 h-10" />
         </View>
 
         {/* Date */}
-        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">
+        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px] text-center">
           {headerDate}
         </Text>
       </View>

@@ -118,6 +118,7 @@ export default function LeafHealthHistoryScreen({ navigation }: any) {
             primary_issue: item.primary_issue || item.main_issue,
           },
           imageUri: undefined,
+          shouldLogActivity: false,
         });
       } catch (e: any) {
         Alert.alert("Load failed", e?.message || "Could not open report");

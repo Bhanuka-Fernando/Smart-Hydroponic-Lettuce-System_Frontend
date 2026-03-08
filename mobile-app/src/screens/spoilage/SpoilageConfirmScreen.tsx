@@ -93,6 +93,14 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
   const tempText = Number.isFinite(temperature) ? `${temperature}°C` : "--";
   const humText = Number.isFinite(humidity) ? `${humidity}%` : "--";
 
+  // ✅ Clean status text - remove emojis and special characters
+  const cleanStatus = useMemo(() => {
+    if (!result?.status) return "-";
+    // Remove emojis and special characters, keep only alphanumeric and basic punctuation
+    const cleaned = result.status.replace(/[^\w\s.,!?-]/g, '').trim();
+    return cleaned || "Completed";
+  }, [result?.status]);
+
   const onViewResults = () => {
     if (!result) {
       Alert.alert("Missing", "No prediction result found.");
@@ -238,9 +246,9 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
           <View className="mt-3 rounded-[16px] bg-[#F8FAFC] overflow-hidden">
             <RowItem left="Plant ID" right={plantId || "-"} />
             <Divider />
-            <RowItem left="Prediction Status" right={result?.status || "-"} />
+            <RowItem left="Status" right={cleanStatus} />
             <Divider />
-            <RowItem left="Capture Type" right={isSim ? "Simulation" : "Real Scan"} />
+            <RowItem left="Source" right={isSim ? "Simulation" : "Real Scan"} />
           </View>
         </View>
 

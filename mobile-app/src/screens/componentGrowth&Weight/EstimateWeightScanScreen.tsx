@@ -196,7 +196,12 @@ export default function EstimateWeightScanScreen() {
 
       Alert.alert("Done", "Analysis complete. Tap 'Check for Results'.");
     } catch (e: any) {
-      Alert.alert("Error", e?.message || "Failed to start analysis.");
+      const errorMessage = e?.message || "Failed to start analysis.";
+      const displayMessage = errorMessage.toLowerCase().includes("internal server error")
+        ? "Wrong Image Uploaded. Please Upload the correct image"
+        : errorMessage;
+      
+      Alert.alert("Error", displayMessage);
     } finally {
       setAnalyzing(false);
     }
