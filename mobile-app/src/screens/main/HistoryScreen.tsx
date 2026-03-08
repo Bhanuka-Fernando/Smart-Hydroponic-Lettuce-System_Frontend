@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   FlatList,
   Alert,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
@@ -201,9 +202,10 @@ export default function HistoryScreen() {
   };
 
   return (
-    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
+    <SafeAreaView edges={["top"]} className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       {/* Header - Matching DashboardScreen */}
-      <View className="px-4 pt-4 pb-3">
+      <View className="px-4 pt-4 pb-3 bg-white">
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
             <Text className="text-[24px] font-extrabold text-gray-900">
@@ -227,129 +229,131 @@ export default function HistoryScreen() {
         </View>
       </View>
 
-      {/* Filters - Horizontal scroll */}
-      <View className="mb-3">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16 }}
-          className="flex-grow-0"
-        >
-          <FilterChip
-            label="All"
-            active={selectedFilter === "all"}
-            onPress={() => setSelectedFilter("all")}
-            count={activities.length}
-          />
-          <FilterChip
-            label="Weight"
-            active={selectedFilter === "weight_scan"}
-            onPress={() => setSelectedFilter("weight_scan")}
-            count={activities.filter((a) => a.type === "weight_scan").length}
-          />
-          <FilterChip
-            label="Growth"
-            active={selectedFilter === "growth_forecast"}
-            onPress={() => setSelectedFilter("growth_forecast")}
-            count={activities.filter((a) => a.type === "growth_forecast").length}
-          />
-          <FilterChip
-            label="Sensors"
-            active={selectedFilter === "sensor_update"}
-            onPress={() => setSelectedFilter("sensor_update")}
-            count={activities.filter((a) => a.type === "sensor_update").length}
-          />
-          <FilterChip
-            label="Harvest"
-            active={selectedFilter === "harvest"}
-            onPress={() => setSelectedFilter("harvest")}
-            count={activities.filter((a) => a.type === "harvest").length}
-          />
-          <FilterChip
-            label="System"
-            active={selectedFilter === "system"}
-            onPress={() => setSelectedFilter("system")}
-            count={activities.filter((a) => a.type === "system").length}
-          />
-        </ScrollView>
+      <View className="flex-1 bg-[#F4F6FA]">
+        {/* Filters - Horizontal scroll */}
+        <View className="mb-3">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16 }}
+            className="flex-grow-0"
+          >
+            <FilterChip
+              label="All"
+              active={selectedFilter === "all"}
+              onPress={() => setSelectedFilter("all")}
+              count={activities.length}
+            />
+            <FilterChip
+              label="Weight"
+              active={selectedFilter === "weight_scan"}
+              onPress={() => setSelectedFilter("weight_scan")}
+              count={activities.filter((a) => a.type === "weight_scan").length}
+            />
+            <FilterChip
+              label="Growth"
+              active={selectedFilter === "growth_forecast"}
+              onPress={() => setSelectedFilter("growth_forecast")}
+              count={activities.filter((a) => a.type === "growth_forecast").length}
+            />
+            <FilterChip
+              label="Sensors"
+              active={selectedFilter === "sensor_update"}
+              onPress={() => setSelectedFilter("sensor_update")}
+              count={activities.filter((a) => a.type === "sensor_update").length}
+            />
+            <FilterChip
+              label="Harvest"
+              active={selectedFilter === "harvest"}
+              onPress={() => setSelectedFilter("harvest")}
+              count={activities.filter((a) => a.type === "harvest").length}
+            />
+            <FilterChip
+              label="System"
+              active={selectedFilter === "system"}
+              onPress={() => setSelectedFilter("system")}
+              count={activities.filter((a) => a.type === "system").length}
+            />
+          </ScrollView>
+        </View>
+
+        {/* Activity List */}
+        <FlatList
+          data={filteredActivities}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <View className="bg-white rounded-[18px] mb-3">
+              <View className="flex-row items-start p-4">
+                {/* Icon */}
+                <View className={`w-11 h-11 rounded-full ${getIconBg(item.type)} items-center justify-center mr-3.5`}>
+                  {getActivityIcon(item.type)}
+                </View>
+
+                {/* Content */}
+                <View className="flex-1">
+                  <View className="flex-row items-center mb-1.5">
+                    <Text className="text-[15px] font-extrabold text-gray-900 flex-1">
+                      {item.title}
+                    </Text>
+                    {item.zone && (
+                      <View className="bg-gray-100 rounded-full px-2.5 py-1 ml-2">
+                        <Text className="text-[10px] font-extrabold text-gray-600">
+                          {item.zone}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text className="text-[13px] text-gray-600 mb-2.5 leading-[18px]">
+                    {item.description}
+                  </Text>
+
+                  <View className="flex-row items-center">
+                    <Ionicons name="time-outline" size={12} color="#9CA3AF" style={{ marginRight: 4 }} />
+                    <Text className="text-[11px] text-gray-400 font-medium">
+                      {formatTime(item.timestamp)}
+                    </Text>
+
+                    {item.status && (
+                      <>
+                        <View className="w-1 h-1 rounded-full bg-gray-300 mx-2.5" />
+                        <StatusPill status={item.status} />
+                      </>
+                    )}
+                  </View>
+                </View>
+
+                {/* Delete Button */}
+                <TouchableOpacity
+                  onPress={() => handleDeleteActivity(item.id)}
+                  activeOpacity={0.85}
+                  className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center ml-2"
+                >
+                  <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+          ListEmptyComponent={
+            <View className="py-24 items-center">
+              <View className="w-20 h-20 rounded-full bg-gray-100 items-center justify-center mb-4">
+                <Ionicons name="file-tray-outline" size={36} color="#9CA3AF" />
+              </View>
+              <Text className="text-[16px] font-bold text-gray-900 mb-1">
+                No Activities Found
+              </Text>
+              <Text className="text-[13px] text-gray-500 text-center px-8">
+                {selectedFilter === "all" 
+                  ? "Your activity history will appear here"
+                  : `No ${selectedFilter.replace('_', ' ')} activities yet`
+                }
+              </Text>
+            </View>
+          }
+        />
       </View>
-
-      {/* Activity List */}
-      <FlatList
-        data={filteredActivities}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <View className="bg-white rounded-[18px] mb-3">
-            <View className="flex-row items-start p-4">
-              {/* Icon */}
-              <View className={`w-11 h-11 rounded-full ${getIconBg(item.type)} items-center justify-center mr-3.5`}>
-                {getActivityIcon(item.type)}
-              </View>
-
-              {/* Content */}
-              <View className="flex-1">
-                <View className="flex-row items-center mb-1.5">
-                  <Text className="text-[15px] font-extrabold text-gray-900 flex-1">
-                    {item.title}
-                  </Text>
-                  {item.zone && (
-                    <View className="bg-gray-100 rounded-full px-2.5 py-1 ml-2">
-                      <Text className="text-[10px] font-extrabold text-gray-600">
-                        {item.zone}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                <Text className="text-[13px] text-gray-600 mb-2.5 leading-[18px]">
-                  {item.description}
-                </Text>
-
-                <View className="flex-row items-center">
-                  <Ionicons name="time-outline" size={12} color="#9CA3AF" style={{ marginRight: 4 }} />
-                  <Text className="text-[11px] text-gray-400 font-medium">
-                    {formatTime(item.timestamp)}
-                  </Text>
-
-                  {item.status && (
-                    <>
-                      <View className="w-1 h-1 rounded-full bg-gray-300 mx-2.5" />
-                      <StatusPill status={item.status} />
-                    </>
-                  )}
-                </View>
-              </View>
-
-              {/* Delete Button */}
-              <TouchableOpacity
-                onPress={() => handleDeleteActivity(item.id)}
-                activeOpacity={0.85}
-                className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center ml-2"
-              >
-                <Ionicons name="trash-outline" size={16} color="#EF4444" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-        ListEmptyComponent={
-          <View className="py-24 items-center">
-            <View className="w-20 h-20 rounded-full bg-gray-100 items-center justify-center mb-4">
-              <Ionicons name="file-tray-outline" size={36} color="#9CA3AF" />
-            </View>
-            <Text className="text-[16px] font-bold text-gray-900 mb-1">
-              No Activities Found
-            </Text>
-            <Text className="text-[13px] text-gray-500 text-center px-8">
-              {selectedFilter === "all" 
-                ? "Your activity history will appear here"
-                : `No ${selectedFilter.replace('_', ' ')} activities yet`
-              }
-            </Text>
-          </View>
-        }
-      />
     </SafeAreaView>
   );
 }
@@ -419,4 +423,3 @@ function StatusPill({ status }: { status: "success" | "warning" | "info" }) {
     </View>
   );
 }
-

@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -159,9 +160,10 @@ export default function ScanScreen() {
   };
 
   return (
-    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
+    <SafeAreaView edges={["top"]} className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       {/* Header - Matching DashboardScreen */}
-      <View className="px-4 pt-4 pb-3">
+      <View className="px-4 pt-4 pb-3 bg-white">
         <Text className="text-[24px] font-extrabold text-gray-900 leading-[30px]">
           Scan & Analyze
         </Text>
@@ -170,107 +172,109 @@ export default function ScanScreen() {
         </Text>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
-      >
-        {/* Best Practices - Matching environment card style */}
-        <View className="mt-4">
-          <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-[20px] font-extrabold text-gray-900">
-              Best Practices
-            </Text>
-            <View className="flex-row items-center">
-              <View className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
-              <Text className="text-[11px] font-bold text-gray-500">Tips</Text>
-            </View>
-          </View>
-
-          <View className="bg-white rounded-[18px] p-4">
-            <View className="flex-row items-start mb-3">
-              <View className="w-11 h-11 rounded-full bg-[#EAF4FF] items-center justify-center mr-3">
-                <Ionicons name="bulb" size={20} color="#0046AD" />
+      <View className="flex-1 bg-[#F4F6FA]">
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+        >
+          {/* Best Practices - Matching environment card style */}
+          <View className="mt-4">
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-[20px] font-extrabold text-gray-900">
+                Best Practices
+              </Text>
+              <View className="flex-row items-center">
+                <View className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+                <Text className="text-[11px] font-bold text-gray-500">Tips</Text>
               </View>
-              <View className="flex-1">
-                <Text className="text-[13px] font-extrabold text-gray-900 mb-2">
-                  Scanning Guidelines
-                </Text>
-                <View className="space-y-1.5">
-                  <Text className="text-[12px] text-gray-600 leading-[20px]">
-                    • Ensure good natural or artificial lighting
+            </View>
+
+            <View className="bg-white rounded-[18px] p-4">
+              <View className="flex-row items-start mb-3">
+                <View className="w-11 h-11 rounded-full bg-[#EAF4FF] items-center justify-center mr-3">
+                  <Ionicons name="bulb" size={20} color="#0046AD" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-[13px] font-extrabold text-gray-900 mb-2">
+                    Scanning Guidelines
                   </Text>
-                  <Text className="text-[12px] text-gray-600 leading-[20px]">
-                    • Hold camera steady for clear images
-                  </Text>
-                  <Text className="text-[12px] text-gray-600 leading-[20px]">
-                    • Capture entire plant within frame
-                  </Text>
-                  <Text className="text-[12px] text-gray-600 leading-[20px]">
-                    • Avoid shadows, glare, and reflections
-                  </Text>
+                  <View className="space-y-1.5">
+                    <Text className="text-[12px] text-gray-600 leading-[20px]">
+                      • Ensure good natural or artificial lighting
+                    </Text>
+                    <Text className="text-[12px] text-gray-600 leading-[20px]">
+                      • Hold camera steady for clear images
+                    </Text>
+                    <Text className="text-[12px] text-gray-600 leading-[20px]">
+                      • Capture entire plant within frame
+                    </Text>
+                    <Text className="text-[12px] text-gray-600 leading-[20px]">
+                      • Avoid shadows, glare, and reflections
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
           </View>
-        </View>
 
-        {/* Available Features - Matching Features section style */}
-        <View className="mt-6">
-          <Text className="text-[20px] font-extrabold text-gray-900 mb-3">
-            Available Features
-          </Text>
-
-          <View className="flex-row justify-between">
-            <FeatureCard
-              feature={features[0]}
-              onPress={() => handleFeaturePress(features[0])}
-              renderIcon={renderIcon}
-            />
-            <FeatureCard
-              feature={features[1]}
-              onPress={() => handleFeaturePress(features[1])}
-              renderIcon={renderIcon}
-            />
-          </View>
-
-          <View className="flex-row justify-between mt-3">
-            <FeatureCard
-              feature={features[2]}
-              onPress={() => handleFeaturePress(features[2])}
-              renderIcon={renderIcon}
-            />
-            <FeatureCard
-              feature={features[3]}
-              onPress={() => handleFeaturePress(features[3])}
-              renderIcon={renderIcon}
-            />
-          </View>
-
-          <View className="flex-row justify-between mt-3">
-            <FeatureCard
-              feature={features[4]}
-              onPress={() => handleFeaturePress(features[4])}
-              renderIcon={renderIcon}
-            />
-            <View className="w-[48%]" />
-          </View>
-        </View>
-
-        {/* Info Note */}
-        <View className="mt-6 bg-white rounded-[18px] p-4">
-          <View className="flex-row items-start">
-            <Ionicons
-              name="information-circle"
-              size={20}
-              color="#0046AD"
-              style={{ marginTop: 2 }}
-            />
-            <Text className="text-[12px] text-gray-600 leading-[16px] ml-3 flex-1">
-              Tap on any active feature to start scanning and analyzing your lettuce crop
+          {/* Available Features - Matching Features section style */}
+          <View className="mt-6">
+            <Text className="text-[20px] font-extrabold text-gray-900 mb-3">
+              Available Features
             </Text>
+
+            <View className="flex-row justify-between">
+              <FeatureCard
+                feature={features[0]}
+                onPress={() => handleFeaturePress(features[0])}
+                renderIcon={renderIcon}
+              />
+              <FeatureCard
+                feature={features[1]}
+                onPress={() => handleFeaturePress(features[1])}
+                renderIcon={renderIcon}
+              />
+            </View>
+
+            <View className="flex-row justify-between mt-3">
+              <FeatureCard
+                feature={features[2]}
+                onPress={() => handleFeaturePress(features[2])}
+                renderIcon={renderIcon}
+              />
+              <FeatureCard
+                feature={features[3]}
+                onPress={() => handleFeaturePress(features[3])}
+                renderIcon={renderIcon}
+              />
+            </View>
+
+            <View className="flex-row justify-between mt-3">
+              <FeatureCard
+                feature={features[4]}
+                onPress={() => handleFeaturePress(features[4])}
+                renderIcon={renderIcon}
+              />
+              <View className="w-[48%]" />
+            </View>
           </View>
-        </View>
-      </ScrollView>
+
+          {/* Info Note */}
+          <View className="mt-6 bg-white rounded-[18px] p-4">
+            <View className="flex-row items-start">
+              <Ionicons
+                name="information-circle"
+                size={20}
+                color="#0046AD"
+                style={{ marginTop: 2 }}
+              />
+              <Text className="text-[12px] text-gray-600 leading-[16px] ml-3 flex-1">
+                Tap on any active feature to start scanning and analyzing your lettuce crop
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
