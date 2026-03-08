@@ -148,19 +148,19 @@ export default function HistoryScreen() {
   const getActivityIcon = (type: ActivityType) => {
     switch (type) {
       case "weight_scan":
-        return <MaterialCommunityIcons name="scale-bathroom" size={18} color="#0046AD" />;
+        return <MaterialCommunityIcons name="scale-bathroom" size={20} color="#0046AD" />;
       case "growth_forecast":
-        return <Ionicons name="analytics-outline" size={18} color="#16A34A" />;
+        return <Ionicons name="analytics-outline" size={20} color="#16A34A" />;
       case "sensor_update":
-        return <Ionicons name="water-outline" size={18} color="#0284C7" />;
+        return <Ionicons name="water-outline" size={20} color="#0284C7" />;
       case "harvest":
-        return <MaterialCommunityIcons name="sprout" size={18} color="#16A34A" />;
+        return <MaterialCommunityIcons name="sprout" size={20} color="#16A34A" />;
       case "system":
-        return <Feather name="sun" size={18} color="#7C3AED" />;
+        return <Feather name="sun" size={20} color="#7C3AED" />;
       case "disease_check":
-        return <Ionicons name="medkit-outline" size={18} color="#DB2777" />;
+        return <Ionicons name="medkit-outline" size={20} color="#DB2777" />;
       default:
-        return <Ionicons name="time-outline" size={18} color="#6B7280" />;
+        return <Ionicons name="time-outline" size={20} color="#6B7280" />;
     }
   };
 
@@ -205,22 +205,22 @@ export default function HistoryScreen() {
       {/* Header - Matching DashboardScreen */}
       <View className="px-4 pt-4 pb-3">
         <View className="flex-row items-center justify-between">
-          <View>
+          <View className="flex-1">
             <Text className="text-[24px] font-extrabold text-gray-900">
               Activity History
             </Text>
             <Text className="text-[11px] text-gray-500 mt-1 font-semibold tracking-[0.4px]">
-              Track all system activities
+              {filteredActivities.length} {filteredActivities.length === 1 ? 'activity' : 'activities'} found
             </Text>
           </View>
           {activities.length > 0 && (
             <TouchableOpacity
               onPress={handleClearAll}
               activeOpacity={0.85}
-              className="px-3 py-1.5 rounded-full bg-[#FFF6E5]"
+              className="px-3.5 py-2 rounded-full bg-[#FFF6E5]"
             >
               <Text className="text-[11px] font-extrabold text-[#F59E0B]">
-                Clear All
+                CLEAR ALL
               </Text>
             </TouchableOpacity>
           )}
@@ -228,49 +228,51 @@ export default function HistoryScreen() {
       </View>
 
       {/* Filters - Horizontal scroll */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 12 }}
-        className="flex-grow-0"
-      >
-        <FilterChip
-          label="All"
-          active={selectedFilter === "all"}
-          onPress={() => setSelectedFilter("all")}
-          count={activities.length}
-        />
-        <FilterChip
-          label="Weight"
-          active={selectedFilter === "weight_scan"}
-          onPress={() => setSelectedFilter("weight_scan")}
-          count={activities.filter((a) => a.type === "weight_scan").length}
-        />
-        <FilterChip
-          label="Growth"
-          active={selectedFilter === "growth_forecast"}
-          onPress={() => setSelectedFilter("growth_forecast")}
-          count={activities.filter((a) => a.type === "growth_forecast").length}
-        />
-        <FilterChip
-          label="Sensors"
-          active={selectedFilter === "sensor_update"}
-          onPress={() => setSelectedFilter("sensor_update")}
-          count={activities.filter((a) => a.type === "sensor_update").length}
-        />
-        <FilterChip
-          label="Harvest"
-          active={selectedFilter === "harvest"}
-          onPress={() => setSelectedFilter("harvest")}
-          count={activities.filter((a) => a.type === "harvest").length}
-        />
-        <FilterChip
-          label="System"
-          active={selectedFilter === "system"}
-          onPress={() => setSelectedFilter("system")}
-          count={activities.filter((a) => a.type === "system").length}
-        />
-      </ScrollView>
+      <View className="mb-3">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16 }}
+          className="flex-grow-0"
+        >
+          <FilterChip
+            label="All"
+            active={selectedFilter === "all"}
+            onPress={() => setSelectedFilter("all")}
+            count={activities.length}
+          />
+          <FilterChip
+            label="Weight"
+            active={selectedFilter === "weight_scan"}
+            onPress={() => setSelectedFilter("weight_scan")}
+            count={activities.filter((a) => a.type === "weight_scan").length}
+          />
+          <FilterChip
+            label="Growth"
+            active={selectedFilter === "growth_forecast"}
+            onPress={() => setSelectedFilter("growth_forecast")}
+            count={activities.filter((a) => a.type === "growth_forecast").length}
+          />
+          <FilterChip
+            label="Sensors"
+            active={selectedFilter === "sensor_update"}
+            onPress={() => setSelectedFilter("sensor_update")}
+            count={activities.filter((a) => a.type === "sensor_update").length}
+          />
+          <FilterChip
+            label="Harvest"
+            active={selectedFilter === "harvest"}
+            onPress={() => setSelectedFilter("harvest")}
+            count={activities.filter((a) => a.type === "harvest").length}
+          />
+          <FilterChip
+            label="System"
+            active={selectedFilter === "system"}
+            onPress={() => setSelectedFilter("system")}
+            count={activities.filter((a) => a.type === "system").length}
+          />
+        </ScrollView>
+      </View>
 
       {/* Activity List */}
       <FlatList
@@ -279,21 +281,21 @@ export default function HistoryScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
-          <View className="bg-white rounded-[18px] shadow-sm mb-3">
+          <View className="bg-white rounded-[18px] mb-3">
             <View className="flex-row items-start p-4">
               {/* Icon */}
-              <View className={`w-10 h-10 rounded-full ${getIconBg(item.type)} items-center justify-center mr-3`}>
+              <View className={`w-11 h-11 rounded-full ${getIconBg(item.type)} items-center justify-center mr-3.5`}>
                 {getActivityIcon(item.type)}
               </View>
 
               {/* Content */}
               <View className="flex-1">
-                <View className="flex-row items-center justify-between mb-1">
-                  <Text className="text-[14px] font-extrabold text-gray-900">
+                <View className="flex-row items-center mb-1.5">
+                  <Text className="text-[15px] font-extrabold text-gray-900 flex-1">
                     {item.title}
                   </Text>
                   {item.zone && (
-                    <View className="bg-gray-100 rounded-full px-2 py-0.5">
+                    <View className="bg-gray-100 rounded-full px-2.5 py-1 ml-2">
                       <Text className="text-[10px] font-extrabold text-gray-600">
                         {item.zone}
                       </Text>
@@ -301,18 +303,19 @@ export default function HistoryScreen() {
                   )}
                 </View>
 
-                <Text className="text-[12px] text-gray-600 mb-2 leading-[16px]">
+                <Text className="text-[13px] text-gray-600 mb-2.5 leading-[18px]">
                   {item.description}
                 </Text>
 
                 <View className="flex-row items-center">
-                  <Text className="text-[11px] text-gray-400">
+                  <Ionicons name="time-outline" size={12} color="#9CA3AF" style={{ marginRight: 4 }} />
+                  <Text className="text-[11px] text-gray-400 font-medium">
                     {formatTime(item.timestamp)}
                   </Text>
 
                   {item.status && (
                     <>
-                      <View className="w-1 h-1 rounded-full bg-gray-300 mx-2" />
+                      <View className="w-1 h-1 rounded-full bg-gray-300 mx-2.5" />
                       <StatusPill status={item.status} />
                     </>
                   )}
@@ -323,18 +326,26 @@ export default function HistoryScreen() {
               <TouchableOpacity
                 onPress={() => handleDeleteActivity(item.id)}
                 activeOpacity={0.85}
-                className="w-8 h-8 rounded-full bg-[#FFEAF2] items-center justify-center ml-2"
+                className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center ml-2"
               >
-                <Ionicons name="close" size={16} color="#DB2777" />
+                <Ionicons name="trash-outline" size={16} color="#EF4444" />
               </TouchableOpacity>
             </View>
           </View>
         )}
         ListEmptyComponent={
-          <View className="py-20 items-center">
-            <Ionicons name="file-tray-outline" size={48} color="#D1D5DB" />
-            <Text className="text-gray-500 mt-4 text-[14px]">
-              No activities found
+          <View className="py-24 items-center">
+            <View className="w-20 h-20 rounded-full bg-gray-100 items-center justify-center mb-4">
+              <Ionicons name="file-tray-outline" size={36} color="#9CA3AF" />
+            </View>
+            <Text className="text-[16px] font-bold text-gray-900 mb-1">
+              No Activities Found
+            </Text>
+            <Text className="text-[13px] text-gray-500 text-center px-8">
+              {selectedFilter === "all" 
+                ? "Your activity history will appear here"
+                : `No ${selectedFilter.replace('_', ' ')} activities yet`
+              }
             </Text>
           </View>
         }
@@ -359,27 +370,27 @@ function FilterChip({
   return (
     <TouchableOpacity
       onPress={onPress}
-      className={`mr-2 px-3 py-2 rounded-full flex-row items-center ${
-        active ? "bg-[#EAF4FF]" : "bg-white"
+      className={`mr-2.5 px-4 py-2.5 mb-4 mt-4 rounded-full flex-row items-center ${
+        active ? "bg-[#0046AD]" : "bg-white"
       }`}
       activeOpacity={0.85}
     >
       <Text
-        className={`text-[11px] font-extrabold ${
-          active ? "text-[#0046AD]" : "text-gray-600"
+        className={`text-[12px] font-extrabold ${
+          active ? "text-white" : "text-gray-600"
         }`}
       >
         {label}
       </Text>
       {count > 0 && (
         <View
-          className={`ml-1.5 px-1.5 py-0.5 rounded-full ${
-            active ? "bg-[#0046AD]/10" : "bg-gray-100"
+          className={`ml-2 px-2 py-0.5 rounded-full ${
+            active ? "bg-white/20" : "bg-gray-100"
           }`}
         >
           <Text
             className={`text-[10px] font-extrabold ${
-              active ? "text-[#0046AD]" : "text-gray-600"
+              active ? "text-white" : "text-gray-600"
             }`}
           >
             {count}
@@ -392,15 +403,16 @@ function FilterChip({
 
 function StatusPill({ status }: { status: "success" | "warning" | "info" }) {
   const colors = {
-    success: { bg: "bg-[#E9FBEF]", text: "text-[#16A34A]" },
-    warning: { bg: "bg-[#FFF6E5]", text: "text-[#F59E0B]" },
-    info: { bg: "bg-[#EAF4FF]", text: "text-[#0046AD]" },
+    success: { bg: "bg-[#E9FBEF]", text: "text-[#16A34A]", icon: "checkmark-circle" },
+    warning: { bg: "bg-[#FFF6E5]", text: "text-[#F59E0B]", icon: "alert-circle" },
+    info: { bg: "bg-[#EAF4FF]", text: "text-[#0046AD]", icon: "information-circle" },
   };
 
-  const { bg, text } = colors[status];
+  const { bg, text, icon } = colors[status];
 
   return (
-    <View className={`px-2 py-0.5 rounded-full ${bg}`}>
+    <View className={`px-2 py-1 rounded-full ${bg} flex-row items-center`}>
+      <Ionicons name={icon as any} size={10} color={colors[status].text.replace('text-', '')} style={{ marginRight: 3 }} />
       <Text className={`text-[10px] font-extrabold ${text}`}>
         {status.toUpperCase()}
       </Text>
