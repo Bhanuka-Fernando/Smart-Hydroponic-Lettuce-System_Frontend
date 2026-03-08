@@ -130,6 +130,15 @@ export default function HistoryScreen() {
     }
   };
 
+  // ✅ Helper function to check if zone should be displayed
+  const shouldDisplayZone = (type: ActivityType, zone?: string) => {
+    // Don't show zone badge for weight_scan or growth_forecast
+    if (type === "weight_scan" || type === "growth_forecast") {
+      return false;
+    }
+    return !!zone;
+  };
+
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -232,7 +241,8 @@ export default function HistoryScreen() {
                     <Text className="text-[15px] font-extrabold text-gray-900 flex-1">
                       {item.title}
                     </Text>
-                    {item.zone && (
+                    {/* ✅ Only show zone badge if not weight_scan or growth_forecast */}
+                    {shouldDisplayZone(item.type, item.zone) && (
                       <View className="bg-gray-100 rounded-full px-2.5 py-1 ml-2">
                         <Text className="text-[10px] font-extrabold text-gray-600">
                           {item.zone}
