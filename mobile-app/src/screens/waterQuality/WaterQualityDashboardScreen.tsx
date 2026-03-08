@@ -20,6 +20,7 @@ import {
   type AnalyzeResponse,
   type WaterReading,
 } from "../../api/WaterQualityApi";
+import { logWaterActivity } from "../../utils/activityLog";
 
 type Props = NativeStackScreenProps<
   WaterQualityStackParamList,
@@ -422,6 +423,16 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
       setLatestRow(readings[readings.length - 1]);
       const res = await analyzeBatch(tankId, readings);
       setResult(res);
+      try {
+        await logWaterActivity({
+          tankId,
+          finalStatus: res?.final_status,
+          healthScore: res?.health_score,
+          sourceTimestamp: String(res?.timestamp ?? readings[readings.length - 1]?.timestamp ?? ""),
+        });
+      } catch (error) {
+        console.error("Failed to log water activity:", error);
+      }
     } catch (e: any) {
       setErr(
         e?.response?.data?.detail ??

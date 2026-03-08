@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -9,104 +9,31 @@ import {
   StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
-
-type ActivityType =
-  | "weight_scan"
-  | "growth_forecast"
-  | "sensor_update"
-  | "harvest"
-  | "system"
-  | "disease_check"
-  | "all";
-
-type ActivityItem = {
-  id: string;
-  type: ActivityType;
-  title: string;
-  description: string;
-  timestamp: string;
-  zone?: string;
-  status?: "success" | "warning" | "info";
-};
-
-const mockActivities: ActivityItem[] = [
-  {
-    id: "1",
-    type: "weight_scan",
-    title: "Weight Estimation",
-    description: "Lettuce #L-042 estimated at 245g",
-    timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
-    zone: "Z01",
-    status: "success",
-  },
-  {
-    id: "2",
-    type: "sensor_update",
-    title: "pH Adjustment",
-    description: "Auto-balanced to 6.2 in Zone 1",
-    timestamp: new Date(Date.now() - 45 * 60000).toISOString(),
-    zone: "Z01",
-    status: "info",
-  },
-  {
-    id: "3",
-    type: "growth_forecast",
-    title: "Growth Forecast",
-    description: "4-day forecast generated for 12 plants",
-    timestamp: new Date(Date.now() - 90 * 60000).toISOString(),
-    zone: "Z01",
-    status: "success",
-  },
-  {
-    id: "4",
-    type: "system",
-    title: "Light Cycle Started",
-    description: "Day mode activated (14h cycle)",
-    timestamp: new Date(Date.now() - 120 * 60000).toISOString(),
-    status: "info",
-  },
-  {
-    id: "5",
-    type: "harvest",
-    title: "Harvest Completed",
-    description: "3 plants harvested from Zone 2",
-    timestamp: new Date(Date.now() - 180 * 60000).toISOString(),
-    zone: "Z02",
-    status: "success",
-  },
-  {
-    id: "6",
-    type: "sensor_update",
-    title: "Temperature Alert",
-    description: "Temperature rose to 28°C in Zone 3",
-    timestamp: new Date(Date.now() - 240 * 60000).toISOString(),
-    zone: "Z03",
-    status: "warning",
-  },
-  {
-    id: "7",
-    type: "disease_check",
-    title: "Disease Scan",
-    description: "Healthy - No issues detected",
-    timestamp: new Date(Date.now() - 300 * 60000).toISOString(),
-    zone: "Z01",
-    status: "success",
-  },
-  {
-    id: "8",
-    type: "weight_scan",
-    title: "Weight Estimation",
-    description: "Lettuce #L-038 estimated at 198g",
-    timestamp: new Date(Date.now() - 360 * 60000).toISOString(),
-    zone: "Z02",
-    status: "success",
-  },
-];
+import {
+  clearActivities,
+  deleteActivity,
+  getActivities,
+  type ActivityFilterType,
+  type ActivityItem,
+  type ActivityType,
+} from "../../utils/activityLog";
 
 export default function HistoryScreen() {
-  const [selectedFilter, setSelectedFilter] = useState<ActivityType>("all");
-  const [activities, setActivities] = useState<ActivityItem[]>(mockActivities);
+  const [selectedFilter, setSelectedFilter] = useState<ActivityFilterType>("all");
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+
+  const loadActivities = useCallback(async () => {
+    const items = await getActivities();
+    setActivities(items);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadActivities();
+    }, [loadActivities])
+  );
 
   const filteredActivities = activities.filter(
     (item) => selectedFilter === "all" || item.type === selectedFilter
@@ -121,7 +48,8 @@ export default function HistoryScreen() {
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => {
+          onPress: async () => {
+            await deleteActivity(id);
             setActivities((prev) => prev.filter((item) => item.id !== id));
           },
         },
@@ -138,7 +66,8 @@ export default function HistoryScreen() {
         {
           text: "Clear All",
           style: "destructive",
-          onPress: () => {
+          onPress: async () => {
+            await clearActivities();
             setActivities([]);
           },
         },
@@ -152,10 +81,10 @@ export default function HistoryScreen() {
         return <MaterialCommunityIcons name="scale-bathroom" size={20} color="#0046AD" />;
       case "growth_forecast":
         return <Ionicons name="analytics-outline" size={20} color="#16A34A" />;
-      case "sensor_update":
+      case "spoilage_check":
+        return <MaterialCommunityIcons name="food-apple-outline" size={20} color="#F59E0B" />;
+      case "water_quality":
         return <Ionicons name="water-outline" size={20} color="#0284C7" />;
-      case "harvest":
-        return <MaterialCommunityIcons name="sprout" size={20} color="#16A34A" />;
       case "system":
         return <Feather name="sun" size={20} color="#7C3AED" />;
       case "disease_check":
@@ -171,10 +100,10 @@ export default function HistoryScreen() {
         return "bg-[#EAF4FF]";
       case "growth_forecast":
         return "bg-[#E9FBEF]";
-      case "sensor_update":
+      case "spoilage_check":
+        return "bg-[#FFF6E5]";
+      case "water_quality":
         return "bg-[#E8F7FF]";
-      case "harvest":
-        return "bg-[#E9FBEF]";
       case "system":
         return "bg-[#F3E8FF]";
       case "disease_check":
@@ -257,16 +186,22 @@ export default function HistoryScreen() {
               count={activities.filter((a) => a.type === "growth_forecast").length}
             />
             <FilterChip
-              label="Sensors"
-              active={selectedFilter === "sensor_update"}
-              onPress={() => setSelectedFilter("sensor_update")}
-              count={activities.filter((a) => a.type === "sensor_update").length}
+              label="Spoilage"
+              active={selectedFilter === "spoilage_check"}
+              onPress={() => setSelectedFilter("spoilage_check")}
+              count={activities.filter((a) => a.type === "spoilage_check").length}
             />
             <FilterChip
-              label="Harvest"
-              active={selectedFilter === "harvest"}
-              onPress={() => setSelectedFilter("harvest")}
-              count={activities.filter((a) => a.type === "harvest").length}
+              label="Disease"
+              active={selectedFilter === "disease_check"}
+              onPress={() => setSelectedFilter("disease_check")}
+              count={activities.filter((a) => a.type === "disease_check").length}
+            />
+            <FilterChip
+              label="Water"
+              active={selectedFilter === "water_quality"}
+              onPress={() => setSelectedFilter("water_quality")}
+              count={activities.filter((a) => a.type === "water_quality").length}
             />
             <FilterChip
               label="System"
@@ -407,16 +342,16 @@ function FilterChip({
 
 function StatusPill({ status }: { status: "success" | "warning" | "info" }) {
   const colors = {
-    success: { bg: "bg-[#E9FBEF]", text: "text-[#16A34A]", icon: "checkmark-circle" },
-    warning: { bg: "bg-[#FFF6E5]", text: "text-[#F59E0B]", icon: "alert-circle" },
-    info: { bg: "bg-[#EAF4FF]", text: "text-[#0046AD]", icon: "information-circle" },
+    success: { bg: "bg-[#E9FBEF]", text: "text-[#16A34A]", icon: "checkmark-circle", iconColor: "#16A34A" },
+    warning: { bg: "bg-[#FFF6E5]", text: "text-[#F59E0B]", icon: "alert-circle", iconColor: "#F59E0B" },
+    info: { bg: "bg-[#EAF4FF]", text: "text-[#0046AD]", icon: "information-circle", iconColor: "#0046AD" },
   };
 
-  const { bg, text, icon } = colors[status];
+  const { bg, text, icon, iconColor } = colors[status];
 
   return (
     <View className={`px-2 py-1 rounded-full ${bg} flex-row items-center`}>
-      <Ionicons name={icon as any} size={10} color={colors[status].text.replace('text-', '')} style={{ marginRight: 3 }} />
+      <Ionicons name={icon as any} size={10} color={iconColor} style={{ marginRight: 3 }} />
       <Text className={`text-[10px] font-extrabold ${text}`}>
         {status.toUpperCase()}
       </Text>

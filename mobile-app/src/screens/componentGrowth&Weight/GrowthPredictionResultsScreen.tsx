@@ -23,6 +23,7 @@ import { saveGrowthPrediction } from "../../api/growthApi";
 import { getPlants } from "../../api/plantsApi";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { addScanToCache } from "../componentGrowth&Weight/PlantDetailsScreen";
+import { logGrowthActivity } from "../../utils/activityLog";
 
 type RouteParams = {
   dateLabel?: string;
@@ -408,6 +409,13 @@ export default function GrowthPredictionResultsScreen() {
           age_days: todayAge,
         });
       }
+
+      await logGrowthActivity({
+        plantId: cleanPlantId,
+        predictedWeightG: model.predictedWeight,
+        dateLabel: model.dateLabel,
+        ageDays: savedAge,
+      });
 
       Alert.alert("Success", `Prediction saved successfully.`, [
         { text: "OK", onPress: () => navigation.navigate("PlantLists") },
