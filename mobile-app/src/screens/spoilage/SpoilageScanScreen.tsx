@@ -118,13 +118,11 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [mode, setMode] = useState<Mode>("Camera");
 
   const rawLockedPlantId = route.params?.plantId?.trim();
-  const initialDemoMode = route.params?.demoMode ?? false;
+  const demoMode = route.params?.demoMode ?? true;
   const initialDemoDayIndex = clampDemoIndex(route.params?.initialDemoDayIndex);
 
   const isLockedSimStream =
     !!rawLockedPlantId && rawLockedPlantId.toUpperCase().startsWith("SIM-");
-
-  const effectiveDemoMode = isLockedSimStream ? true : initialDemoMode;
 
   const lockedPlantId = rawLockedPlantId
     ? stripSim(rawLockedPlantId)
@@ -158,13 +156,12 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
   }, [lockedPlantId]);
 
   useEffect(() => {
-    if (effectiveDemoMode) {
+    if (demoMode) {
       setDemoTimeIndex(initialDemoDayIndex);
     }
-  }, [effectiveDemoMode, initialDemoDayIndex, rawLockedPlantId]);
+  }, [demoMode, initialDemoDayIndex, rawLockedPlantId]);
 
-  const selectedDemoOption =
-    DEMO_DAY_OPTIONS[demoTimeIndex] ?? DEMO_DAY_OPTIONS[0];
+  const selectedDemoOption = DEMO_DAY_OPTIONS[demoTimeIndex] ?? DEMO_DAY_OPTIONS[0];
   const selectedDemoLabel = selectedDemoOption.label;
   const selectedDemoDaysAhead = selectedDemoOption.daysAhead;
 
@@ -252,9 +249,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
       const sample = await getSimSample({
         plant_id: pidForSimRequest,
         mode: "time",
-        now_iso: effectiveDemoMode
-          ? selectedDemoTime
-          : new Date().toISOString(),
+        now_iso: demoMode ? selectedDemoTime : new Date().toISOString(),
       });
 
       if (!simLock) {
@@ -293,7 +288,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         return;
       }
 
-      const effectiveNowIso = effectiveDemoMode
+      const effectiveNowIso = demoMode
         ? selectedDemoTime
         : new Date().toISOString();
 
@@ -330,7 +325,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         sourceImageName: sample.image_name ?? null,
       });
 
-      if (effectiveDemoMode) {
+      if (demoMode) {
         Alert.alert(
           "Simulated Camera",
           `Plant: ${pidForDisplay}
@@ -363,7 +358,6 @@ Image: ${sample.image_name ?? "none"}`
     }
 
     const pidClean = stripSim((lockedPlantId ?? plantId)?.trim() || "");
-
     if (!pidClean) {
       Alert.alert("Missing", "Enter Plant ID (ex: P-001).");
       return;
@@ -388,7 +382,7 @@ Image: ${sample.image_name ?? "none"}`
       const usedHumidity = isSim ? simLock!.humidity : humidity;
 
       const usedCapturedAt = isSim
-        ? effectiveDemoMode
+        ? demoMode
           ? selectedDemoTime
           : new Date().toISOString()
         : capturedAt ?? new Date().toISOString();
@@ -414,7 +408,7 @@ Image: ${sample.image_name ?? "none"}`
         humidity: usedHumidity,
         plantId: pidClean,
         isSim: isSim || isLockedSimStream,
-      });
+      } as any);
     } catch (e: any) {
       console.log("Predict error:", e?.message, e?.response?.data);
 
@@ -446,7 +440,7 @@ Image: ${sample.image_name ?? "none"}`
           </TouchableOpacity>
 
           <Text className="text-[16px] font-extrabold text-gray-900">
-            {effectiveDemoMode ? "Scan Spoilage (Demo)" : "Scan Spoilage"}
+            {demoMode ? "Scan Spoilage (Demo)" : "Scan Spoilage"}
           </Text>
 
           <View
@@ -523,7 +517,7 @@ Image: ${sample.image_name ?? "none"}`
           </View>
         )}
 
-        {effectiveDemoMode ? (
+        {demoMode ? (
           <View
             className="mt-4 bg-white rounded-[18px] px-4 py-4 shadow-sm"
             style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
@@ -693,11 +687,7 @@ Image: ${sample.image_name ?? "none"}`
                         }
                         className="w-11 h-11 rounded-full bg-black/55 items-center justify-center"
                       >
-                        <Ionicons
-                          name="camera-reverse-outline"
-                          size={18}
-                          color="#fff"
-                        />
+                        <Ionicons name="camera-reverse-outline" size={18} color="#fff" />
                       </TouchableOpacity>
                     </View>
 
@@ -831,11 +821,7 @@ Image: ${sample.image_name ?? "none"}`
                 ) : (
                   <>
                     <View className="w-14 h-14 rounded-full bg-[#EAF4FF] items-center justify-center">
-                      <Ionicons
-                        name="cloud-upload-outline"
-                        size={24}
-                        color={PRIMARY}
-                      />
+                      <Ionicons name="cloud-upload-outline" size={24} color={PRIMARY} />
                     </View>
                     <Text className="mt-3 font-extrabold text-gray-900">
                       Upload Image

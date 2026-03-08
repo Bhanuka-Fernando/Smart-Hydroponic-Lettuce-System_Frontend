@@ -79,17 +79,6 @@ function recheckActionText(item: RecheckReminderRow) {
   return "Rescan tomorrow";
 }
 
-function getInitialDemoDayIndex(stage?: string | null) {
-  const s = String(stage || "").trim().toLowerCase();
-
-  if (s === "fresh") return 0;
-  if (s === "slightly_aged") return 1;
-  if (s === "near_spoilage") return 2;
-  if (s === "spoiled") return 3;
-
-  return 0;
-}
-
 type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageDetails">;
 
 export default function SpoilageDetailsScreen({ navigation }: Props) {
@@ -118,13 +107,15 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
     } catch (e: any) {
       console.log("Load extras error:", e?.message, e?.response?.data);
     }
-  };
+    return out;
+  }, [rows]);
 
   useEffect(() => {
     loadExtras();
     const unsub = navigation.addListener("focus", loadExtras);
     return unsub;
-  }, [navigation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const latestRows = useMemo(() => {
     const seen = new Set<string>();
@@ -510,97 +501,87 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
         {recheckItems.length === 0 ? (
           <EmptyPanel text="No urgent rescans right now." />
         ) : (
-          recheckItems.slice(0, 3).map((item) => {
-            const sim = isSimPlantId(item.plant_id);
-
-            return (
-              <TouchableOpacity
-                key={`${item.plant_id}-${item.captured_at}`}
-                activeOpacity={0.9}
-                onPress={() =>
-                  navigation.navigate("SpoilagePlantDetails", {
-                    plantId: item.plant_id,
-                  })
-                }
-                className="bg-white rounded-[20px] px-4 py-4 shadow-sm mb-3"
-              >
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-1 pr-3">
-                    <View className="flex-row items-center">
-                      <View
-                        className="w-9 h-9 rounded-full items-center justify-center mr-3"
-                        style={{
-                          backgroundColor:
-                            item.stage === "spoiled"
-                              ? "#FEE2E2"
-                              : item.stage === "near_spoilage"
-                              ? "#FFF7ED"
-                              : "#EFF6FF",
-                        }}
-                      >
-                        <Ionicons
-                          name={
-                            item.stage === "spoiled"
-                              ? "alert-circle-outline"
-                              : item.stage === "near_spoilage"
-                              ? "warning-outline"
-                              : "time-outline"
-                          }
-                          size={18}
-                          color={
-                            item.stage === "spoiled"
-                              ? "#DC2626"
-                              : item.stage === "near_spoilage"
-                              ? "#F59E0B"
-                              : "#2563EB"
-                          }
-                        />
-                      </View>
-
-                      <View className="flex-1">
-                        <Text className="text-[13px] font-extrabold text-gray-900">
-                          {displayPlantId(item.plant_id)}
-                          {sim ? (
-                            <Text className="text-[11px] text-gray-400">
-                              {" "}
-                              (Sim)
-                            </Text>
-                          ) : null}
-                        </Text>
-                        <Text className="text-[11px] text-gray-500 mt-1">
-                          Stage: {mapStageLabel(item.stage)} • Shelf Life:{" "}
-                          {Math.max(0, Math.round(item.remaining_days))} days
-                        </Text>
-                      </View>
+          recheckItems.slice(0, 3).map((item) => (
+            <TouchableOpacity
+              key={`${item.plant_id}-${item.captured_at}`}
+              activeOpacity={0.9}
+              onPress={() =>
+                navigation.navigate("SpoilagePlantDetails", {
+                  plantId: item.plant_id,
+                })
+              }
+              className="bg-white rounded-[20px] px-4 py-4 shadow-sm mb-3"
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 pr-3">
+                  <View className="flex-row items-center">
+                    <View
+                      className="w-9 h-9 rounded-full items-center justify-center mr-3"
+                      style={{
+                        backgroundColor:
+                          item.stage === "spoiled"
+                            ? "#FEE2E2"
+                            : item.stage === "near_spoilage"
+                            ? "#FFF7ED"
+                            : "#EFF6FF",
+                      }}
+                    >
+                      <Ionicons
+                        name={
+                          item.stage === "spoiled"
+                            ? "alert-circle-outline"
+                            : item.stage === "near_spoilage"
+                            ? "warning-outline"
+                            : "time-outline"
+                        }
+                        size={18}
+                        color={
+                          item.stage === "spoiled"
+                            ? "#DC2626"
+                            : item.stage === "near_spoilage"
+                            ? "#F59E0B"
+                            : "#2563EB"
+                        }
+                      />
                     </View>
 
-                    <Text className="text-[11px] font-semibold text-[#1D4ED8] mt-3">
-                      {recheckActionText(item)}
-                    </Text>
+                    <View className="flex-1">
+                      <Text className="text-[13px] font-extrabold text-gray-900">
+                        {displayPlantId(item.plant_id)}
+                        {isSimPlantId(item.plant_id) ? (
+                          <Text className="text-[11px] text-gray-400"> (Sim)</Text>
+                        ) : null}
+                      </Text>
+                      <Text className="text-[11px] text-gray-500 mt-1">
+                        Stage: {mapStageLabel(item.stage)} • Shelf Life:{" "}
+                        {Math.max(0, Math.round(item.remaining_days))} days
+                      </Text>
+                    </View>
                   </View>
 
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() =>
-                      navigation.navigate("SpoilageScan", {
-                        plantId: item.plant_id,
-                        demoMode: sim,
-                        initialDemoDayIndex: sim
-                          ? getInitialDemoDayIndex(item.stage)
-                          : undefined,
-                      })
-                    }
-                    className="px-4 py-2 rounded-full"
-                    style={{ backgroundColor: "#0046AD" }}
-                  >
-                    <Text className="text-[11px] font-extrabold text-white">
-                      Rescan
-                    </Text>
-                  </TouchableOpacity>
+                  <Text className="text-[11px] font-semibold text-[#1D4ED8] mt-3">
+                    {recheckActionText(item)}
+                  </Text>
                 </View>
-              </TouchableOpacity>
-            );
-          })
+
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() =>
+                    navigation.navigate("SpoilageScan", {
+                      plantId: item.plant_id,
+                      demoMode: false,
+                    })
+                  }
+                  className="px-4 py-2 rounded-full"
+                  style={{ backgroundColor: "#0046AD" }}
+                >
+                  <Text className="text-[11px] font-extrabold text-white">
+                    Rescan
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          ))
         )}
 
         <View className="flex-row items-center justify-between mt-6 mb-3">
@@ -872,9 +853,7 @@ function SmallActionCard({
         >
           {icon}
         </View>
-        <Text className="text-[20px] font-extrabold text-gray-900">
-          {value}
-        </Text>
+        <Text className="text-[20px] font-extrabold text-gray-900">{value}</Text>
       </View>
 
       <Text className="text-[12px] font-extrabold text-gray-900 mt-3">

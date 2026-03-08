@@ -21,6 +21,9 @@ import SettingsScreen from "../screens/main/SettingsScreen";
 import ProfileScreen from "../screens/main/ProfileScreen";
 
 import LeafHealthNavigator from "./LeafHealthNavigator";
+import SpoilageNavigator, {
+  type SpoilageStackParamList,
+} from "./SpoilageNavigator";
 
 export type DashboardStackParamList = {
   DashboardHome: undefined;
@@ -49,10 +52,11 @@ export type DashboardStackParamList = {
     actual?: number[];
     predicted?: number[];
   };
-
-  // pass ONLY plant_id
   PlantDetails: { plant_id: string };
   LeafHealth: undefined;
+
+  // Spoilage module
+  SpoilageModule: NavigatorScreenParams<SpoilageStackParamList> | undefined;
 };
 
 const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
@@ -85,6 +89,11 @@ function DashboardStackNavigator() {
         component={EstimateWeightResultsScreen}
       />
       <DashboardStack.Screen name="LeafHealth" component={LeafHealthNavigator} />
+
+      <DashboardStack.Screen
+        name="SpoilageModule"
+        component={SpoilageNavigator}
+      />
     </DashboardStack.Navigator>
   );
 }
@@ -145,7 +154,7 @@ export default function AppNavigator() {
         tabBarLabel: ({ focused }) => (
           <Text
             style={{
-              marginTop: 12,
+              marginTop: 10,
               fontSize: 12,
               fontWeight: "700",
               color: focused ? "#0046AD" : "#94A3B8",
@@ -155,14 +164,21 @@ export default function AppNavigator() {
           </Text>
         ),
         tabBarStyle: {
-          height: 100,
+          height: 96,
           paddingTop: 10,
           paddingRight: 14,
           paddingLeft: 14,
-          paddingBottom: 18,
-          backgroundColor: "white",
+          paddingBottom: 14,
+          backgroundColor: "#FFFFFF",
           borderTopWidth: 0,
           elevation: 12,
+          shadowColor: "#000",
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -4 },
+        },
+        tabBarItemStyle: {
+          paddingVertical: 4,
         },
         tabBarIcon: ({ focused }) => {
           const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -182,4 +198,3 @@ export default function AppNavigator() {
     </Tab.Navigator>
   );
 }
-

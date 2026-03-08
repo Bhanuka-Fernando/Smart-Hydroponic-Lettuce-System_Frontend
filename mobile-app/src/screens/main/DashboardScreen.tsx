@@ -101,8 +101,7 @@ export default function DashboardScreen() {
 
   const { user, signOut, accessToken } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
-  
-  // Dashboard state
+
   const [metrics, setMetrics] = useState<DashboardMetricsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -167,11 +166,9 @@ export default function DashboardScreen() {
       if (!isRefreshing) {
         console.warn("Using mock data - backend endpoint not available");
       }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [accessToken]);
+    },
+    [accessToken]
+  );
 
   // ✅ New function: Fetch fresh sensor readings from device simulator
   const handleCheckForUpdates = async () => {
@@ -253,10 +250,20 @@ export default function DashboardScreen() {
 
   // Fetch on mount
   useEffect(() => {
-    fetchDashboard();
-  }, []);
+    let isActive = true;
 
-  // Pull to refresh
+    const run = async () => {
+      if (!isActive) return;
+      await fetchDashboard();
+    };
+
+    run();
+
+    return () => {
+      isActive = false;
+    };
+  }, [fetchDashboard]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchDashboard(true);
@@ -288,8 +295,14 @@ const openSpoilageModule = (
     }
   };
 
+  const openSpoilageModule = () => {
+    navigation.navigate("SpoilageModule", {
+      screen: "SpoilageDetails",
+    });
+  };
+
   const handleDismissNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
   const handleClearAllNotifications = () => {
@@ -311,7 +324,6 @@ const openSpoilageModule = (
     try {
       setProfileOpen(false);
       await signOut();
-      // RootNavigator will automatically switch back to Auth screens
     } catch {
       Alert.alert("Logout failed", "Please try again.");
     }
@@ -319,9 +331,10 @@ const openSpoilageModule = (
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
-      {/* HEADER */}
       <View className="px-4 pt-4 pb-3">
-        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">{headerDate}</Text>
+        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">
+          {headerDate}
+        </Text>
 
         <View className="flex-row items-start justify-between mt-2">
           <View>
@@ -333,7 +346,6 @@ const openSpoilageModule = (
             </Text>
           </View>
 
-          {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => setProfileOpen(true)}
@@ -348,7 +360,6 @@ const openSpoilageModule = (
         </View>
       </View>
 
-      {/* BODY */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
@@ -495,7 +506,13 @@ const openSpoilageModule = (
                   title="Weight & Growth"
                   subtitle="Forecasting & Estimation"
                   iconBg="bg-[#EAF4FF]"
-                  icon={<MaterialCommunityIcons name="sprout" size={22} color="#0046AD" />}
+                  icon={
+                    <MaterialCommunityIcons
+                      name="sprout"
+                      size={22}
+                      color="#0046AD"
+                    />
+                  }
                   onPress={() => go("WeightGrowth")}
                 />
                 <FeatureCard
@@ -519,8 +536,14 @@ const openSpoilageModule = (
                   title="Water Quality"
                   subtitle="Monitor Sensor data"
                   iconBg="bg-[#E8F7FF]"
-                  icon={<Ionicons name="water-outline" size={22} color="#0284C7" />}
-                  onPress={() => (navigation.getParent() as any)?.navigate("WaterQuality")}
+                  icon={
+                    <Ionicons
+                      name="water-outline"
+                      size={22}
+                      color="#0284C7"
+                    />
+                  }
+                  onPress={() => go("Scan")}
                 />
               </View>
             </View>
@@ -529,14 +552,16 @@ const openSpoilageModule = (
 
             {/* Notifications section removed */}
 
-            {/* Recent Activities */}
             {activities.length > 0 && (
               <>
                 <View className="flex-row items-center justify-between mt-6 mb-3">
                   <Text className="text-[13px] font-extrabold text-gray-900">
                     Recent Activities
                   </Text>
-                  <TouchableOpacity onPress={() => go("History")} activeOpacity={0.85}>
+                  <TouchableOpacity
+                    onPress={() => go("History")}
+                    activeOpacity={0.85}
+                  >
                     <Text className="text-[11px] font-extrabold text-[#0046AD]">
                       View All
                     </Text>
@@ -567,19 +592,18 @@ const openSpoilageModule = (
         ) : null}
       </ScrollView>
 
-      {/* ✅ Profile Bottom Sheet Modal */}
       <Modal
         visible={profileOpen}
         transparent
         animationType="slide"
         onRequestClose={() => setProfileOpen(false)}
       >
-        {/* Backdrop */}
-        <Pressable className="flex-1 bg-black/40" onPress={() => setProfileOpen(false)} />
+        <Pressable
+          className="flex-1 bg-black/40"
+          onPress={() => setProfileOpen(false)}
+        />
 
-        {/* Sheet */}
         <View className="bg-white rounded-t-3xl px-5 pt-4 pb-6">
-          {/* Grab handle */}
           <View className="w-12 h-1.5 bg-gray-200 rounded-full self-center mb-4" />
 
           <View className="flex-row items-center">
@@ -715,7 +739,9 @@ function FeatureCard({
       activeOpacity={0.85}
       className="bg-white rounded-[18px] p-4 w-[48%]"
     >
-      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
+      <View
+        className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}
+      >
         {icon}
       </View>
 
@@ -746,7 +772,9 @@ function QuickAction({
       activeOpacity={0.85}
       className="bg-white rounded-[18px] w-[23%] pt-4 pb-3 items-center shadow-sm"
     >
-      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
+      <View
+        className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}
+      >
         {icon}
       </View>
 
@@ -778,10 +806,26 @@ function NotificationCard({
   onDismiss: () => void;
 }) {
   const colors = {
-    orange: { bar: "bg-orange-400", iconBg: "bg-[#FFF6E5]", iconColor: "#F59E0B" },
-    blue: { bar: "bg-blue-600", iconBg: "bg-[#EAF2FF]", iconColor: "#2563EB" },
-    green: { bar: "bg-green-500", iconBg: "bg-[#E9FBEF]", iconColor: "#16A34A" },
-    red: { bar: "bg-red-500", iconBg: "bg-[#FFE5E5]", iconColor: "#EF4444" },
+    orange: {
+      bar: "bg-orange-400",
+      iconBg: "bg-[#FFF6E5]",
+      iconColor: "#F59E0B",
+    },
+    blue: {
+      bar: "bg-blue-600",
+      iconBg: "bg-[#EAF2FF]",
+      iconColor: "#2563EB",
+    },
+    green: {
+      bar: "bg-green-500",
+      iconBg: "bg-[#E9FBEF]",
+      iconColor: "#16A34A",
+    },
+    red: {
+      bar: "bg-red-500",
+      iconBg: "bg-[#FFE5E5]",
+      iconColor: "#EF4444",
+    },
   };
   const { bar, iconBg, iconColor } = colors[accent];
 
@@ -791,7 +835,9 @@ function NotificationCard({
         <View className={`w-1.5 ${bar}`} />
         <View className="flex-1 px-4 py-4">
           <View className="flex-row items-center">
-            <View className={`w-10 h-10 rounded-[14px] ${iconBg} items-center justify-center mr-3`}>
+            <View
+              className={`w-10 h-10 rounded-[14px] ${iconBg} items-center justify-center mr-3`}
+            >
               <Ionicons name={iconName as any} size={18} color={iconColor} />
             </View>
 
@@ -839,11 +885,17 @@ function ActivityRow({
     const iconColor = iconBg.includes("EAF4FF")
       ? "#0046AD"
       : iconBg.includes("E9FBEF")
-      ? "#16A34A"
-      : "#7C3AED";
+        ? "#16A34A"
+        : "#7C3AED";
 
     if (iconLib === "material") {
-      return <MaterialCommunityIcons name={iconName as any} size={18} color={iconColor} />;
+      return (
+        <MaterialCommunityIcons
+          name={iconName as any}
+          size={18}
+          color={iconColor}
+        />
+      );
     } else if (iconLib === "ionicons") {
       return <Ionicons name={iconName as any} size={18} color={iconColor} />;
     } else {
@@ -853,7 +905,9 @@ function ActivityRow({
 
   return (
     <View className="flex-row items-center px-4 py-4">
-      <View className={`w-10 h-10 rounded-full ${iconBg} items-center justify-center mr-3`}>
+      <View
+        className={`w-10 h-10 rounded-full ${iconBg} items-center justify-center mr-3`}
+      >
         {renderIcon()}
       </View>
 
@@ -889,30 +943,6 @@ function MetricItem({
           {value}
         </Text>
       </View>
-    </View>
-  );
-}
-
-function SensorMetric({
-  icon,
-  label,
-  value,
-  bgColor,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  bgColor: string;
-}) {
-  return (
-    <View className={`${bgColor} rounded-xl p-3`}>
-      <View className="flex-row items-center mb-2">
-        {icon}
-        <Text className="text-[11px] text-gray-600 ml-2 font-semibold">
-          {label}
-        </Text>
-      </View>
-      <Text className="text-[15px] font-extrabold text-gray-900">{value}</Text>
     </View>
   );
 }
