@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { SpoilageStackParamList } from "../../navigation/SpoilageNavigator";
+import { logSpoilageActivity } from "../../utils/activityLog";
 
 type Props = NativeStackScreenProps<
   SpoilageStackParamList,
@@ -102,6 +103,21 @@ export default function SpoilageShelfLifeResultScreen({
       plantId: result?.plant_id,
       demoMode: false,
     } as any);
+  };
+
+  const onSave = async () => {
+    try {
+      await logSpoilageActivity({
+        plantId: result?.plant_id,
+        stage: result?.stage,
+        remainingDays: result?.remaining_days,
+        capturedAtISO: result?.captured_at,
+      });
+    } catch (error) {
+      console.error("Failed to log spoilage activity:", error);
+    } finally {
+      setShowSaved(true);
+    }
   };
 
   return (
@@ -271,7 +287,7 @@ export default function SpoilageShelfLifeResultScreen({
 
           <TouchableOpacity
             activeOpacity={0.9}
-            onPress={() => setShowSaved(true)}
+            onPress={onSave}
             className="rounded-[14px] items-center justify-center"
             style={{
               width: "48%",

@@ -413,7 +413,7 @@ Image: ${sample.image_name ?? "none"}`
           </TouchableOpacity>
 
           <Text className="text-[16px] font-extrabold text-gray-900">
-            {effectiveDemoMode ? "Scan (Demo)" : "Spoilage Scan"}
+            {effectiveDemoMode ? "Scan the Plant" : "Spoilage Scan"}
           </Text>
 
           <View className="w-10 h-10" />
@@ -694,7 +694,7 @@ Image: ${sample.image_name ?? "none"}`
             >
               <Ionicons name="camera-outline" size={16} color={PRIMARY} />
               <Text className="ml-2 text-[12px] font-extrabold text-gray-900">
-                Simulate Camera (Dataset)
+                Simulate Camera
               </Text>
             </TouchableOpacity>
 

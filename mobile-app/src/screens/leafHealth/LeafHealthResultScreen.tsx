@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import {
   predictLeafHealthAnnotated,
   saveLeafHealthLog,
 } from "../../api/LeafHealthApi";
+import { logDiseaseActivity } from "../../utils/activityLog";
 
 function formatSeverity(status?: string) {
   if (status === "ACT NOW") return "High";
@@ -31,6 +32,8 @@ function formatStatusLabel(status?: string) {
 
 export default function LeafHealthResultScreen({ route, navigation }: any) {
   const { result, imageUri } = route.params || {};
+  const shouldLogActivity = route?.params?.shouldLogActivity !== false;
+  const hasLoggedActivityRef = useRef(false);
 
   const backendImageUri = buildLeafHealthImageUrl(result?.image_path);
   const displayImageUri = imageUri || backendImageUri;
@@ -38,6 +41,21 @@ export default function LeafHealthResultScreen({ route, navigation }: any) {
   const [annotating, setAnnotating] = useState(false);
   const [annotatedVisible, setAnnotatedVisible] = useState(false);
   const [annotatedImageUri, setAnnotatedImageUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!shouldLogActivity || !result || hasLoggedActivityRef.current) return;
+    hasLoggedActivityRef.current = true;
+
+    logDiseaseActivity({
+      plantId: result?.plant_id,
+      healthScore: result?.health_score,
+      status: result?.status,
+      mainIssue: result?.primary_issue || result?.main_issue,
+      capturedAtISO: result?.captured_at,
+    }).catch((error) => {
+      console.error("Failed to log disease activity:", error);
+    });
+  }, [result, shouldLogActivity]);
 
   const saveLog = async () => {
     try {

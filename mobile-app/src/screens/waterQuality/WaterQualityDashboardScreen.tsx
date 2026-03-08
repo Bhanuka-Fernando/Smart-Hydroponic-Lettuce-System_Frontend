@@ -20,6 +20,7 @@ import {
   type AnalyzeResponse,
   type WaterReading,
 } from "../../api/WaterQualityApi";
+import { logWaterActivity } from "../../utils/activityLog";
 
 type Props = NativeStackScreenProps<
   WaterQualityStackParamList,
@@ -139,7 +140,7 @@ function algaeDefaults(level: string) {
 function ScoreRing({ score, color }: { score: number; color: string }) {
   const size = 112;
   const inner = 86;
-  const pct = Math.max(0, Math.min(100, score));
+  const pct = Math.max(0, Math.min(90, score)); // ✅ cap at 90
 
   return (
     <View
@@ -347,14 +348,7 @@ function MiniLineChart({
   return (
     <View className="rounded-[18px] bg-[#F5FAFF] border border-[#E5EEF9] overflow-hidden">
       <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
-        <Line
-          x1={pad}
-          y1={pad}
-          x2={width - pad}
-          y2={pad}
-          stroke="#D7E6FF"
-          strokeWidth="1"
-        />
+        <Line x1={pad} y1={pad} x2={width - pad} y2={pad} stroke="#D7E6FF" strokeWidth="1" />
         <Line
           x1={pad}
           y1={height - pad}
@@ -365,14 +359,7 @@ function MiniLineChart({
         />
 
         <Polyline points={points} fill="none" stroke={color} strokeWidth="3" />
-        <Circle
-          cx={lastX}
-          cy={lastY}
-          r="5"
-          fill="#FFFFFF"
-          stroke={color}
-          strokeWidth="3"
-        />
+        <Circle cx={lastX} cy={lastY} r="5" fill="#FFFFFF" stroke={color} strokeWidth="3" />
       </Svg>
     </View>
   );
@@ -422,12 +409,20 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
       setLatestRow(readings[readings.length - 1]);
       const res = await analyzeBatch(tankId, readings);
       setResult(res);
+
+      // activity log (non-blocking)
+      try {
+        await logWaterActivity({
+          tankId,
+          finalStatus: res?.final_status,
+          healthScore: res?.health_score,
+          sourceTimestamp: String(res?.timestamp ?? readings[readings.length - 1]?.timestamp ?? ""),
+        });
+      } catch (error) {
+        console.error("Failed to log water activity:", error);
+      }
     } catch (e: any) {
-      setErr(
-        e?.response?.data?.detail ??
-          e?.message ??
-          "Failed to load water quality status."
-      );
+      setErr(e?.response?.data?.detail ?? e?.message ?? "Failed to load water quality status.");
       setResult(null);
       setLatestRow(null);
       setChartSeries({ ph: [], turb: [] });
@@ -459,6 +454,7 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
   const algaeMainAction = result?.algae_actions?.[0] ?? defaults.action;
 
   const healthScore = result?.health_score ?? 0;
+  const cappedScore = Math.max(0, Math.min(90, healthScore)); // ✅ cap at 90 everywhere
   const sensorQuality = result?.sensor_quality ?? "OK";
 
   const lastUpdated = result?.timestamp ? String(result.timestamp) : "—";
@@ -483,19 +479,13 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
             </TouchableOpacity>
 
             <View className="items-center">
-              <Text className="text-[18px] font-extrabold text-gray-900">
-                Water Quality
-              </Text>
-              <Text className="text-[12px] font-bold text-gray-500 mt-1">
-                Tank: {tankId}
-              </Text>
+              <Text className="text-[18px] font-extrabold text-gray-900">Water Quality</Text>
+              <Text className="text-[12px] font-bold text-gray-500 mt-1">Tank: {tankId}</Text>
             </View>
 
             <View className="flex-row gap-2">
               <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate("WaterQualityCharts", { tank_id: tankId })
-                }
+                onPress={() => navigation.navigate("WaterQualityCharts", { tank_id: tankId })}
                 className="w-11 h-11 rounded-2xl items-center justify-center border border-[#E6EEF9] bg-white"
                 activeOpacity={0.85}
               >
@@ -503,9 +493,7 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate("WaterQualityHistory", { tank_id: tankId })
-                }
+                onPress={() => navigation.navigate("WaterQualityHistory", { tank_id: tankId })}
                 className="w-11 h-11 rounded-2xl items-center justify-center border border-[#E6EEF9] bg-white"
                 activeOpacity={0.85}
               >
@@ -524,23 +512,11 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
             </View>
           ) : err ? (
             <View className="bg-white rounded-[24px] p-5 border border-[#FFE4E6]">
-              <Text className="text-[16px] font-extrabold text-red-700">
-                Cannot load status
-              </Text>
+              <Text className="text-[16px] font-extrabold text-red-700">Cannot load status</Text>
               <Text className="text-[13px] text-gray-700 mt-2">{err}</Text>
               <Text className="text-[12px] text-gray-500 mt-2">
-                Tip: Postman ingest 10+ readings for TANK_01 (15-min gaps), then
-                refresh.
+                Tip: Postman ingest 10+ readings for TANK_01 (15-min gaps), then pull down to refresh.
               </Text>
-
-              <TouchableOpacity
-                onPress={onRefresh}
-                className="mt-4 rounded-2xl px-4 py-3 items-center"
-                style={{ backgroundColor: THEME }}
-                activeOpacity={0.85}
-              >
-                <Text className="text-white font-extrabold">Retry</Text>
-              </TouchableOpacity>
             </View>
           ) : null}
         </View>
@@ -550,70 +526,35 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
           <>
             {/* Hero */}
             <View className="px-5 mt-5">
-              <View
-                className="rounded-[28px] overflow-hidden border shadow-sm bg-white"
-                style={{ borderColor: st.border }}
-              >
+              <View className="rounded-[28px] overflow-hidden border shadow-sm bg-white" style={{ borderColor: st.border }}>
                 <View style={{ backgroundColor: st.glow }} className="px-5 py-5">
                   <View className="flex-row items-center justify-between">
                     <View className="flex-1 pr-4">
-                      <Text className="text-[12px] font-bold text-gray-600">
-                        Final Status
-                      </Text>
+                      <Text className="text-[12px] font-bold text-gray-600">Final Status</Text>
 
                       <View className="mt-3 flex-row items-center justify-between">
                         <StatusPill label={finalStatus} />
-                        <TouchableOpacity
-                          onPress={onRefresh}
-                          className="px-4 py-2 rounded-full bg-white border border-[#E5EEF9]"
-                          activeOpacity={0.85}
-                        >
-                          <View className="flex-row items-center">
-                            <Ionicons name="refresh" size={16} color={THEME} />
-                            <Text
-                              className="ml-2 font-extrabold text-[12px]"
-                              style={{ color: THEME }}
-                            >
-                              Refresh
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
                       </View>
 
-                      <Text className="mt-3 text-[13px] text-gray-700">
-                        {st.hint}
-                      </Text>
+                      <Text className="mt-3 text-[13px] text-gray-700">{st.hint}</Text>
 
                       <View className="mt-4 bg-white rounded-[18px] border border-[#E5EEF9] p-4">
-                        <Text className="text-[12px] font-bold text-gray-500">
-                          Main reason
-                        </Text>
-                        <Text className="mt-2 text-[13px] text-gray-800">
-                          {oneLine(result.main_reason)}
-                        </Text>
+                        <Text className="text-[12px] font-bold text-gray-500">Main reason</Text>
+                        <Text className="mt-2 text-[13px] text-gray-800">{oneLine(result.main_reason)}</Text>
 
-                        <Text className="mt-4 text-[12px] font-bold text-gray-500">
-                          Main action
-                        </Text>
-                        <Text className="mt-2 text-[13px] font-extrabold text-gray-900">
-                          {oneLine(result.main_action)}
-                        </Text>
+                        <Text className="mt-4 text-[12px] font-bold text-gray-500">Main action</Text>
+                        <Text className="mt-2 text-[13px] font-extrabold text-gray-900">{oneLine(result.main_action)}</Text>
                       </View>
                     </View>
 
-                    <ScoreRing score={healthScore} color={st.solid} />
+                    <ScoreRing score={cappedScore} color={st.solid} />
                   </View>
 
                   <View className="mt-5">
                     <View className="flex-row items-center justify-between">
-                      <Text className="text-[13px] font-bold text-gray-700">
-                        Status Strength
-                      </Text>
-                      <Text
-                        className="text-[13px] font-extrabold"
-                        style={{ color: st.solid }}
-                      >
-                        {healthScore}%
+                      <Text className="text-[13px] font-bold text-gray-700">Status Strength</Text>
+                      <Text className="text-[13px] font-extrabold" style={{ color: st.solid }}>
+                        {cappedScore}%
                       </Text>
                     </View>
 
@@ -621,7 +562,7 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
                       <View
                         className="h-4 rounded-full"
                         style={{
-                          width: `${Math.max(0, Math.min(100, healthScore))}%`,
+                          width: `${Math.max(0, Math.min(90, cappedScore))}%`,
                           backgroundColor: st.solid,
                         }}
                       />
@@ -630,9 +571,7 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
                     <View className="mt-2 flex-row items-center justify-between">
                       <View className="flex-row items-center">
                         <Ionicons name="time" size={14} color={THEME} />
-                        <Text className="ml-2 text-[12px] text-gray-600">
-                          Updated: {lastUpdatedHHMM}
-                        </Text>
+                        <Text className="ml-2 text-[12px] text-gray-600">Updated: {lastUpdatedHHMM}</Text>
                       </View>
 
                       <View className="flex-row items-center">
@@ -641,9 +580,7 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
                           size={14}
                           color={sensorQuality === "SUSPECT" ? "#EF4444" : "#18A957"}
                         />
-                        <Text className="ml-2 text-[12px] text-gray-600">
-                          Sensor: {sensorQuality}
-                        </Text>
+                        <Text className="ml-2 text-[12px] text-gray-600">Sensor: {sensorQuality}</Text>
                       </View>
                     </View>
                   </View>
@@ -651,66 +588,36 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
               </View>
             </View>
 
-            {/* KPI strip */}
+            {/* KPI strip (✅ healthscore removed) */}
             <View className="mt-5">
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                className="px-5"
-              >
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-5">
+                <SummaryCard title="Final Status" value={finalStatus} subtitle="System decision" icon="pulse" accent={st.solid} />
+                <SummaryCard title="Algae Level" value={algaeLevel} subtitle="ML prediction" icon="leaf" accent={at.solid} />
                 <SummaryCard
-                  title="Final Status"
-                  value={finalStatus}
-                  subtitle="System decision"
-                  icon="pulse"
-                  accent={st.solid}
-                />
-                <SummaryCard
-                  title="Health Score"
-                  value={`${healthScore}/100`}
-                  subtitle="Rule-based"
-                  icon="speedometer"
-                  accent={THEME}
-                />
-                <SummaryCard
-                  title="Algae Level"
-                  value={algaeLevel}
-                  subtitle="ML prediction"
-                  icon="leaf"
-                  accent={at.solid}
+                  title="Sensor Quality"
+                  value={sensorQuality}
+                  subtitle={sensorQuality === "SUSPECT" ? "Check probes" : "Stable"}
+                  icon="hardware-chip"
+                  accent={sensorQuality === "SUSPECT" ? "#EF4444" : "#18A957"}
                 />
                 <SummaryCard
                   title="Water Conf."
-                  value={Math.max(
-                    waterProbs.OK ?? 0,
-                    waterProbs.WARNING ?? 0,
-                    waterProbs.CRITICAL ?? 0
-                  ).toFixed(2)}
+                  value={Math.max(waterProbs.OK ?? 0, waterProbs.WARNING ?? 0, waterProbs.CRITICAL ?? 0).toFixed(2)}
                   subtitle="ML probability"
                   icon="shield-checkmark"
                   accent={THEME}
                 />
-                <SummaryCard
-                  title="Last Updated"
-                  value={lastUpdatedHHMM}
-                  subtitle="HH:MM"
-                  icon="time"
-                  accent={THEME}
-                />
+                <SummaryCard title="Last Updated" value={lastUpdatedHHMM} subtitle="HH:MM" icon="time" accent={THEME} />
               </ScrollView>
             </View>
 
-            {/* ✅ Mini charts on dashboard */}
+            {/* Mini charts */}
             <View className="px-5 mt-5">
               <View className="bg-white rounded-[24px] border border-[#E5EEF9] p-5 shadow-sm">
                 <View className="flex-row items-center justify-between">
                   <View>
-                    <Text className="text-[16px] font-extrabold text-gray-900">
-                      Trend Overview
-                    </Text>
-                    <Text className="text-[12px] font-bold text-gray-500 mt-1">
-                      Last {chartSeries.turb.length} readings
-                    </Text>
+                    <Text className="text-[16px] font-extrabold text-gray-900">Trend Overview</Text>
+                    <Text className="text-[12px] font-bold text-gray-500 mt-1">Last {chartSeries.turb.length} readings</Text>
                   </View>
                   <View className="w-10 h-10 rounded-2xl items-center justify-center bg-[#EAF4FF] border border-[#E5EEF9]">
                     <Ionicons name="trending-up" size={18} color={THEME} />
@@ -719,14 +626,9 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
 
                 <View className="mt-4">
                   <View className="flex-row items-center justify-between mb-2">
-                    <Text className="text-[13px] font-extrabold text-gray-900">
-                      Turbidity Trend
-                    </Text>
+                    <Text className="text-[13px] font-extrabold text-gray-900">Turbidity Trend</Text>
                     <Text className="text-[13px] font-extrabold" style={{ color: "#10B981" }}>
-                      {chartSeries.turb.length
-                        ? chartSeries.turb[chartSeries.turb.length - 1].toFixed(1)
-                        : "—"}{" "}
-                      NTU
+                      {chartSeries.turb.length ? chartSeries.turb[chartSeries.turb.length - 1].toFixed(1) : "—"} NTU
                     </Text>
                   </View>
                   <MiniLineChart values={chartSeries.turb} color="#10B981" />
@@ -734,13 +636,9 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
 
                 <View className="mt-5">
                   <View className="flex-row items-center justify-between mb-2">
-                    <Text className="text-[13px] font-extrabold text-gray-900">
-                      pH Trend
-                    </Text>
+                    <Text className="text-[13px] font-extrabold text-gray-900">pH Trend</Text>
                     <Text className="text-[13px] font-extrabold" style={{ color: THEME }}>
-                      {chartSeries.ph.length
-                        ? chartSeries.ph[chartSeries.ph.length - 1].toFixed(2)
-                        : "—"}
+                      {chartSeries.ph.length ? chartSeries.ph[chartSeries.ph.length - 1].toFixed(2) : "—"}
                     </Text>
                   </View>
                   <MiniLineChart values={chartSeries.ph} color={THEME} />
@@ -751,9 +649,7 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
             {/* Water confidence */}
             <View className="px-5 mt-5">
               <Section title="Water Model Confidence" icon="shield-checkmark">
-                <Text className="text-[12px] text-gray-600">
-                  Probabilities for OK / WARNING / CRITICAL.
-                </Text>
+                <Text className="text-[12px] text-gray-600">Probabilities for OK / WARNING / CRITICAL.</Text>
                 <View className="mt-3 bg-[#F5FAFF] rounded-[18px] border border-[#E5EEF9] p-4">
                   <ProbBar label="OK" value={waterProbs.OK ?? 0} color="#18A957" />
                   <ProbBar label="WARNING" value={waterProbs.WARNING ?? 0} color="#F59E0B" />
@@ -764,52 +660,26 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
 
             {/* Live sensor snapshot */}
             <View className="px-5 mt-5">
-              <Text className="text-[16px] font-extrabold text-gray-900 mb-3">
-                Live Sensor Snapshot
-              </Text>
+              <Text className="text-[16px] font-extrabold text-gray-900 mb-3">Live Sensor Snapshot</Text>
               <View className="flex-row gap-3">
-                <StatTile
-                  label="pH"
-                  value={latestRow ? latestRow.ph.toFixed(2) : "—"}
-                  icon="water-outline"
-                />
-                <StatTile
-                  label="Temp"
-                  value={latestRow ? latestRow.temp_c.toFixed(1) : "—"}
-                  unit="°C"
-                  icon="thermometer-outline"
-                />
+                <StatTile label="pH" value={latestRow ? latestRow.ph.toFixed(2) : "—"} icon="water-outline" />
+                <StatTile label="Temp" value={latestRow ? latestRow.temp_c.toFixed(1) : "—"} unit="°C" icon="thermometer-outline" />
               </View>
               <View className="flex-row gap-3 mt-3">
-                <StatTile
-                  label="Turbidity"
-                  value={latestRow ? latestRow.turb_ntu.toFixed(1) : "—"}
-                  unit="NTU"
-                  icon="eye-outline"
-                />
-                <StatTile
-                  label="EC"
-                  value={latestRow ? latestRow.ec.toFixed(2) : "—"}
-                  icon="flash-outline"
-                />
+                <StatTile label="Turbidity" value={latestRow ? latestRow.turb_ntu.toFixed(1) : "—"} unit="NTU" icon="eye-outline" />
+                <StatTile label="EC" value={latestRow ? latestRow.ec.toFixed(2) : "—"} icon="flash-outline" />
               </View>
             </View>
 
             {/* Algae (vivid) */}
             <View className="px-5 mt-5">
-              <View
-                className="rounded-[26px] overflow-hidden border shadow-sm bg-white"
-                style={{ borderColor: at.border }}
-              >
+              <View className="rounded-[26px] overflow-hidden border shadow-sm bg-white" style={{ borderColor: at.border }}>
                 <View style={{ backgroundColor: at.glow }} className="px-5 py-5">
                   <View className="flex-row items-start justify-between">
                     <View className="flex-1 pr-4">
                       <Text className="text-[12px] font-bold text-gray-700">Algae Warning</Text>
 
-                      <View
-                        className="mt-3 flex-row items-center self-start px-5 py-3 rounded-full"
-                        style={{ backgroundColor: at.bg, borderColor: at.border, borderWidth: 1 }}
-                      >
+                      <View className="mt-3 flex-row items-center self-start px-5 py-3 rounded-full" style={{ backgroundColor: at.bg, borderColor: at.border, borderWidth: 1 }}>
                         <Ionicons name="leaf" size={20} color={at.text} />
                         <Text className="ml-3 text-[18px] font-extrabold" style={{ color: at.text }}>
                           {at.name}
@@ -852,14 +722,8 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
                 className="bg-white rounded-[22px] border border-[#E5EEF9] p-4 flex-row items-center justify-between"
                 activeOpacity={0.85}
               >
-                <Text className="text-[14px] font-extrabold text-gray-900">
-                  {showDetails ? "Hide details" : "See details"}
-                </Text>
-                <Ionicons
-                  name={showDetails ? "chevron-up" : "chevron-down"}
-                  size={20}
-                  color={THEME}
-                />
+                <Text className="text-[14px] font-extrabold text-gray-900">{showDetails ? "Hide details" : "See details"}</Text>
+                <Ionicons name={showDetails ? "chevron-up" : "chevron-down"} size={20} color={THEME} />
               </TouchableOpacity>
 
               {showDetails && (
@@ -867,9 +731,7 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
                   <Section title="Water Reasons" icon="list">
                     {result.reasons?.length ? (
                       result.reasons.map((r, idx) => (
-                        <Text key={idx} className="text-[13px] text-gray-800 mt-2">
-                          • {r}
-                        </Text>
+                        <Text key={idx} className="text-[13px] text-gray-800 mt-2">• {r}</Text>
                       ))
                     ) : (
                       <Text className="text-[13px] text-gray-600">No issues detected.</Text>
@@ -881,9 +743,7 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
                   <Section title="Water Actions" icon="checkmark-done">
                     {result.actions?.length ? (
                       result.actions.map((a, idx) => (
-                        <Text key={idx} className="text-[13px] text-gray-800 mt-2">
-                          • {a}
-                        </Text>
+                        <Text key={idx} className="text-[13px] text-gray-800 mt-2">• {a}</Text>
                       ))
                     ) : (
                       <Text className="text-[13px] text-gray-600">No action needed.</Text>
@@ -893,30 +753,22 @@ export default function WaterQualityDashboardScreen({ navigation }: Props) {
                   <View className="h-4" />
 
                   <Section title="More Algae Details" icon="leaf">
-                    {result.algae_reasons?.length ? (
+                    {(result.algae_reasons?.length ?? 0) > 0 ? (
                       result.algae_reasons.map((r, idx) => (
-                        <Text key={idx} className="text-[13px] text-gray-800 mt-2">
-                          • {r}
-                        </Text>
+                        <Text key={idx} className="text-[13px] text-gray-800 mt-2">• {r}</Text>
                       ))
                     ) : (
-                      <Text className="text-[13px] text-gray-600">
-                        No extra algae signals from rules (stable readings).
-                      </Text>
+                      <Text className="text-[13px] text-gray-600">No extra algae signals from rules (stable readings).</Text>
                     )}
 
-                    {result.algae_actions?.length ? (
+                    {(result.algae_actions?.length ?? 0) > 0 && (
                       <>
-                        <Text className="mt-4 text-[14px] font-extrabold text-gray-900">
-                          Actions
-                        </Text>
+                        <Text className="mt-4 text-[14px] font-extrabold text-gray-900">Actions</Text>
                         {result.algae_actions.map((a, idx) => (
-                          <Text key={idx} className="text-[13px] text-gray-800 mt-2">
-                            • {a}
-                          </Text>
+                          <Text key={idx} className="text-[13px] text-gray-800 mt-2">• {a}</Text>
                         ))}
                       </>
-                    ) : null}
+                    )}
                   </Section>
                 </View>
               )}

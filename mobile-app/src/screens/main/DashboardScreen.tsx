@@ -10,18 +10,18 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../auth/useAuth";
 import { getDashboardLatest, DashboardMetricsResponse } from "../../api/dashboardApi";
 import { getDeviceSensors } from "../../api/deviceApi";
 import axios from 'axios';
 import { ML_BASE_URL } from '../../utils/constants';
-import LeafHealthNavigator from "../../navigation/LeafHealthNavigator";
-import SpoilageNavigator from "../../navigation/SpoilageNavigator";
-import WaterQualityNavigator from "../../navigation/WaterQualityNavigator";
+// ✅ Import activity utilities
+import { getActivities, type ActivityItem, type ActivityType } from "../../utils/activityLog";
 
 type NotificationItem = {
   id: string;
@@ -32,16 +32,7 @@ type NotificationItem = {
   time: string;
 };
 
-type ActivityItem = {
-  id: string;
-  iconBg: string;
-  iconName: string;
-  iconLib: "ionicons" | "material" | "feather";
-  title: string;
-  subtitle: string;
-  time: string;
-};
-
+// ✅ Remove mock activities
 const mockNotifications: NotificationItem[] = [
   {
     id: "n1",
@@ -58,36 +49,6 @@ const mockNotifications: NotificationItem[] = [
     title: "Nutrient Schedule",
     body: "Weekly nutrient mix top-up is scheduled for tomorrow morning.",
     time: "1 hour ago",
-  },
-];
-
-const mockActivities: ActivityItem[] = [
-  {
-    id: "a1",
-    iconBg: "bg-[#EAF4FF]",
-    iconName: "sprout",
-    iconLib: "material",
-    title: "Scanned Lettuce #4",
-    subtitle: "Weight recorded: 245g",
-    time: "10:42 AM",
-  },
-  {
-    id: "a2",
-    iconBg: "bg-[#E9FBEF]",
-    iconName: "water-outline",
-    iconLib: "ionicons",
-    title: "pH Adjustment",
-    subtitle: "Auto-balanced to 6.2",
-    time: "09:15 AM",
-  },
-  {
-    id: "a3",
-    iconBg: "bg-[#F3E8FF]",
-    iconName: "sun",
-    iconLib: "feather",
-    title: "Light Cycle Started",
-    subtitle: "Day mode activated",
-    time: "08:00 AM",
   },
 ];
 
@@ -108,20 +69,29 @@ export default function DashboardScreen() {
   const [metrics, setMetrics] = useState<DashboardMetricsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  // ✅ Add loading state for "Check for Updates"
   const [loadingUpdate, setLoadingUpdate] = useState(false);
-
-  // ✅ Add state for water quality data (turbidity)
   const [turbidity, setTurbidity] = useState<number | null>(null);
-
-  // ✅ Add state for chiller room data
   const [chillerTemp, setChillerTemp] = useState<number | null>(null);
   const [chillerHumidity, setChillerHumidity] = useState<number | null>(null);
 
   // Notifications and Activities state
   const [notifications, setNotifications] = useState<NotificationItem[]>(mockNotifications);
-  const [activities, setActivities] = useState<ActivityItem[]>(mockActivities);
+  // ✅ Use real activities from storage
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+
+  // ✅ Load activities from storage
+  const loadActivities = useCallback(async () => {
+    const items = await getActivities();
+    // Show only the 3 most recent activities on dashboard
+    setActivities(items.slice(0, 3));
+  }, []);
+
+  // ✅ Reload activities when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      loadActivities();
+    }, [loadActivities])
+  );
 
   // Fetch dashboard metrics
   const fetchDashboard = useCallback(async (isRefreshing = false) => {
@@ -130,7 +100,6 @@ export default function DashboardScreen() {
       const data = await getDashboardLatest({ token: accessToken });
       setMetrics(data);
       
-      // ✅ Fetch turbidity from water quality API
       try {
         const { getWaterHistory } = await import('../../api/WaterQualityApi');
         const hist = await getWaterHistory('TANK_01', 1);
@@ -142,9 +111,8 @@ export default function DashboardScreen() {
         setTurbidity(null);
       }
 
-      // ✅ Fetch chiller room data (mock for now - replace with actual API)
-      setChillerTemp(18.5);
-      setChillerHumidity(65);
+      setChillerTemp(5);
+      setChillerHumidity(88);
       
     } catch (error: any) {
       const mockData: DashboardMetricsResponse = {
@@ -161,8 +129,8 @@ export default function DashboardScreen() {
       };
       setMetrics(mockData);
       setTurbidity(2.5);
-      setChillerTemp(18.5);
-      setChillerHumidity(65);
+      setChillerTemp(5);
+      setChillerHumidity(88);
       
       if (!isRefreshing) {
         console.warn("Using mock data - backend endpoint not available");
@@ -173,7 +141,6 @@ export default function DashboardScreen() {
     }
   }, [accessToken]);
 
-  // ✅ New function: Fetch fresh sensor readings from device simulator
   const handleCheckForUpdates = async () => {
     try {
       setLoadingUpdate(true);
@@ -181,7 +148,6 @@ export default function DashboardScreen() {
       const ZONE_ID = "z01";
       const deviceSensors = await getDeviceSensors(ZONE_ID, "NORMAL");
 
-      // Update metrics with fresh sensor data
       const updatedMetrics: DashboardMetricsResponse = {
         ...metrics,
         zone_id: deviceSensors.zone_id,
@@ -198,7 +164,6 @@ export default function DashboardScreen() {
 
       setMetrics(updatedMetrics);
 
-      // Fetch turbidity
       try {
         const { getWaterHistory } = await import('../../api/WaterQualityApi');
         const hist = await getWaterHistory('TANK_01', 1);
@@ -209,7 +174,6 @@ export default function DashboardScreen() {
         console.warn('Failed to fetch turbidity:', waterErr);
       }
 
-      // Optional: Ingest to ML backend
       try {
         const payload = {
           device_id: deviceSensors.device_id,
@@ -238,7 +202,6 @@ export default function DashboardScreen() {
         });
       }
 
-      // ✅ Show success feedback
       Alert.alert("✅ Updated", "Sensor readings refreshed successfully", [{ text: "OK" }]);
     } catch (error: any) {
       Alert.alert(
@@ -251,34 +214,32 @@ export default function DashboardScreen() {
     }
   };
 
-  // Fetch on mount
   useEffect(() => {
     fetchDashboard();
+    loadActivities();
   }, []);
 
-  // Pull to refresh
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchDashboard(true);
-  }, [fetchDashboard]);
+    loadActivities();
+  }, [fetchDashboard, loadActivities]);
 
-  // gesika new changers
   const rootNavigation =
-  navigation.getParent?.()?.getParent?.() ??
-  navigation.getParent?.() ??
-  navigation;
+    navigation.getParent?.()?.getParent?.() ??
+    navigation.getParent?.() ??
+    navigation;
 
-const openSpoilageModule = (
-  screen: "SpoilageDetails" | "SpoilageScan" = "SpoilageDetails",
-  params?: any
-) => {
-  try {
-    rootNavigation.navigate("Spoilage", { screen, params });
-  } catch {
-    Alert.alert("Navigation", "Spoilage module route is not available.");
-  }
-};
-
+  const openSpoilageModule = (
+    screen: "SpoilageDetails" | "SpoilageScan" = "SpoilageDetails",
+    params?: any
+  ) => {
+    try {
+      rootNavigation.navigate("Spoilage", { screen, params });
+    } catch {
+      Alert.alert("Navigation", "Spoilage module route is not available.");
+    }
+  };
 
   const go = (routeName: string) => {
     try {
@@ -311,16 +272,74 @@ const openSpoilageModule = (
     try {
       setProfileOpen(false);
       await signOut();
-      // RootNavigator will automatically switch back to Auth screens
     } catch {
       Alert.alert("Logout failed", "Please try again.");
     }
   };
 
+  // ✅ Helper function to get activity icon
+  const getActivityIcon = (type: ActivityType) => {
+    switch (type) {
+      case "weight_scan":
+        return { name: "scale-bathroom", lib: "material" as const, color: "#0046AD" };
+      case "growth_forecast":
+        return { name: "analytics-outline", lib: "ionicons" as const, color: "#16A34A" };
+      case "spoilage_check":
+        return { name: "food-apple-outline", lib: "material" as const, color: "#F59E0B" };
+      case "water_quality":
+        return { name: "water-outline", lib: "ionicons" as const, color: "#0284C7" };
+      case "system":
+        return { name: "sun", lib: "feather" as const, color: "#7C3AED" };
+      case "disease_check":
+        return { name: "medkit-outline", lib: "ionicons" as const, color: "#DB2777" };
+      default:
+        return { name: "time-outline", lib: "ionicons" as const, color: "#6B7280" };
+    }
+  };
+
+  // ✅ Helper function to get icon background color
+  const getIconBg = (type: ActivityType) => {
+    switch (type) {
+      case "weight_scan":
+        return "bg-[#EAF4FF]";
+      case "growth_forecast":
+        return "bg-[#E9FBEF]";
+      case "spoilage_check":
+        return "bg-[#FFF6E5]";
+      case "water_quality":
+        return "bg-[#E8F7FF]";
+      case "system":
+        return "bg-[#F3E8FF]";
+      case "disease_check":
+        return "bg-[#FFEAF2]";
+      default:
+        return "bg-gray-100";
+    }
+  };
+
+  // ✅ Helper function to format time
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 60) {
+      return `${diffMins}m ago`;
+    } else if (diffMins < 1440) {
+      const hours = Math.floor(diffMins / 60);
+      return `${hours}h ago`;
+    } else {
+      const days = Math.floor(diffMins / 1440);
+      return `${days}d ago`;
+    }
+  };
+
   return (
-    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
+    <SafeAreaView edges={["top"]} className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       {/* HEADER */}
-      <View className="px-4 pt-4 pb-3">
+      <View className="px-4 pt-4 pb-3 bg-white">
         <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">{headerDate}</Text>
 
         <View className="flex-row items-start justify-between mt-2">
@@ -333,7 +352,6 @@ const openSpoilageModule = (
             </Text>
           </View>
 
-          {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => setProfileOpen(true)}
@@ -348,37 +366,51 @@ const openSpoilageModule = (
         </View>
       </View>
 
-      {/* BODY */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentInsetAdjustmentBehavior="never"
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 0,
-          paddingBottom: 16,
-        }}
-      >
-        {loading ? (
-          <View className="flex-1 items-center justify-center py-20">
-            <ActivityIndicator size="large" color="#0046AD" />
-            <Text className="text-gray-500 mt-4">Loading dashboard...</Text>
-          </View>
-        ) : metrics ? (
-          <>
+      <View className="flex-1 bg-[#F4F6FA]">
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentInsetAdjustmentBehavior="never"
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 0,
+            paddingBottom: 16,
+          }}
+        >
+          {loading ? (
+            <View className="flex-1 items-center justify-center py-20">
+              <ActivityIndicator size="large" color="#0046AD" />
+              <Text className="text-gray-500 mt-4">Loading dashboard...</Text>
+            </View>
+          ) : metrics ? (
+            <>
             {/* Environment Metrics */}
             <View className="mt-4">
               <View className="flex-row items-center justify-between mb-3">
                 <Text className="text-[20px] font-extrabold text-gray-900">Environment</Text>
-                <View className="flex-row items-center">
-                  <View className="w-2 h-2 rounded-full bg-green-500 mr-2" />
-                  <Text className="text-[11px] font-bold text-gray-500">Live Data</Text>
-                </View>
+                
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleCheckForUpdates}
+                  disabled={loadingUpdate}
+                  className="px-3 py-1.5 rounded-full bg-[#e5e6e7] flex-row items-center"
+                >
+                  {loadingUpdate ? (
+                    <>
+                      <ActivityIndicator size="small" color="#4F46E5" />
+                      <Text className="ml-1.5 text-[11px] font-extrabold text-[#4F46E5]">Updating...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="sync-outline" size={20} color="#00178a" />
+                      <Text className="ml-1.5 text-[15px] font-extrabold text-[#00178a]">Update</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
 
-              {/* Metrics 2x2 Grid - Row 1 */}
               <View className="flex-row justify-between">
                 <EnvironmentMetricCard
                   iconBg="bg-[#FFEAF2]"
@@ -399,7 +431,6 @@ const openSpoilageModule = (
                 />
               </View>
 
-              {/* Metrics 2x2 Grid - Row 2 */}
               <View className="flex-row justify-between mt-3">
                 <EnvironmentMetricCard
                   iconBg="bg-[#E8F7FF]"
@@ -419,7 +450,6 @@ const openSpoilageModule = (
                 />
               </View>
 
-              {/* Metrics 2x2 Grid - Row 3 (Turbidity) */}
               <View className="flex-row justify-between mt-3">
                 <EnvironmentMetricCard
                   iconBg="bg-[#F0FDF4]"
@@ -430,29 +460,8 @@ const openSpoilageModule = (
                   status={getStatus("turbidity", turbidity)}
                 />
 
-                {/* Empty card to maintain layout */}
                 <View className="w-[48%]" />
               </View>
-
-              {/* ✅ Check for Updates Button */}
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={handleCheckForUpdates}
-                disabled={loadingUpdate}
-                className="mt-4 bg-white rounded-[14px] px-4 py-3 flex-row items-center justify-center shadow-sm"
-              >
-                {loadingUpdate ? (
-                  <>
-                    <ActivityIndicator size="small" color="#1D4ED8" />
-                    <Text className="ml-2 text-[12px] font-bold text-gray-700">Updating...</Text>
-                  </>
-                ) : (
-                  <>
-                    <Ionicons name="sync-outline" size={18} color="#1D4ED8" />
-                    <Text className="ml-2 text-[12px] font-bold text-gray-700">Check for Updates</Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </View>
 
             {/* Chiller Room Section */}
@@ -525,15 +534,11 @@ const openSpoilageModule = (
               </View>
             </View>
 
-            {/* Quick Actions section removed */}
-
-            {/* Notifications section removed */}
-
-            {/* Recent Activities */}
+            {/* ✅ Recent Activities - Using real data */}
             {activities.length > 0 && (
               <>
                 <View className="flex-row items-center justify-between mt-6 mb-3">
-                  <Text className="text-[13px] font-extrabold text-gray-900">
+                  <Text className="text-[20px] font-extrabold text-gray-900">
                     Recent Activities
                   </Text>
                   <TouchableOpacity onPress={() => go("History")} activeOpacity={0.85}>
@@ -544,12 +549,32 @@ const openSpoilageModule = (
                 </View>
 
                 <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
-                  {activities.map((activity, index) => (
-                    <React.Fragment key={activity.id}>
-                      <ActivityRow {...activity} />
-                      {index < activities.length - 1 && <Divider />}
-                    </React.Fragment>
-                  ))}
+                  {activities.map((activity, index) => {
+                    const iconData = getActivityIcon(activity.type);
+                    return (
+                      <React.Fragment key={activity.id}>
+                        <View className="flex-row items-center px-4 py-4">
+                          <View className={`w-10 h-10 rounded-full ${getIconBg(activity.type)} items-center justify-center mr-3`}>
+                            {iconData.lib === "material" ? (
+                              <MaterialCommunityIcons name={iconData.name as any} size={18} color={iconData.color} />
+                            ) : iconData.lib === "ionicons" ? (
+                              <Ionicons name={iconData.name as any} size={18} color={iconData.color} />
+                            ) : (
+                              <Feather name={iconData.name as any} size={18} color={iconData.color} />
+                            )}
+                          </View>
+
+                          <View className="flex-1">
+                            <Text className="text-[14px] font-extrabold text-gray-900">{activity.title}</Text>
+                            <Text className="text-[11px] text-gray-500 mt-0.5">{activity.description}</Text>
+                          </View>
+
+                          <Text className="text-[11px] text-gray-400">{formatTime(activity.timestamp)}</Text>
+                        </View>
+                        {index < activities.length - 1 && <Divider />}
+                      </React.Fragment>
+                    );
+                  })}
 
                   <TouchableOpacity
                     className="py-4 items-center"
@@ -563,23 +588,21 @@ const openSpoilageModule = (
                 </View>
               </>
             )}
-          </>
-        ) : null}
-      </ScrollView>
+            </>
+          ) : null}
+        </ScrollView>
+      </View>
 
-      {/* ✅ Profile Bottom Sheet Modal */}
+      {/* Profile Bottom Sheet Modal */}
       <Modal
         visible={profileOpen}
         transparent
         animationType="slide"
         onRequestClose={() => setProfileOpen(false)}
       >
-        {/* Backdrop */}
         <Pressable className="flex-1 bg-black/40" onPress={() => setProfileOpen(false)} />
 
-        {/* Sheet */}
         <View className="bg-white rounded-t-3xl px-5 pt-4 pb-6">
-          {/* Grab handle */}
           <View className="w-12 h-1.5 bg-gray-200 rounded-full self-center mb-4" />
 
           <View className="flex-row items-center">
@@ -638,7 +661,7 @@ function getStatus(key: "airT" | "RH" | "EC" | "pH" | "turbidity" | "chillerTemp
     pH: { optimal: [5.5, 6.5], good: [5.0, 7.0] },
     turbidity: { optimal: [0, 3], good: [0, 5] },
     chillerTemp: { optimal: [15, 20], good: [12, 22] },
-    chillerHumidity: { optimal: [60, 75], good: [50, 85] }, // ✅ Chiller room humidity range
+    chillerHumidity: { optimal: [60, 75], good: [50, 85] },
   };
 
   const range = ranges[key];
@@ -724,146 +747,6 @@ function FeatureCard({
       </Text>
       <Text className="mt-1 text-[12px] text-gray-500">{subtitle}</Text>
     </TouchableOpacity>
-  );
-}
-
-function QuickAction({
-  top,
-  bottom,
-  icon,
-  iconBg,
-  onPress,
-}: {
-  top: string;
-  bottom: string;
-  icon: React.ReactNode;
-  iconBg: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.85}
-      className="bg-white rounded-[18px] w-[23%] pt-4 pb-3 items-center shadow-sm"
-    >
-      <View className={`w-11 h-11 rounded-full ${iconBg} items-center justify-center`}>
-        {icon}
-      </View>
-
-      <View className="mt-3 items-center">
-        <Text className="text-[13px] text-gray-800 font-extrabold leading-[16px]">
-          {top}
-        </Text>
-        <Text className="text-[13px] text-gray-800 font-extrabold leading-[16px]">
-          {bottom}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-function NotificationCard({
-  accent,
-  iconName,
-  title,
-  body,
-  time,
-  onDismiss,
-}: {
-  accent: "orange" | "blue" | "green" | "red";
-  iconName: "alert-circle" | "calendar" | "check-circle" | "alert-triangle";
-  title: string;
-  body: string;
-  time: string;
-  onDismiss: () => void;
-}) {
-  const colors = {
-    orange: { bar: "bg-orange-400", iconBg: "bg-[#FFF6E5]", iconColor: "#F59E0B" },
-    blue: { bar: "bg-blue-600", iconBg: "bg-[#EAF2FF]", iconColor: "#2563EB" },
-    green: { bar: "bg-green-500", iconBg: "bg-[#E9FBEF]", iconColor: "#16A34A" },
-    red: { bar: "bg-red-500", iconBg: "bg-[#FFE5E5]", iconColor: "#EF4444" },
-  };
-  const { bar, iconBg, iconColor } = colors[accent];
-
-  return (
-    <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
-      <View className="flex-row">
-        <View className={`w-1.5 ${bar}`} />
-        <View className="flex-1 px-4 py-4">
-          <View className="flex-row items-center">
-            <View className={`w-10 h-10 rounded-[14px] ${iconBg} items-center justify-center mr-3`}>
-              <Ionicons name={iconName as any} size={18} color={iconColor} />
-            </View>
-
-            <View className="flex-1">
-              <Text className="text-[15px] font-extrabold text-gray-900">
-                {title}
-              </Text>
-              <Text className="text-[11px] text-gray-400 mt-0.5">{time}</Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={onDismiss}
-              activeOpacity={0.7}
-              className="w-8 h-8 rounded-full bg-red-50 items-center justify-center"
-            >
-              <Ionicons name="close" size={16} color="#EF4444" />
-            </TouchableOpacity>
-          </View>
-
-          <Text className="text-[12px] text-gray-600 mt-3 leading-[16px]">
-            {body}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function ActivityRow({
-  iconBg,
-  iconName,
-  iconLib,
-  title,
-  subtitle,
-  time,
-}: {
-  iconBg: string;
-  iconName: string;
-  iconLib: "ionicons" | "material" | "feather";
-  title: string;
-  subtitle: string;
-  time: string;
-}) {
-  const renderIcon = () => {
-    const iconColor = iconBg.includes("EAF4FF")
-      ? "#0046AD"
-      : iconBg.includes("E9FBEF")
-      ? "#16A34A"
-      : "#7C3AED";
-
-    if (iconLib === "material") {
-      return <MaterialCommunityIcons name={iconName as any} size={18} color={iconColor} />;
-    } else if (iconLib === "ionicons") {
-      return <Ionicons name={iconName as any} size={18} color={iconColor} />;
-    } else {
-      return <Feather name={iconName as any} size={18} color={iconColor} />;
-    }
-  };
-
-  return (
-    <View className="flex-row items-center px-4 py-4">
-      <View className={`w-10 h-10 rounded-full ${iconBg} items-center justify-center mr-3`}>
-        {renderIcon()}
-      </View>
-
-      <View className="flex-1">
-        <Text className="text-[14px] font-extrabold text-gray-900">{title}</Text>
-        <Text className="text-[11px] text-gray-500 mt-0.5">{subtitle}</Text>
-      </View>
-
-      <Text className="text-[11px] text-gray-400">{time}</Text>
-    </View>
   );
 }
 
