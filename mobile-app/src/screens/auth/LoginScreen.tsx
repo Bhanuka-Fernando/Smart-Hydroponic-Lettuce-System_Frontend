@@ -29,7 +29,7 @@ const LoginScreen: React.FC = () => {
   const { signInWithEmailPassword, signInWithGoogle, isLoading } = useAuth();
   const navigation = useNavigation<LoginNavProp>();
 
-  const [email, setEmail] = useState("farmer@example.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);

@@ -1,0 +1,325 @@
+import { StyleSheet } from "react-native";
+
+export const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: "#F3F4F4",
+  },
+  container: {
+    paddingHorizontal: 14,
+    paddingTop: 6,
+    paddingBottom: 24,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  topBarTitle: {
+    fontSize: 17,
+    color: "#111827",
+    fontWeight: "800",
+  },
+  topSpacer: {
+    width: 40,
+  },
+  imageCard: {
+    position: "relative",
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#E5E7EB",
+  },
+  image: {
+    width: "100%",
+    height: 170,
+    borderRadius: 16,
+  },
+  imageFallback: {
+    width: "100%",
+    height: 170,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  plantTag: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  plantTagText: {
+    fontSize: 11,
+    color: "#111827",
+    fontWeight: "800",
+  },
+  timeTag: {
+    position: "absolute",
+    bottom: 10,
+    right: 10,
+    backgroundColor: "rgba(17,24,39,0.55)",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  timeTagText: {
+    fontSize: 11,
+    color: "#fff",
+    fontWeight: "700",
+  },
+
+  annotateBtn: {
+    marginTop: 12,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1.2,
+    borderColor: "#C7D7FE",
+    backgroundColor: "#EEF4FF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  annotateBtnText: {
+    color: "#173C96",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  scoreCard: {
+    marginTop: 12,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 16,
+    padding: 14,
+  },
+  smallMuted: {
+    fontSize: 11,
+    color: "#94A3B8",
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  scoreRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  scoreLeft: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  scoreText: {
+    fontSize: 48,
+    lineHeight: 52,
+    fontWeight: "900",
+  },
+  statusPill: {
+    marginTop: 4,
+    alignSelf: "flex-start",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  warningIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#E2E8F0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  metaSummary: {
+    marginTop: 10,
+    color: "#64748B",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  metaBold: {
+    color: "#475569",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  statsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
+  halfCard: {
+    flex: 1,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 14,
+    padding: 12,
+    minHeight: 112,
+  },
+  cardLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginBottom: 6,
+  },
+  bigValue: {
+    fontSize: 18,
+    color: "#111827",
+    fontWeight: "800",
+    lineHeight: 24,
+  },
+  progressTrack: {
+    marginTop: 10,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: "#DDE3F0",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#0B3D91",
+    borderRadius: 999,
+  },
+  smallHint: {
+    marginTop: 8,
+    fontSize: 11,
+    color: "#64748B",
+    lineHeight: 16,
+  },
+
+  explainCard: {
+    marginTop: 10,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 14,
+    padding: 14,
+  },
+  explainTitle: {
+    fontSize: 18,
+    color: "#111827",
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  sectionSub: {
+    fontSize: 14,
+    color: "#374151",
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  sectionSubBold: {
+    fontSize: 14,
+    color: "#111827",
+    fontWeight: "800",
+  },
+  emptyTop3Text: {
+    marginTop: 8,
+    color: "#64748B",
+  },
+  sectionSubTipburn: {
+    fontSize: 14,
+    color: "#374151",
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  rowBetween: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  rowLeft: {
+    color: "#111827",
+    fontSize: 14,
+  },
+  rowRight: {
+    color: "#111827",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  primaryBtn: {
+    marginTop: 14,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#0B3D91",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  primaryBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  secondaryBtn: {
+    marginTop: 10,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1.2,
+    borderColor: "#D1D5DB",
+    backgroundColor: "#F8FAFC",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  secondaryBtnText: {
+    color: "#374151",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  annotateModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "center",
+    padding: 18,
+  },
+  annotateModalCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  annotateModalHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  annotateModalTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  annotatedImage: {
+    width: "100%",
+    height: 420,
+    backgroundColor: "#F3F4F6",
+  },
+  annotatedEmpty: {
+    height: 240,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  annotateModalFooter: {
+    padding: 16,
+  },
+  annotateCloseBtn: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#173C96",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  annotateCloseBtnText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+});

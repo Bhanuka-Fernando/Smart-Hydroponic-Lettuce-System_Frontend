@@ -12,5 +12,6 @@ export default ({ config }) => ({
     ML_BASE_URL: http(8001),
     SPOILAGE_BASE_URL: http(8002),
     DEVICE_BASE_URL: http(8010),
+    LEAF_HEALTH_BASE_URL: http(8003),
   },
 });

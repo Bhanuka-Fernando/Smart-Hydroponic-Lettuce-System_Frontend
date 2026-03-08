@@ -23,6 +23,7 @@ import ProfileScreen from "../screens/main/ProfileScreen";
 import SpoilageNavigator, {
   type SpoilageStackParamList,
 } from "./SpoilageNavigator";
+import LeafHealthNavigator from "./LeafHealthNavigator";
 
 export type DashboardStackParamList = {
   DashboardHome: undefined;
@@ -58,6 +59,7 @@ export type DashboardStackParamList = {
 
   // ✅ add spoilage navigator as nested module inside dashboard stack
   SpoilageModule: NavigatorScreenParams<SpoilageStackParamList> | undefined;
+  LeafHealth: undefined;
 };
 
 const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
@@ -95,6 +97,7 @@ function DashboardStackNavigator() {
         name="SpoilageModule"
         component={SpoilageNavigator}
       />
+      <DashboardStack.Screen name="LeafHealth" component={LeafHealthNavigator} />
     </DashboardStack.Navigator>
   );
 }
