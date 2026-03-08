@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import {
   View,
+  Text,
   TouchableOpacity,
   Image,
   ActivityIndicator,
@@ -10,10 +11,32 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
-import { Ionicons } from "@expo/vector-icons";
-import { H1, Body, Label } from "../../components/ui/AppText";
+import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { predictLeafHealth } from "../../api/LeafHealthApi";
-import { styles } from "./LeafHealthScanScreen.styles";
+
+function TipCard({
+  icon,
+  iconBg,
+  title,
+  body,
+}: {
+  icon: React.ReactNode;
+  iconBg: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <View className="bg-white rounded-[18px] shadow-sm px-4 py-4 mb-3 flex-row">
+      <View className={`w-10 h-10 rounded-full ${iconBg} items-center justify-center mr-3`}>
+        {icon}
+      </View>
+      <View className="flex-1">
+        <Text className="text-[13px] font-extrabold text-gray-900">{title}</Text>
+        <Text className="text-[11px] text-gray-500 mt-1 leading-[16px]">{body}</Text>
+      </View>
+    </View>
+  );
+}
 
 export default function LeafHealthScanScreen({ navigation }: any) {
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -47,118 +70,149 @@ export default function LeafHealthScanScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        bounces={false}
-        overScrollMode="never"
-  >
-        <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
+      {/* Header */}
+      <View className="px-4 pt-2 pb-3">
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.85}
+            className="w-10 h-10 items-center justify-center"
+          >
             <Ionicons name="chevron-back" size={22} color="#111827" />
           </TouchableOpacity>
 
-          <Label style={styles.topBarTitle}>New Scan</Label>
-
-          <View style={styles.topSpacer} />
+          <Text className="text-[13px] font-extrabold text-gray-900">New Scan</Text>
+          <View className="w-10 h-10" />
         </View>
+      </View>
 
-        <View style={styles.headerBlock}>
-          <H1 style={styles.title}>Analyze Plant</H1>
-          <Body style={styles.subtitle}>
-            Upload a top-view leaf photo or use the mobile camera to run disease + deficiency + tipburn detection.
-          </Body>
-        </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+      >
+        {/* Title */}
+        <Text className="text-[18px] font-extrabold text-gray-900 text-center mt-2">
+          Analyze Plant Health
+        </Text>
+        <Text className="text-[11px] text-gray-500 text-center mt-2 leading-[16px]">
+          Upload a top-view leaf photo or use the mobile camera to detect diseases, deficiencies,
+          and tipburn.
+        </Text>
 
-        <TouchableOpacity
-          onPress={pickImage}
-          activeOpacity={0.9}
-          style={styles.uploadBox}
-        >
+        {/* Image Upload */}
+        <View className="bg-white rounded-[18px] shadow-sm mt-5 p-4">
           {!imageUri ? (
-            <View style={styles.uploadInner}>
-              <View style={styles.uploadIconWrap}>
-                <Ionicons name="arrow-up-outline" size={28} color="#0B3D91" />
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={pickImage}
+              className="rounded-[16px] border border-dashed border-[#B6C8F0] items-center justify-center py-8"
+            >
+              <View className="w-16 h-16 rounded-full bg-[#EAF4FF] items-center justify-center mb-3">
+                <Ionicons name="cloud-upload-outline" size={28} color="#0046AD" />
               </View>
-              <Label style={styles.uploadText}>Drop / Click to upload</Label>
-              <Label style={styles.uploadText}>Top-view leaf image</Label>
-            </View>
-          ) : (
-            <Image source={{ uri: imageUri }} style={styles.previewImage} />
-          )}
-        </TouchableOpacity>
 
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.secondaryBtn} onPress={pickImage}>
-            <Ionicons name="search-outline" size={20} color="#111827" />
-            <Label style={styles.secondaryBtnText}>Upload Photo</Label>
+              <Text className="text-[12px] font-extrabold text-gray-900">
+                Drop / Click to upload
+              </Text>
+              <Text className="text-[10px] text-gray-500 mt-1">Top-view leaf image</Text>
+            </TouchableOpacity>
+          ) : (
+            <View className="relative">
+              <Image
+                source={{ uri: imageUri }}
+                style={{ width: "100%", height: 240, borderRadius: 14 }}
+                resizeMode="cover"
+              />
+
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={pickImage}
+                className="absolute top-3 right-3 bg-black/50 px-3 py-2 rounded-full flex-row items-center"
+              >
+                <Ionicons name="swap-horizontal" size={14} color="#fff" />
+                <Text className="ml-2 text-[10px] font-extrabold text-white">Change</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => setImageUri(null)}
+                className="absolute top-3 left-3 bg-black/50 w-9 h-9 rounded-full items-center justify-center"
+              >
+                <Ionicons name="close" size={16} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Action Buttons */}
+        <View className="flex-row items-center justify-between mt-4">
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={pickImage}
+            className="flex-1 mr-2 rounded-[16px] py-3 items-center justify-center flex-row bg-white"
+          >
+            <Ionicons name="folder-open-outline" size={18} color="#111827" />
+            <Text className="ml-2 text-[12px] font-extrabold text-gray-900">Upload Photo</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.mobileCamBtn}
+            activeOpacity={0.9}
             onPress={() => navigation.navigate("LeafHealthCamera")}
+            className="flex-1 ml-2 rounded-[16px] py-3 items-center justify-center flex-row bg-white"
           >
-            <Ionicons name="camera-outline" size={18} color="#0B3D91" />
-            <Label style={styles.mobileCamBtnText}>Use Mobile Camera</Label>
+            <Ionicons name="camera-outline" size={18} color="#0046AD" />
+            <Text className="ml-2 text-[12px] font-extrabold text-blue-700">Use Camera</Text>
           </TouchableOpacity>
         </View>
 
+        {/* Start Analysis */}
         <TouchableOpacity
+          activeOpacity={0.9}
           onPress={runPredict}
-          disabled={loading}
-          style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
+          disabled={loading || !imageUri}
+          className={`mt-4 rounded-[16px] py-4 items-center justify-center flex-row ${
+            loading || !imageUri ? "bg-[#C7D2E5]" : "bg-[#003B8F]"
+          }`}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
             <>
-              <Ionicons name="play" size={14} color="#fff" />
-              <Label style={styles.primaryBtnText}>Start Analysis</Label>
+              <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" />
+              <Text className="ml-2 text-[12px] font-extrabold text-white">Start Analysis</Text>
             </>
           )}
         </TouchableOpacity>
 
-        <View style={styles.tipsCard}>
-          <View style={styles.tipsHeader}>
-            <View style={styles.tipsHeaderIcon}>
-              <Ionicons name="warning-outline" size={14} color="#0B3D91" />
-            </View>
-            <Label style={styles.tipsHeaderText}>QUICK TIPS</Label>
-          </View>
+        {/* Tips */}
+        <Text className="text-[12px] font-extrabold text-gray-900 mt-6">QUICK TIPS</Text>
+        <Text className="text-[11px] text-gray-500 mt-1 mb-3">For Accurate Detection</Text>
 
-          <View style={styles.tipItem}>
-            <View style={[styles.tipIconBox, styles.tipIconBlue]}>
-              <Ionicons name="ellipse-outline" size={18} color="#295CFF" />
-            </View>
-            <View style={styles.tipContent}>
-              <Label style={styles.tipTitle}>Use a clear image</Label>
-              <Body style={styles.tipDesc}>Keep focus and avoid motion blur.</Body>
-            </View>
-          </View>
-
-          <View style={styles.tipItem}>
-            <View style={[styles.tipIconBox, styles.tipIconOrange]}>
-              <Ionicons name="reorder-three-outline" size={18} color="#F97316" />
-            </View>
-            <View style={styles.tipContent}>
-              <Label style={styles.tipTitle}>Top-down view</Label>
-              <Body style={styles.tipDesc}>Capture directly above the plant/leaf.</Body>
-            </View>
-          </View>
-
-          <View style={styles.tipItem}>
-            <View style={[styles.tipIconBox, styles.tipIconBlue]}>
-              <Ionicons name="square-outline" size={16} color="#295CFF" />
-            </View>
-            <View style={styles.tipContent}>
-              <Label style={styles.tipTitle}>One plant at a time</Label>
-              <Body style={styles.tipDesc}>Keep only one leaf/plant in frame.</Body>
-            </View>
-          </View>
-        </View>
+        <TipCard
+          icon={<Ionicons name="checkmark-circle-outline" size={18} color="#16A34A" />}
+          iconBg="bg-[#E9FBEF]"
+          title="Use a clear image"
+          body="Keep focus and avoid motion blur for best results."
+        />
+        <TipCard
+          icon={<Feather name="target" size={18} color="#0046AD" />}
+          iconBg="bg-[#EAF4FF]"
+          title="Top-down view"
+          body="Capture directly above the plant/leaf for accurate detection."
+        />
+        <TipCard
+          icon={<MaterialCommunityIcons name="leaf" size={18} color="#DB2777" />}
+          iconBg="bg-[#FFEAF2]"
+          title="One plant at a time"
+          body="Keep only one leaf/plant in frame to avoid confusion."
+        />
+        <TipCard
+          icon={<Ionicons name="sunny-outline" size={18} color="#F59E0B" />}
+          iconBg="bg-[#FFF6E5]"
+          title="Good lighting"
+          body="Use natural or bright artificial light for better image quality."
+        />
       </ScrollView>
     </SafeAreaView>
   );

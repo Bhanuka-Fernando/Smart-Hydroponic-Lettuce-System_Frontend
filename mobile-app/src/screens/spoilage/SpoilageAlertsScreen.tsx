@@ -250,10 +250,10 @@ function AlertCard({
         onPress={onAcknowledge}
         disabled={ackLoading}
         className="mt-3 rounded-[12px] items-center justify-center"
-        style={{ backgroundColor: "#0046AD", height: 48, opacity: ackLoading ? 0.7 : 1 }}
+        style={{ backgroundColor: "#003B8F", height: 48, opacity: ackLoading ? 0.7 : 1 }}
       >
         <View className="flex-row items-center">
-          <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
+          <Ionicons name="checkmark-done-outline" size={18} color="#FFFFFF" />
           <Text className="ml-2 text-[13px] font-extrabold text-white">
             {ackLoading ? "Acknowledging..." : "Acknowledge"}
           </Text>

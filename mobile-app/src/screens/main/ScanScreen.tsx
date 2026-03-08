@@ -75,7 +75,7 @@ export default function ScanScreen() {
       iconLibrary: "ionicons",
       iconBg: "bg-[#FFEAF2]",
       iconColor: "#DB2777",
-      status: "coming-soon",
+      status: "active",
     },
   ];
 
@@ -102,6 +102,17 @@ export default function ScanScreen() {
     }
   };
 
+  const openLeafHealthScan = () => {
+    try {
+      navigation.navigate("Dashboard", {
+        screen: "LeafHealth",
+        params: { screen: "LeafHealthScan" },
+      });
+    } catch {
+      Alert.alert("Navigation", "Leaf health scan route is not available.");
+    }
+  };
+
   const handleFeaturePress = (feature: Feature) => {
     if (feature.status === "coming-soon") {
       Alert.alert(
@@ -121,6 +132,9 @@ export default function ScanScreen() {
         break;
       case "spoilage":
         openRootSpoilage();
+        break;
+      case "disease":
+        openLeafHealthScan();
         break;
     }
   };

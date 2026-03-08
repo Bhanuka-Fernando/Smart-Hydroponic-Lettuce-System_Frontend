@@ -71,16 +71,25 @@ function stageTheme(stage: string) {
 }
 
 export default function SpoilageConfirmScreen({ navigation, route }: Props) {
-  const { imageUri, result, temperature, humidity, plantId } = route.params as any as {
+  const {
+    imageUri,
+    result,
+    temperature,
+    humidity,
+    plantId,
+    isSim,
+  } = route.params as {
     imageUri: string;
     result: SpoilagePredictResponse;
     temperature: number;
     humidity: number;
     plantId: string;
+    isSim?: boolean;
   };
 
   const conf = useMemo(() => confidenceFromProbs(result?.stage_probs), [result]);
   const theme = useMemo(() => stageTheme(result?.stage), [result]);
+
   const tempText = Number.isFinite(temperature) ? `${temperature}°C` : "--";
   const humText = Number.isFinite(humidity) ? `${humidity}%` : "--";
 
@@ -89,7 +98,7 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
       Alert.alert("Missing", "No prediction result found.");
       return;
     }
-    navigation.navigate("SpoilageShelfLifeResult", { imageUri, result } as any);
+    navigation.navigate("SpoilageShelfLifeResult", { imageUri, result });
   };
 
   return (
@@ -183,7 +192,12 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
 
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={() => Alert.alert("Report", "Add report flow later.")}
+              onPress={() =>
+                Alert.alert(
+                  "Report",
+                  "You can add a wrong-result feedback flow later."
+                )
+              }
               className="mt-3 self-start"
             >
               <Text className="text-[12px] font-semibold text-[#2563EB]">
@@ -224,9 +238,9 @@ export default function SpoilageConfirmScreen({ navigation, route }: Props) {
           <View className="mt-3 rounded-[16px] bg-[#F8FAFC] overflow-hidden">
             <RowItem left="Plant ID" right={plantId || "-"} />
             <Divider />
-            <RowItem left="Batch ID" right="#BUT-2291" />
-            <Divider />
             <RowItem left="Prediction Status" right={result?.status || "-"} />
+            <Divider />
+            <RowItem left="Capture Type" right={isSim ? "Simulation" : "Real Scan"} />
           </View>
         </View>
 
