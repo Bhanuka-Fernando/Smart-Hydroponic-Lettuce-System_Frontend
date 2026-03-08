@@ -147,8 +147,6 @@ export default function DashboardScreen() {
       setChillerHumidity(65);
       
     } catch (error: any) {
-      console.error("Failed to fetch dashboard:", error);
-      
       const mockData: DashboardMetricsResponse = {
         zone_id: "all",
         zone_name: "All Zones",
