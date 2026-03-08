@@ -10,6 +10,7 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
@@ -318,9 +319,10 @@ const openSpoilageModule = (
   };
 
   return (
-    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
+    <SafeAreaView edges={["top"]} className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       {/* HEADER */}
-      <View className="px-4 pt-4 pb-3">
+      <View className="px-4 pt-4 pb-3 bg-white">
         <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">{headerDate}</Text>
 
         <View className="flex-row items-start justify-between mt-2">
@@ -348,26 +350,27 @@ const openSpoilageModule = (
         </View>
       </View>
 
-      {/* BODY */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentInsetAdjustmentBehavior="never"
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 0,
-          paddingBottom: 16,
-        }}
-      >
-        {loading ? (
-          <View className="flex-1 items-center justify-center py-20">
-            <ActivityIndicator size="large" color="#0046AD" />
-            <Text className="text-gray-500 mt-4">Loading dashboard...</Text>
-          </View>
-        ) : metrics ? (
-          <>
+      <View className="flex-1 bg-[#F4F6FA]">
+        {/* BODY */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentInsetAdjustmentBehavior="never"
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 0,
+            paddingBottom: 16,
+          }}
+        >
+          {loading ? (
+            <View className="flex-1 items-center justify-center py-20">
+              <ActivityIndicator size="large" color="#0046AD" />
+              <Text className="text-gray-500 mt-4">Loading dashboard...</Text>
+            </View>
+          ) : metrics ? (
+            <>
             {/* Environment Metrics */}
             <View className="mt-4">
               <View className="flex-row items-center justify-between mb-3">
@@ -563,9 +566,10 @@ const openSpoilageModule = (
                 </View>
               </>
             )}
-          </>
-        ) : null}
-      </ScrollView>
+            </>
+          ) : null}
+        </ScrollView>
+      </View>
 
       {/* ✅ Profile Bottom Sheet Modal */}
       <Modal

@@ -1,8 +1,9 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { View, Text, TouchableOpacity, Image, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { logWeightActivity } from "../../utils/activityLog";
 
 type RouteParams = {
   imageUri: string;
@@ -15,6 +16,7 @@ type RouteParams = {
   capturedAtISO?: string;
   rawPayload?: any;
   imageName?: string; // ✅ Add this
+  shouldLogActivity?: boolean;
 };
 
 // ✅ Add this function to extract image name
@@ -113,8 +115,10 @@ function InfoRow({
 export default function EstimateWeightResultsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const hasLoggedActivityRef = useRef(false);
 
   const params: RouteParams = route.params || {};
+  const shouldLogActivity = params.shouldLogActivity !== false;
 
   const computed = useMemo(() => {
     const accuracy = params.accuracy ?? 0;
@@ -142,6 +146,20 @@ export default function EstimateWeightResultsScreen() {
       nextTip,
     };
   }, [params]);
+
+  useEffect(() => {
+    if (!shouldLogActivity || hasLoggedActivityRef.current) return;
+    hasLoggedActivityRef.current = true;
+
+    logWeightActivity({
+      plantId: params.plantId,
+      weightG: computed.biomassG,
+      accuracy: computed.accuracy,
+      capturedAtISO: computed.capturedAtISO,
+    }).catch((error) => {
+      console.error("Failed to log weight activity:", error);
+    });
+  }, [computed.accuracy, computed.biomassG, computed.capturedAtISO, params.plantId, shouldLogActivity]);
 
   const onNewScan = () => {
     navigation.navigate("EstimateWeightScan", { reset: true });

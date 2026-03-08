@@ -99,7 +99,6 @@ export default function ScheduleTimeSlotsScreen() {
   
   useEffect(() => {
     slotsRef.current = slots;
-    console.log(`📝 Slots ref updated. Count: ${slots.length}`);
   }, [slots]);
 
   const capacityText = useMemo(
@@ -117,8 +116,6 @@ export default function ScheduleTimeSlotsScreen() {
 
   // ✅ Start background scheduler
   useEffect(() => {
-    console.log("🚀 Starting background scheduler...");
-    
     const interval = setInterval(() => {
       checkAndExecuteSchedules();
     }, 60000); // Check every minute
@@ -129,23 +126,19 @@ export default function ScheduleTimeSlotsScreen() {
     }, 2000); // Small delay to ensure slots are loaded
 
     return () => {
-      console.log("🛑 Stopping background scheduler...");
       clearInterval(interval);
     };
   }, []);
 
   const loadSlots = async () => {
     try {
-      console.log("📥 Loading slots from AsyncStorage...");
       const saved = await AsyncStorage.getItem(STORAGE_KEY);
       
       if (saved) {
         const parsed = JSON.parse(saved) as Slot[];
-        console.log(`✅ Loaded ${parsed.length} slots:`, parsed.map(s => s.name));
         setSlots(parsed);
         slotsRef.current = parsed;
       } else {
-        console.log("ℹ️  No saved slots found. Starting fresh.");
         // Set default slots
         const defaultSlots: Slot[] = [
           { id: "1", name: "Morning", timeLabel: "08:00 AM", enabled: true, hour24: 8, minute: 0 },
@@ -157,7 +150,6 @@ export default function ScheduleTimeSlotsScreen() {
         await saveSlots(defaultSlots);
       }
     } catch (error) {
-      console.error("❌ Failed to load schedules:", error);
       Alert.alert("Error", "Failed to load schedules");
     } finally {
       setLoading(false);
@@ -166,12 +158,9 @@ export default function ScheduleTimeSlotsScreen() {
 
   const saveSlots = async (newSlots: Slot[]) => {
     try {
-      console.log(`💾 Saving ${newSlots.length} slots to AsyncStorage...`);
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSlots));
       slotsRef.current = newSlots;
-      console.log("✅ Slots saved successfully");
     } catch (error) {
-      console.error("❌ Failed to save schedules:", error);
       Alert.alert("Error", "Failed to save schedules");
     }
   };
@@ -182,22 +171,12 @@ export default function ScheduleTimeSlotsScreen() {
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
 
-      console.log("=".repeat(50));
-      console.log(`🕐 Schedule Check at ${now.toLocaleTimeString()}`);
-      console.log(`Current Time: ${currentHour}:${pad2(currentMinute)}`);
-      console.log(`Total Slots: ${slotsRef.current.length}`);
-      console.log(`Enabled Slots: ${slotsRef.current.filter((s) => s.enabled).length}`);
-
       // Get last check time
       const lastCheck = await AsyncStorage.getItem(LAST_CHECK_KEY);
       const lastCheckTime = lastCheck ? new Date(lastCheck) : null;
 
-      console.log(`Last Check: ${lastCheckTime?.toLocaleTimeString() || "Never"}`);
-
       // Only execute if we haven't checked in the last 55 seconds
       if (lastCheckTime && now.getTime() - lastCheckTime.getTime() < 55000) {
-        console.log("⏭️  Skipped - Too soon since last check");
-        console.log("=".repeat(50));
         return;
       }
 
@@ -205,63 +184,30 @@ export default function ScheduleTimeSlotsScreen() {
       await AsyncStorage.setItem(LAST_CHECK_KEY, now.toISOString());
 
       // Check each enabled slot
-      let foundMatch = false;
       for (const slot of slotsRef.current) {
-        const slotTime = `${slot.hour24}:${pad2(slot.minute)}`;
-        const currentTime = `${currentHour}:${pad2(currentMinute)}`;
-
-        console.log(`\n📋 Checking Slot: ${slot.name}`);
-        console.log(`   - Schedule Time: ${slotTime} (${slot.timeLabel})`);
-        console.log(`   - Current Time:  ${currentTime}`);
-        console.log(`   - Enabled: ${slot.enabled ? "✅" : "❌"}`);
-
         if (!slot.enabled) {
-          console.log(`   ⏭️  Skipped - Disabled`);
           continue;
         }
 
         // Check if current time matches slot time
         if (slot.hour24 === currentHour && slot.minute === currentMinute) {
-          foundMatch = true;
-          console.log(`   🎯 MATCH FOUND!`);
-          console.log(`   ⏰ Executing schedule: ${slot.name} at ${slot.timeLabel}`);
-
           try {
             await fetchAndUpdateSensors(slot.name);
-            console.log(`   ✅ Successfully fetched sensors`);
           } catch (error) {
-            console.error(`   ❌ Failed to fetch sensors:`, error);
+            // Silently handle error
           }
-        } else {
-          console.log(`   ⏭️  No match - Different time`);
         }
       }
-
-      if (!foundMatch) {
-        console.log(`\n⚠️  No matching schedules found for ${currentHour}:${pad2(currentMinute)}`);
-      }
-
-      console.log("=".repeat(50));
     } catch (error) {
-      console.error("❌ Schedule check failed:", error);
+      // Silently handle error
     }
   };
 
   const fetchAndUpdateSensors = async (slotName: string) => {
     try {
-      console.log(`\n📡 Fetching sensors for schedule: ${slotName}`);
-
       const ZONE_ID = "z01";
-      console.log(`   - Calling device simulator at zone: ${ZONE_ID}`);
 
       const deviceSensors = await getDeviceSensors(ZONE_ID, "NORMAL");
-
-      console.log(`   - Received sensor data:`, {
-        temp: deviceSensors.temperature_c,
-        humidity: deviceSensors.humidity_pct,
-        ec: deviceSensors.ec_ms_cm,
-        ph: deviceSensors.ph,
-      });
 
       const mappedSensors = {
         airT: deviceSensors.temperature_c,
@@ -272,11 +218,9 @@ export default function ScheduleTimeSlotsScreen() {
 
       // Update sensor context
       setAll(mappedSensors);
-      console.log(`   ✅ Context updated`);
 
       // ✅ Save timestamp of this auto-update
       await AsyncStorage.setItem(LAST_AUTO_UPDATE_KEY, new Date().toISOString());
-      console.log(`   ✅ Auto-update timestamp saved`);
 
       // Ingest to ML backend
       try {
@@ -293,28 +237,16 @@ export default function ScheduleTimeSlotsScreen() {
           ph: deviceSensors.ph,
         };
 
-        console.log(`   - Sending to ML backend:`, payload);
-
-        const response = await axios.post(`${ML_BASE_URL}/infer/iot/ingest`, payload, {
+        await axios.post(`${ML_BASE_URL}/infer/iot/ingest`, payload, {
           headers: {
             'Content-Type': 'application/json',
           },
           timeout: 10000, // 10 second timeout
         });
-        
-        console.log(`   ✅ ML backend ingested successfully:`, response.data);
       } catch (e: any) {
-        console.warn(`   ⚠️  ML backend ingest failed:`, {
-          status: e?.response?.status,
-          data: e?.response?.data,
-          message: e?.message,
-        });
         // Don't throw - sensor update already succeeded
       }
-
-      console.log(`\n✅ ✅ ✅ Sensors successfully updated from schedule: ${slotName}`);
     } catch (error) {
-      console.error(`❌ Failed to fetch sensors for schedule ${slotName}:`, error);
       throw error;
     }
   };
@@ -440,7 +372,6 @@ export default function ScheduleTimeSlotsScreen() {
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={async () => {
-              console.log("🧪 Manual test triggered");
               await checkAndExecuteSchedules();
             }}
             className="w-10 h-10 rounded-full bg-orange-100 items-center justify-center"

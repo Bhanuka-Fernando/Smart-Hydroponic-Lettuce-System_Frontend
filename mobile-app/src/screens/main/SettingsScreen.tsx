@@ -8,6 +8,7 @@ import {
   Switch,
   Alert,
   ActivityIndicator,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -90,19 +91,21 @@ export default function SettingsScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
+    <SafeAreaView edges={["top"]} className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       {/* Header - Matching DashboardScreen */}
-      <View className="px-4 pt-4 pb-3">
+      <View className="px-4 pt-4 pb-3 bg-white">
         <Text className="text-[24px] font-extrabold text-gray-900">Settings</Text>
         <Text className="text-[11px] text-gray-500 mt-1 font-semibold tracking-[0.4px]">
           Manage your preferences
         </Text>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
-      >
+      <View className="flex-1 bg-[#F4F6FA]">
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
+        >
         {/* Profile Section */}
         <View className="mt-4">
           <Text className="text-[20px] font-extrabold text-gray-900 mb-3">Profile</Text>
@@ -337,7 +340,8 @@ export default function SettingsScreen({ navigation }: any) {
         <Text className="text-center text-[11px] text-gray-400 mt-6">
           Smart Hydroponic Lettuce System{"\n"}Version 1.0.0 © 2026
         </Text>
-      </ScrollView>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -374,4 +378,3 @@ function SettingRow({
 function Divider() {
   return <View className="h-px bg-gray-100 mx-4" />;
 }
-
