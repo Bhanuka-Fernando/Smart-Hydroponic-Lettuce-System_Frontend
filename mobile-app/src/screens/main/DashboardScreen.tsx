@@ -20,6 +20,8 @@ import { getDeviceSensors } from "../../api/deviceApi";
 import axios from 'axios';
 import { ML_BASE_URL } from '../../utils/constants';
 import LeafHealthNavigator from "../../navigation/LeafHealthNavigator";
+import SpoilageNavigator from "../../navigation/SpoilageNavigator";
+import WaterQualityNavigator from "../../navigation/WaterQualityNavigator";
 
 type NotificationItem = {
   id: string;
@@ -513,14 +515,14 @@ const openSpoilageModule = (
                   subtitle="Identify Crop Issues"
                   iconBg="bg-[#FFF6E5]"
                   icon={<Ionicons name="warning-outline" size={22} color="#F59E0B" />}
-                  onPress={() => openSpoilageModule("SpoilageDetails")}
+                  onPress={() => navigation.navigate("Spoilage")}
                 />
                 <FeatureCard
                   title="Water Quality"
                   subtitle="Monitor Sensor data"
                   iconBg="bg-[#E8F7FF]"
                   icon={<Ionicons name="water-outline" size={22} color="#0284C7" />}
-                  onPress={() => (navigation.getParent() as any)?.navigate("WaterQuality")}
+                  onPress={() => navigation.navigate("WaterQuality")}
                 />
               </View>
             </View>

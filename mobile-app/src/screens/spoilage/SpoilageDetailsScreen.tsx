@@ -25,8 +25,6 @@ import {
 import { SPOILAGE_BASE_URL } from "../../utils/constants";
 import { useAuth } from "../../auth/useAuth";
 
-type StatusFilter = "All Status" | "Monitoring" | "Warning" | "Critical";
-
 type PredictionItem = {
   id: string;
   plantId: string;
@@ -35,6 +33,33 @@ type PredictionItem = {
   actionText?: string;
   severity: "monitoring" | "warning" | "critical";
   imageUrl?: string | null;
+};
+
+type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageDetails">;
+
+const COLORS = {
+  bg: "#F6F8FC",
+  card: "#FFFFFF",
+  primary: "#0046AD",
+  primaryDark: "#16345F",
+  navyAction: "#5F7396",
+  scanAccent: "#12C48B",
+  primarySoft: "#EAF1FF",
+  text: "#111827",
+  subtext: "#6B7280",
+  line: "#E5E7EB",
+
+  green: "#22C55E",
+  greenSoft: "#ECFDF3",
+
+  amber: "#F59E0B",
+  amberSoft: "#FFF7E8",
+
+  red: "#EF4444",
+  redSoft: "#FEF2F2",
+
+  blueSoft: "#EEF4FF",
+  cyanSoft: "#ECFEFF",
 };
 
 function isSimPlantId(id: string) {
@@ -67,8 +92,8 @@ function mapSeverity(
 }
 
 function mapAction(stage: SpoilagePredictionRow["stage"]): string | undefined {
-  if (stage === "near_spoilage") return "Action: Inspect now";
-  if (stage === "spoiled") return "Action: Discard";
+  if (stage === "near_spoilage") return "Inspect now";
+  if (stage === "spoiled") return "Discard now";
   return undefined;
 }
 
@@ -90,15 +115,51 @@ function getInitialDemoDayIndex(stage?: string | null) {
   return 0;
 }
 
-type Props = NativeStackScreenProps<SpoilageStackParamList, "SpoilageDetails">;
+function statusTheme(riskPercent: number, spoiledCount: number, riskyPlants: number) {
+  if (riskyPlants === 0) {
+    return {
+      label: "Stable",
+      message: "Most plants are currently in acceptable condition.",
+      color: COLORS.green,
+      chipBg: COLORS.greenSoft,
+      chipText: "#15803D",
+      icon: "checkmark-circle-outline" as const,
+    };
+  }
+
+  if (spoiledCount > 0 || riskPercent >= 50) {
+    return {
+      label: "High Risk",
+      message: "Immediate review is needed for affected plants.",
+      color: COLORS.red,
+      chipBg: COLORS.redSoft,
+      chipText: "#B91C1C",
+      icon: "alert-circle-outline" as const,
+    };
+  }
+
+  return {
+    label: "Needs Attention",
+    message: "Some plants are nearing spoilage and should be reviewed soon.",
+    color: COLORS.amber,
+    chipBg: COLORS.amberSoft,
+    chipText: "#B45309",
+    icon: "warning-outline" as const,
+  };
+}
+
+function formatCapturedTime(iso?: string | null) {
+  if (!iso) return "No reading for today";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "No reading for today";
+  return d.toLocaleString();
+}
 
 export default function SpoilageDetailsScreen({ navigation }: Props) {
-  const [filter, setFilter] = useState<StatusFilter>("All Status");
   const currentLocation = "Farm A - Chiller 3";
   const [profileOpen, setProfileOpen] = useState(false);
 
   const { user, signOut } = useAuth();
-
   const { rows, loading, error } = useSpoilagePolling(10, 8000);
 
   const [activeAlertCount, setActiveAlertCount] = useState(0);
@@ -150,53 +211,83 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
     }));
   }, [latestRows]);
 
-  const filtered: PredictionItem[] = useMemo(() => {
-    if (filter === "All Status") return predictions;
-    if (filter === "Monitoring") {
-      return predictions.filter((p) => p.severity === "monitoring");
-    }
-    if (filter === "Warning") {
-      return predictions.filter((p) => p.severity === "warning");
-    }
-    return predictions.filter((p) => p.severity === "critical");
-  }, [filter, predictions]);
-
-  const batchStats = useMemo(() => {
-    const fresh = latestRows.filter((r) => r.stage === "fresh").length;
-    const aged = latestRows.filter((r) => r.stage === "slightly_aged").length;
-    const risk = latestRows.filter((r) => r.stage === "near_spoilage").length;
-    const spoiled = latestRows.filter((r) => r.stage === "spoiled").length;
-    return { fresh, aged, risk, spoiled };
-  }, [latestRows]);
+  const freshCount = latestRows.filter((r) => r.stage === "fresh").length;
+  const agedCount = latestRows.filter((r) => r.stage === "slightly_aged").length;
+  const riskCount = latestRows.filter((r) => r.stage === "near_spoilage").length;
+  const spoiledCount = latestRows.filter((r) => r.stage === "spoiled").length;
 
   const totalPlants = latestRows.length;
-  const riskPlants = batchStats.risk + batchStats.spoiled;
-  const healthyPlants = batchStats.fresh + batchStats.aged;
+  const riskyPlants = riskCount + spoiledCount;
+  const stablePlants = freshCount + agedCount;
 
   const riskPercent =
-    totalPlants > 0 ? Math.round((riskPlants / totalPlants) * 100) : 0;
+    totalPlants > 0 ? Math.round((riskyPlants / totalPlants) * 100) : 0;
 
-  const shelfLifeSummary = useMemo(() => {
-    const nums = latestRows
-      .map((r) => Number(r.remaining_days ?? 0))
-      .filter((n) => !Number.isNaN(n));
+  const dashboardStatus = useMemo(
+    () => statusTheme(riskPercent, spoiledCount, riskyPlants),
+    [riskPercent, spoiledCount, riskyPlants]
+  );
 
-    if (!nums.length) {
-      return { low: 0, medium: 0, good: 0 };
-    }
+  const latestSensorReading = useMemo(() => {
+    const now = new Date();
 
-    let low = 0;
-    let medium = 0;
-    let good = 0;
-
-    nums.forEach((n) => {
-      if (n <= 1) low += 1;
-      else if (n <= 3) medium += 1;
-      else good += 1;
+    const todayRows = rows.filter((r) => {
+      const d = new Date(r.captured_at);
+      return (
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()
+      );
     });
 
-    return { low, medium, good };
-  }, [latestRows]);
+    if (!todayRows.length) {
+      return {
+        temperature: 6.5,
+        humidity: 91,
+        capturedAt: null as string | null,
+      };
+    }
+
+    const sorted = [...todayRows].sort(
+      (a, b) =>
+        new Date(b.captured_at).getTime() - new Date(a.captured_at).getTime()
+    );
+
+    const latest = sorted[0];
+
+    return {
+      temperature: Number(latest.temperature ?? 6.5),
+      humidity: Number(latest.humidity ?? 91),
+      capturedAt: latest.captured_at ?? null,
+    };
+  }, [rows]);
+
+  const envStatus = useMemo(() => {
+    const tempOk =
+      latestSensorReading.temperature >= 2 &&
+      latestSensorReading.temperature <= 8;
+
+    const humidityOk =
+      latestSensorReading.humidity >= 85 &&
+      latestSensorReading.humidity <= 95;
+
+    if (tempOk && humidityOk) {
+      return {
+        label: "Normal",
+        bg: COLORS.greenSoft,
+        text: "#15803D",
+      };
+    }
+
+    return {
+      label: "Watch",
+      bg: COLORS.amberSoft,
+      text: "#B45309",
+    };
+  }, [latestSensorReading]);
+
+  const topRechecks = useMemo(() => recheckItems.slice(0, 3), [recheckItems]);
+  const recentPredictions = useMemo(() => predictions.slice(0, 5), [predictions]);
 
   const openSpoilageScan = () =>
     navigation.navigate("SpoilageScan", { demoMode: true });
@@ -212,22 +303,16 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
 
   const ListHeader = (
     <>
-      <View className="px-4 pt-3 pb-2">
+      <View className="px-4 pt-3">
         <View className="flex-row items-center justify-between">
-          <TouchableOpacity
-            onPress={() => {
-              if (navigation.canGoBack()) navigation.goBack();
-            }}
-            activeOpacity={0.8}
-            className="w-10 h-10 items-center justify-center rounded-full bg-white"
-            style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
-          >
-            <Ionicons name="chevron-back" size={20} color="#111827" />
-          </TouchableOpacity>
-
-          <Text className="text-[16px] font-extrabold text-gray-900">
-            Spoilage Dashboard
-          </Text>
+          <View>
+            <Text className="text-[12px] font-semibold" style={{ color: COLORS.subtext }}>
+              Spoilage Monitoring
+            </Text>
+            <Text className="text-[24px] font-extrabold mt-1" style={{ color: COLORS.text }}>
+              Dashboard
+            </Text>
+          </View>
 
           <TouchableOpacity
             activeOpacity={0.85}
@@ -236,7 +321,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           >
             <Image
               source={{ uri: "https://i.pravatar.cc/100?img=12" }}
-              style={{ width: 40, height: 40, borderRadius: 20 }}
+              style={{ width: 42, height: 42, borderRadius: 21 }}
             />
             <View
               style={{
@@ -246,7 +331,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
                 width: 12,
                 height: 12,
                 borderRadius: 6,
-                backgroundColor: "#22C55E",
+                backgroundColor: COLORS.green,
                 borderWidth: 2,
                 borderColor: "#FFFFFF",
               }}
@@ -254,152 +339,178 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
+        <Text className="text-[12px] mt-1" style={{ color: COLORS.subtext }}>
+          {currentLocation}
+        </Text>
+
+        {error ? (
+          <View
+            className="mt-4 rounded-[16px] px-4 py-3"
+            style={{ backgroundColor: COLORS.redSoft, borderWidth: 1, borderColor: "#FECACA" }}
+          >
+            <Text className="text-[12px] font-semibold" style={{ color: COLORS.red }}>
+              {error}
+            </Text>
+          </View>
+        ) : null}
+
         <View
-          className="mt-4 rounded-[24px] px-4 py-4 bg-white"
-          style={{ borderWidth: 1, borderColor: "#E6EEF8" }}
+          className="mt-4 rounded-[28px] p-5"
+          style={{ backgroundColor: COLORS.primarySoft }}
         >
           <View className="flex-row items-start justify-between">
             <View className="flex-1 pr-3">
-              <Text className="text-[11px] text-[#6B7280] font-semibold">
-                CURRENT LOCATION
-              </Text>
-              <View className="flex-row items-center mt-1">
-                <Text className="text-[17px] font-extrabold text-gray-900">
-                  {currentLocation}
+              <View
+                className="self-start px-3 py-1 rounded-full"
+                style={{ backgroundColor: dashboardStatus.chipBg }}
+              >
+                <Text
+                  className="text-[11px] font-extrabold"
+                  style={{ color: dashboardStatus.chipText }}
+                >
+                  {dashboardStatus.label}
                 </Text>
-                <Ionicons
-                  name="chevron-down"
-                  size={15}
-                  color="#94A3B8"
-                  style={{ marginLeft: 6 }}
-                />
               </View>
 
-              <Text className="text-[12px] text-gray-500 mt-3 leading-5">
-                Monitor spoilage risk, review urgent plants, and rescan only the
-                ones that need attention.
+              <Text
+                className="text-[28px] font-extrabold mt-3"
+                style={{ color: COLORS.primary }}
+              >
+                {riskPercent}%
+              </Text>
+              <Text className="text-[12px] mt-1" style={{ color: COLORS.subtext }}>
+                Overall spoilage risk exposure
+              </Text>
+
+              <Text className="text-[12px] mt-3 leading-5" style={{ color: COLORS.subtext }}>
+                {dashboardStatus.message}
               </Text>
             </View>
 
-            <View className="w-14 h-14 rounded-full bg-[#EAF4FF] items-center justify-center">
-              <Ionicons name="business-outline" size={24} color="#0046AD" />
+            <View
+              className="w-14 h-14 rounded-full items-center justify-center"
+              style={{ backgroundColor: dashboardStatus.color }}
+            >
+              <Ionicons name={dashboardStatus.icon} size={24} color="#fff" />
             </View>
           </View>
 
-          <View className="flex-row mt-4">
-            <HeroMetricLight
-              label="Tracked Plants"
-              value={totalPlants}
-              valueColor="#111827"
-              bg="#F8FAFC"
-            />
-            <View className="w-3" />
-            <HeroMetricLight
-              label="Risk Plants"
-              value={riskPlants}
-              valueColor={riskPlants > 0 ? "#DC2626" : "#111827"}
-              bg="#FFF7ED"
-            />
-          </View>
-
-          <View className="mt-4">
+          <View className="mt-5">
             <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-[12px] font-bold text-gray-700">
-                Current Risk Level
+              <Text className="text-[12px] font-semibold" style={{ color: COLORS.subtext }}>
+                Live Risk Level
               </Text>
-              <Text className="text-[12px] font-extrabold text-gray-900">
+              <Text className="text-[12px] font-extrabold" style={{ color: COLORS.text }}>
                 {riskPercent}%
               </Text>
             </View>
 
-            <View className="h-3 rounded-full bg-[#E5E7EB] overflow-hidden">
+            <View
+              className="h-3 rounded-full overflow-hidden"
+              style={{ backgroundColor: "#D9E4FF" }}
+            >
               <View
                 style={{
                   width: `${riskPercent}%`,
                   height: "100%",
                   backgroundColor:
                     riskPercent >= 60
-                      ? "#DC2626"
+                      ? COLORS.red
                       : riskPercent >= 30
-                      ? "#F59E0B"
-                      : "#16A34A",
+                      ? COLORS.amber
+                      : COLORS.green,
                 }}
               />
             </View>
-
-            <Text className="text-[11px] text-gray-500 mt-2">
-              {healthyPlants} healthy/aged plants • {riskPlants} plants needing
-              attention
-            </Text>
           </View>
         </View>
 
-        {error ? (
-          <View
-            className="mt-3 rounded-[16px] px-4 py-3 bg-[#FEF2F2]"
-            style={{ borderWidth: 1, borderColor: "#FECACA" }}
-          >
-            <Text className="text-[12px] text-red-600 font-semibold">
-              {error}
-            </Text>
+        <View className="mt-4 flex-row justify-between">
+          <MetricCard
+            title="Tracked"
+            value={totalPlants}
+            subtitle="Plants"
+            icon="leaf-outline"
+            iconBg={COLORS.blueSoft}
+            iconColor={COLORS.primary}
+          />
+          <MetricCard
+            title="Stable"
+            value={stablePlants}
+            subtitle="Fresh / Aged"
+            icon="checkmark-circle-outline"
+            iconBg={COLORS.greenSoft}
+            iconColor={COLORS.green}
+          />
+        </View>
+
+        <View className="mt-3 flex-row justify-between">
+          <MetricCard
+            title="Risk"
+            value={riskCount}
+            subtitle="Near Spoilage"
+            icon="warning-outline"
+            iconBg={COLORS.amberSoft}
+            iconColor={COLORS.amber}
+          />
+          <MetricCard
+            title="Critical"
+            value={spoiledCount}
+            subtitle="Spoiled"
+            icon="alert-circle-outline"
+            iconBg={COLORS.redSoft}
+            iconColor={COLORS.red}
+          />
+        </View>
+
+        <View
+          className="mt-4 rounded-[22px] px-4 py-4 shadow-sm"
+          style={{ backgroundColor: COLORS.card }}
+        >
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text className="text-[14px] font-extrabold" style={{ color: COLORS.text }}>
+                Storage Environment
+              </Text>
+              <Text className="text-[11px] mt-1" style={{ color: COLORS.subtext }}>
+                Latest captured sensor values for today
+              </Text>
+            </View>
+
+            <View
+              className="px-3 py-1 rounded-full"
+              style={{ backgroundColor: envStatus.bg }}
+            >
+              <Text
+                className="text-[11px] font-extrabold"
+                style={{ color: envStatus.text }}
+              >
+                {envStatus.label}
+              </Text>
+            </View>
           </View>
-        ) : null}
-      </View>
 
-      <View style={{ paddingHorizontal: 16 }}>
-        <View className="flex-row items-center justify-between mt-2 mb-3">
-          <Text className="text-[14px] font-extrabold text-gray-900">
-            Batch Overview
-          </Text>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate("SpoilagePlants")}
-          >
-            <Text className="text-[12px] font-semibold text-[#1D4ED8]">
-              View Details
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View className="flex-row justify-between">
-          <StatPill label="Fresh" value={batchStats.fresh} tone="green" />
-          <StatPill label="Aged" value={batchStats.aged} tone="yellow" />
-          <StatPill label="Risk" value={batchStats.risk} tone="orange" />
-          <StatPill label="Spoiled" value={batchStats.spoiled} tone="red" />
-        </View>
-
-        <View className="mt-4 bg-white rounded-[20px] px-4 py-4 shadow-sm">
-          <Text className="text-[13px] font-extrabold text-gray-900">
-            Shelf-Life Summary
-          </Text>
-          <Text className="text-[11px] text-gray-500 mt-1">
-            Latest estimated remaining days across tracked plants
+          <Text className="text-[10px] mt-3" style={{ color: COLORS.subtext }}>
+            Updated: {formatCapturedTime(latestSensorReading.capturedAt)}
           </Text>
 
-          <View className="flex-row justify-between mt-4">
-            <ShelfLifeMiniCard
-              label="Low"
-              value={shelfLifeSummary.low}
-              subtitle="≤ 1 day"
-              bg="#FEF2F2"
-              text="#DC2626"
-              icon="alert-circle-outline"
+          <View className="flex-row mt-4">
+            <EnvCard
+              title="Temperature"
+              value={`${latestSensorReading.temperature.toFixed(1)}°C`}
+              hint="Ideal: 2°C - 8°C"
+              icon="thermometer-outline"
+              bg={COLORS.blueSoft}
+              iconColor={COLORS.primary}
             />
-            <ShelfLifeMiniCard
-              label="Medium"
-              value={shelfLifeSummary.medium}
-              subtitle="2 - 3 days"
-              bg="#FFF7ED"
-              text="#F59E0B"
-              icon="time-outline"
-            />
-            <ShelfLifeMiniCard
-              label="Good"
-              value={shelfLifeSummary.good}
-              subtitle="> 3 days"
-              bg="#ECFDF5"
-              text="#16A34A"
-              icon="checkmark-circle-outline"
+            <View className="w-3" />
+            <EnvCard
+              title="Humidity"
+              value={`${latestSensorReading.humidity.toFixed(0)}%`}
+              hint="Ideal: 85% - 95%"
+              icon="water-outline"
+              bg={COLORS.cyanSoft}
+              iconColor="#0891B2"
             />
           </View>
         </View>
@@ -407,233 +518,58 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
         <TouchableOpacity
           activeOpacity={0.92}
           onPress={openSpoilageScan}
-          className="mt-4 rounded-[22px] px-4 py-4 shadow-sm"
-          style={{ backgroundColor: "#0B1220" }}
+          className="mt-4 rounded-[24px] px-4 py-4 shadow-sm"
+          style={{ backgroundColor: COLORS.primaryDark }}
         >
           <View className="flex-row items-center justify-between">
             <View className="flex-1 pr-3">
-              <Text className="text-white text-[16px] font-extrabold">
+              <Text className="text-white text-[17px] font-extrabold">
                 Scan Spoilage
               </Text>
-              <Text className="text-white/70 text-[12px] mt-1">
+              <Text className="text-white/85 text-[12px] mt-1">
                 Analyze single plant health
               </Text>
-
-              <View className="mt-3 flex-row items-center">
-                <View className="px-3 py-1 rounded-full bg-white/10">
-                  <Text className="text-[10px] font-bold text-white/90">
-                    Demo Scan
-                  </Text>
-                </View>
-                <View className="w-2" />
-                <View className="px-3 py-1 rounded-full bg-white/10">
-                  <Text className="text-[10px] font-bold text-white/90">
-                    Stage + Shelf Life
-                  </Text>
-                </View>
-              </View>
             </View>
 
-            <View className="w-14 h-14 rounded-full bg-[#16A34A] items-center justify-center">
-              <Ionicons name="scan" size={24} color="#fff" />
+            <View
+              className="w-14 h-14 rounded-full items-center justify-center"
+              style={{ backgroundColor: COLORS.scanAccent }}
+            >
+              <Ionicons name="scan-outline" size={24} color="#fff" />
             </View>
           </View>
         </TouchableOpacity>
 
-        <View className="flex-row justify-between mt-3">
-          <SmallActionCard
-            title="Today's Alerts"
+        <View className="mt-4 flex-row justify-between">
+          <MiniActionCard
+            title="Alerts"
             value={activeAlertCount}
-            tone="amber"
-            icon={<Ionicons name="warning-outline" size={18} color="#F59E0B" />}
+            icon="notifications-outline"
+            iconColor={COLORS.amber}
+            iconBg={COLORS.amberSoft}
             onPress={() => navigation.navigate("SpoilageAlerts")}
           />
-          <SmallActionCard
-            title="Recheck Soon"
+          <MiniActionCard
+            title="Recheck"
             value={recheckCount}
-            tone="blue"
-            icon={<Ionicons name="time-outline" size={18} color="#2563EB" />}
+            icon="time-outline"
+            iconColor={COLORS.primary}
+            iconBg={COLORS.blueSoft}
             onPress={() =>
               Alert.alert(
-                "Recheck Soon",
-                `${recheckCount} plants should be rescanned soon.`
+                "Recheck Queue",
+                `${recheckCount} plants are currently waiting for recheck.`
               )
             }
           />
         </View>
 
-        <View className="mt-4 bg-white rounded-[20px] px-4 py-4 shadow-sm">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-[13px] font-extrabold text-gray-900">
-              Urgency Summary
-            </Text>
-            <Text className="text-[11px] text-gray-500 font-semibold">
-              Quick priority guide
-            </Text>
-          </View>
-
-          <View className="mt-4">
-            <UrgencyRow
-              color="#DC2626"
-              title="Critical"
-              subtitle={`${batchStats.spoiled} plants require immediate action`}
-              bg="#FEF2F2"
-            />
-            <View className="h-3" />
-            <UrgencyRow
-              color="#F59E0B"
-              title="Warning"
-              subtitle={`${batchStats.risk} plants are nearing spoilage`}
-              bg="#FFF7ED"
-            />
-            <View className="h-3" />
-            <UrgencyRow
-              color="#16A34A"
-              title="Monitoring"
-              subtitle={`${batchStats.fresh + batchStats.aged} plants currently stable`}
-              bg="#ECFDF5"
-            />
-          </View>
-        </View>
-
-        <View className="flex-row items-center justify-between mt-6 mb-3">
-          <Text className="text-[14px] font-extrabold text-gray-900">
-            Priority Recheck Queue
-          </Text>
-          {recheckItems.length > 0 ? (
-            <Text className="text-[11px] text-gray-500 font-semibold">
-              Top 3 urgent plants
-            </Text>
-          ) : null}
-        </View>
-
-        {recheckItems.length === 0 ? (
-          <EmptyPanel text="No urgent rescans right now." />
-        ) : (
-          recheckItems.slice(0, 3).map((item) => {
-            const sim = isSimPlantId(item.plant_id);
-
-            return (
-              <TouchableOpacity
-                key={`${item.plant_id}-${item.captured_at}`}
-                activeOpacity={0.9}
-                onPress={() =>
-                  navigation.navigate("SpoilagePlantDetails", {
-                    plantId: item.plant_id,
-                  })
-                }
-                className="bg-white rounded-[20px] px-4 py-4 shadow-sm mb-3"
-              >
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-1 pr-3">
-                    <View className="flex-row items-center">
-                      <View
-                        className="w-9 h-9 rounded-full items-center justify-center mr-3"
-                        style={{
-                          backgroundColor:
-                            item.stage === "spoiled"
-                              ? "#FEE2E2"
-                              : item.stage === "near_spoilage"
-                              ? "#FFF7ED"
-                              : "#EFF6FF",
-                        }}
-                      >
-                        <Ionicons
-                          name={
-                            item.stage === "spoiled"
-                              ? "alert-circle-outline"
-                              : item.stage === "near_spoilage"
-                              ? "warning-outline"
-                              : "time-outline"
-                          }
-                          size={18}
-                          color={
-                            item.stage === "spoiled"
-                              ? "#DC2626"
-                              : item.stage === "near_spoilage"
-                              ? "#F59E0B"
-                              : "#2563EB"
-                          }
-                        />
-                      </View>
-
-                      <View className="flex-1">
-                        <Text className="text-[13px] font-extrabold text-gray-900">
-                          {displayPlantId(item.plant_id)}
-                          {sim ? (
-                            <Text className="text-[11px] text-gray-400">
-                              {" "}
-                              (Sim)
-                            </Text>
-                          ) : null}
-                        </Text>
-                        <Text className="text-[11px] text-gray-500 mt-1">
-                          Stage: {mapStageLabel(item.stage)} • Shelf Life:{" "}
-                          {Math.max(0, Math.round(item.remaining_days))} days
-                        </Text>
-                      </View>
-                    </View>
-
-                    <Text className="text-[11px] font-semibold text-[#1D4ED8] mt-3">
-                      {recheckActionText(item)}
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() =>
-                      navigation.navigate("SpoilageScan", {
-                        plantId: item.plant_id,
-                        demoMode: sim,
-                        initialDemoDayIndex: sim
-                          ? getInitialDemoDayIndex(item.stage)
-                          : undefined,
-                      })
-                    }
-                    className="px-4 py-2 rounded-full"
-                    style={{ backgroundColor: "#0046AD" }}
-                  >
-                    <Text className="text-[11px] font-extrabold text-white">
-                      Rescan
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            );
-          })
-        )}
-
-        <View className="flex-row items-center justify-between mt-6 mb-3">
-          <Text className="text-[14px] font-extrabold text-gray-900">
-            Recent Predictions
-          </Text>
-          <Text className="text-[11px] text-gray-500 font-semibold">
-            Latest result per plant
-          </Text>
-        </View>
-
-        <View className="flex-row mb-3">
-          <Chip
-            label="All Status"
-            active={filter === "All Status"}
-            onPress={() => setFilter("All Status")}
-          />
-          <Chip
-            label="Monitoring"
-            active={filter === "Monitoring"}
-            onPress={() => setFilter("Monitoring")}
-          />
-          <Chip
-            label="Warning"
-            active={filter === "Warning"}
-            onPress={() => setFilter("Warning")}
-          />
-          <Chip
-            label="Critical"
-            active={filter === "Critical"}
-            onPress={() => setFilter("Critical")}
-          />
-        </View>
+        <SectionHeader
+          title="Priority Recheck Queue"
+          actionLabel={topRechecks.length ? "Top 3" : undefined}
+          onPress={() => {}}
+          hideAction={!topRechecks.length}
+        />
       </View>
     </>
   );
@@ -652,23 +588,135 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
   );
 
   return (
-    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
+    <SafeAreaView edges={["top"]} className="flex-1" style={{ backgroundColor: COLORS.bg }}>
       {loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator />
-          <Text className="mt-2 text-[12px] text-gray-500 font-semibold">
+          <Text className="mt-2 text-[12px] font-semibold" style={{ color: COLORS.subtext }}>
             Loading dashboard...
           </Text>
         </View>
       ) : (
         <FlatList
-          data={filtered}
+          data={recentPredictions}
           keyExtractor={(it) => it.id}
           renderItem={renderItem}
-          ListHeaderComponent={ListHeader}
+          ListHeaderComponent={
+            <>
+              {ListHeader}
+
+              <View style={{ paddingHorizontal: 16 }}>
+                {topRechecks.length === 0 ? (
+                  <EmptyPanel text="No urgent rescans right now." />
+                ) : (
+                  topRechecks.map((item) => {
+                    const sim = isSimPlantId(item.plant_id);
+
+                    return (
+                      <TouchableOpacity
+                        key={`${item.plant_id}-${item.captured_at}`}
+                        activeOpacity={0.9}
+                        onPress={() =>
+                          navigation.navigate("SpoilagePlantDetails", {
+                            plantId: item.plant_id,
+                          })
+                        }
+                        className="rounded-[20px] px-4 py-4 shadow-sm mb-3"
+                        style={{ backgroundColor: COLORS.card }}
+                      >
+                        <View className="flex-row items-center justify-between">
+                          <View className="flex-1 pr-3">
+                            <View className="flex-row items-center">
+                              <View
+                                className="w-10 h-10 rounded-full items-center justify-center mr-3"
+                                style={{
+                                  backgroundColor:
+                                    item.stage === "spoiled"
+                                      ? COLORS.redSoft
+                                      : item.stage === "near_spoilage"
+                                      ? COLORS.amberSoft
+                                      : COLORS.blueSoft,
+                                }}
+                              >
+                                <Ionicons
+                                  name={
+                                    item.stage === "spoiled"
+                                      ? "alert-circle-outline"
+                                      : item.stage === "near_spoilage"
+                                      ? "warning-outline"
+                                      : "time-outline"
+                                  }
+                                  size={18}
+                                  color={
+                                    item.stage === "spoiled"
+                                      ? COLORS.red
+                                      : item.stage === "near_spoilage"
+                                      ? COLORS.amber
+                                      : COLORS.primary
+                                  }
+                                />
+                              </View>
+
+                              <View className="flex-1">
+                                <Text className="text-[13px] font-extrabold" style={{ color: COLORS.text }}>
+                                  {displayPlantId(item.plant_id)}
+                                  {sim ? (
+                                    <Text className="text-[11px]" style={{ color: "#9CA3AF" }}>
+                                      {" "}
+                                      (Sim)
+                                    </Text>
+                                  ) : null}
+                                </Text>
+                                <Text className="text-[11px] mt-1" style={{ color: COLORS.subtext }}>
+                                  {mapStageLabel(item.stage)} •{" "}
+                                  {Math.max(0, Math.round(item.remaining_days))} days left
+                                </Text>
+                              </View>
+                            </View>
+
+                            <Text
+                              className="text-[11px] font-semibold mt-3"
+                              style={{ color: COLORS.primary }}
+                            >
+                              {recheckActionText(item)}
+                            </Text>
+                          </View>
+
+                          <TouchableOpacity
+                            activeOpacity={0.9}
+                            onPress={() =>
+                              navigation.navigate("SpoilageScan", {
+                                plantId: item.plant_id,
+                                demoMode: sim,
+                                initialDemoDayIndex: sim
+                                  ? getInitialDemoDayIndex(item.stage)
+                                  : undefined,
+                              })
+                            }
+                            className="px-4 py-2 rounded-full"
+                            style={{ backgroundColor: COLORS.navyAction }}
+                          >
+                            <Text className="text-[11px] font-extrabold text-white">
+                              Rescan
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+
+                <SectionHeader
+                  title="Recent Plant Results"
+                  actionLabel="View All"
+                  onPress={() => navigation.navigate("SpoilagePlants")}
+                />
+              </View>
+            </>
+          }
           ListEmptyComponent={
             <View style={{ paddingHorizontal: 16, paddingVertical: 24 }}>
-              <Text className="text-[12px] text-gray-500 font-semibold">
+              <Text className="text-[12px] font-semibold" style={{ color: COLORS.subtext }}>
                 No predictions yet
               </Text>
             </View>
@@ -703,16 +751,17 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
               style={{ width: 48, height: 48, borderRadius: 24 }}
             />
             <View className="ml-3 flex-1">
-              <Text className="text-[16px] font-extrabold text-gray-900">
+              <Text className="text-[16px] font-extrabold" style={{ color: COLORS.text }}>
                 {user?.name ?? "Farmer"}
               </Text>
-              <Text className="text-[12px] text-gray-500 mt-0.5">
+              <Text className="text-[12px] mt-0.5" style={{ color: COLORS.subtext }}>
                 {user?.email ?? "farmer@example.com"}
               </Text>
             </View>
             <TouchableOpacity
               onPress={() => setProfileOpen(false)}
-              className="w-9 h-9 rounded-full bg-[#F3F4F6] items-center justify-center"
+              className="w-9 h-9 rounded-full items-center justify-center"
+              style={{ backgroundColor: "#F3F4F6" }}
               activeOpacity={0.85}
             >
               <Ionicons name="close" size={18} color="#0F172A" />
@@ -724,7 +773,8 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={handleLogout}
-            className="h-[52px] rounded-2xl bg-[#EF4444] items-center justify-center"
+            className="h-[52px] rounded-2xl items-center justify-center"
+            style={{ backgroundColor: COLORS.red }}
           >
             <View className="flex-row items-center">
               <Ionicons name="log-out-outline" size={18} color="white" />
@@ -739,204 +789,147 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
   );
 }
 
-function HeroMetricLight({
-  label,
-  value,
-  valueColor,
-  bg,
+function SectionHeader({
+  title,
+  actionLabel,
+  onPress,
+  hideAction,
 }: {
-  label: string;
-  value: number;
-  valueColor: string;
-  bg: string;
+  title: string;
+  actionLabel?: string;
+  onPress?: () => void;
+  hideAction?: boolean;
 }) {
   return (
-    <View
-      className="flex-1 rounded-[18px] px-4 py-3"
-      style={{ backgroundColor: bg }}
-    >
-      <Text className="text-[11px] font-semibold text-gray-500">{label}</Text>
-      <Text
-        className="text-[20px] font-extrabold mt-1"
-        style={{ color: valueColor }}
-      >
-        {value}
+    <View className="flex-row items-center justify-between mt-6 mb-3">
+      <Text className="text-[15px] font-extrabold" style={{ color: COLORS.text }}>
+        {title}
       </Text>
+      {!hideAction && actionLabel ? (
+        <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
+          <Text className="text-[12px] font-semibold" style={{ color: COLORS.primary }}>
+            {actionLabel}
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <View />
+      )}
     </View>
   );
 }
 
-function StatPill({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "green" | "yellow" | "orange" | "red";
-}) {
-  const bg =
-    tone === "green"
-      ? "#E9FBEF"
-      : tone === "yellow"
-      ? "#FEF9C3"
-      : tone === "orange"
-      ? "#FFF6E5"
-      : "#FEE2E2";
-
-  const num =
-    tone === "green"
-      ? "#16A34A"
-      : tone === "yellow"
-      ? "#CA8A04"
-      : tone === "orange"
-      ? "#F59E0B"
-      : "#DC2626";
-
-  return (
-    <View
-      className="w-[23%] rounded-[18px] py-3 items-center"
-      style={{ backgroundColor: bg }}
-    >
-      <Text className="text-[16px] font-extrabold" style={{ color: num }}>
-        {value}
-      </Text>
-      <Text className="text-[11px] text-gray-700 font-semibold mt-1">
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-function ShelfLifeMiniCard({
-  label,
-  value,
-  subtitle,
-  bg,
-  text,
-  icon,
-}: {
-  label: string;
-  value: number;
-  subtitle: string;
-  bg: string;
-  text: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}) {
-  return (
-    <View
-      className="w-[31%] rounded-[18px] px-3 py-3"
-      style={{ backgroundColor: bg }}
-    >
-      <View className="flex-row items-center justify-between">
-        <Ionicons name={icon} size={16} color={text} />
-        <Text className="text-[18px] font-extrabold" style={{ color: text }}>
-          {value}
-        </Text>
-      </View>
-      <Text className="text-[12px] font-extrabold text-gray-900 mt-3">
-        {label}
-      </Text>
-      <Text className="text-[10px] text-gray-500 mt-1">{subtitle}</Text>
-    </View>
-  );
-}
-
-function SmallActionCard({
+function MetricCard({
   title,
   value,
-  tone,
+  subtitle,
   icon,
-  onPress,
+  iconBg,
+  iconColor,
 }: {
   title: string;
   value: number;
-  tone: "amber" | "blue";
-  icon: React.ReactNode;
-  onPress: () => void;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconBg: string;
+  iconColor: string;
 }) {
-  const iconBg = tone === "amber" ? "#FFF7ED" : "#EFF6FF";
-  const border = tone === "amber" ? "#FED7AA" : "#BFDBFE";
-
   return (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={onPress}
-      className="w-[48%] rounded-[18px] px-4 py-4 shadow-sm bg-white"
-      style={{ borderWidth: 1, borderColor: border }}
+    <View
+      className="w-[48.5%] rounded-[20px] px-4 py-4 shadow-sm"
+      style={{ backgroundColor: COLORS.card }}
     >
       <View className="flex-row items-center justify-between">
         <View
           className="w-10 h-10 rounded-full items-center justify-center"
           style={{ backgroundColor: iconBg }}
         >
-          {icon}
+          <Ionicons name={icon} size={18} color={iconColor} />
         </View>
-        <Text className="text-[20px] font-extrabold text-gray-900">
+        <Text className="text-[24px] font-extrabold" style={{ color: COLORS.text }}>
           {value}
         </Text>
       </View>
 
-      <Text className="text-[12px] font-extrabold text-gray-900 mt-3">
+      <Text className="text-[13px] font-extrabold mt-4" style={{ color: COLORS.text }}>
         {title}
       </Text>
-    </TouchableOpacity>
-  );
-}
-
-function UrgencyRow({
-  color,
-  title,
-  subtitle,
-  bg,
-}: {
-  color: string;
-  title: string;
-  subtitle: string;
-  bg: string;
-}) {
-  return (
-    <View
-      className="rounded-[16px] px-4 py-3 flex-row items-center"
-      style={{ backgroundColor: bg }}
-    >
-      <View
-        className="w-3 h-3 rounded-full mr-3"
-        style={{ backgroundColor: color }}
-      />
-      <View className="flex-1">
-        <Text className="text-[12px] font-extrabold text-gray-900">{title}</Text>
-        <Text className="text-[11px] text-gray-500 mt-1">{subtitle}</Text>
-      </View>
+      <Text className="text-[11px] mt-1" style={{ color: COLORS.subtext }}>
+        {subtitle}
+      </Text>
     </View>
   );
 }
 
-function Chip({
-  label,
-  active,
+function EnvCard({
+  title,
+  value,
+  hint,
+  icon,
+  bg,
+  iconColor,
+}: {
+  title: string;
+  value: string;
+  hint: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  bg: string;
+  iconColor: string;
+}) {
+  return (
+    <View className="flex-1 rounded-[18px] px-4 py-4" style={{ backgroundColor: bg }}>
+      <View className="flex-row items-center justify-between">
+        <Ionicons name={icon} size={18} color={iconColor} />
+        <Text className="text-[18px] font-extrabold" style={{ color: COLORS.text }}>
+          {value}
+        </Text>
+      </View>
+
+      <Text className="text-[12px] font-extrabold mt-4" style={{ color: COLORS.text }}>
+        {title}
+      </Text>
+      <Text className="text-[10px] mt-1" style={{ color: COLORS.subtext }}>
+        {hint}
+      </Text>
+    </View>
+  );
+}
+
+function MiniActionCard({
+  title,
+  value,
+  icon,
+  iconColor,
+  iconBg,
   onPress,
 }: {
-  label: string;
-  active: boolean;
+  title: string;
+  value: number;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  iconBg: string;
   onPress: () => void;
 }) {
   return (
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={onPress}
-      className="mr-2 px-3 py-2 rounded-full"
-      style={{
-        backgroundColor: active ? "#111827" : "#FFFFFF",
-        borderWidth: active ? 0 : 1,
-        borderColor: "#E5E7EB",
-      }}
+      className="w-[48.5%] rounded-[20px] px-4 py-4 shadow-sm"
+      style={{ backgroundColor: COLORS.card }}
     >
-      <Text
-        className="text-[12px] font-semibold"
-        style={{ color: active ? "#FFFFFF" : "#374151" }}
-      >
-        {label}
+      <View className="flex-row items-center justify-between">
+        <View
+          className="w-10 h-10 rounded-full items-center justify-center"
+          style={{ backgroundColor: iconBg }}
+        >
+          <Ionicons name={icon} size={18} color={iconColor} />
+        </View>
+        <Text className="text-[22px] font-extrabold" style={{ color: COLORS.text }}>
+          {value}
+        </Text>
+      </View>
+
+      <Text className="text-[13px] font-extrabold mt-4" style={{ color: COLORS.text }}>
+        {title}
       </Text>
     </TouchableOpacity>
   );
@@ -944,8 +937,13 @@ function Chip({
 
 function EmptyPanel({ text }: { text: string }) {
   return (
-    <View className="bg-white rounded-[18px] px-4 py-4 shadow-sm">
-      <Text className="text-[12px] font-semibold text-gray-500">{text}</Text>
+    <View
+      className="rounded-[18px] px-4 py-4 shadow-sm"
+      style={{ backgroundColor: COLORS.card }}
+    >
+      <Text className="text-[12px] font-semibold" style={{ color: COLORS.subtext }}>
+        {text}
+      </Text>
     </View>
   );
 }
@@ -961,19 +959,19 @@ function PredictionRow({
 
   const leftBar =
     item.severity === "monitoring"
-      ? "#16A34A"
+      ? COLORS.green
       : item.severity === "warning"
-      ? "#F59E0B"
-      : "#DC2626";
+      ? COLORS.amber
+      : COLORS.red;
 
   const badge = (() => {
     if (item.stageLabel === "Fresh")
-      return { bg: "#E9FBEF", text: "#16A34A", label: "Fresh" };
+      return { bg: COLORS.greenSoft, text: "#15803D", label: "Fresh" };
     if (item.stageLabel === "Slightly Aged")
-      return { bg: "#ECFDF5", text: "#22C55E", label: "Slightly Aged" };
+      return { bg: "#F0FDF4", text: "#16A34A", label: "Slightly Aged" };
     if (item.stageLabel === "Near Spoilage")
-      return { bg: "#FFF7ED", text: "#F59E0B", label: "Near Spoilage" };
-    return { bg: "#FEE2E2", text: "#DC2626", label: "Critical" };
+      return { bg: COLORS.amberSoft, text: "#B45309", label: "Near Spoilage" };
+    return { bg: COLORS.redSoft, text: "#B91C1C", label: "Critical" };
   })();
 
   const imgUri = item.imageUrl
@@ -984,7 +982,8 @@ function PredictionRow({
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={onPress}
-      className="bg-white rounded-[18px] overflow-hidden shadow-sm"
+      className="rounded-[18px] overflow-hidden shadow-sm"
+      style={{ backgroundColor: COLORS.card }}
     >
       <View className="flex-row">
         <View style={{ width: 6, backgroundColor: leftBar }} />
@@ -993,22 +992,28 @@ function PredictionRow({
           {imgUri ? (
             <Image
               source={{ uri: imgUri }}
-              style={{ width: 50, height: 50, borderRadius: 14 }}
+              style={{ width: 54, height: 54, borderRadius: 14 }}
               resizeMode="cover"
               resizeMethod="resize"
             />
           ) : (
-            <View className="w-12 h-12 rounded-[14px] bg-gray-100 items-center justify-center">
+            <View
+              className="w-[54px] h-[54px] rounded-[14px] items-center justify-center"
+              style={{ backgroundColor: "#F3F4F6" }}
+            >
               <Ionicons name="image-outline" size={18} color="#9CA3AF" />
             </View>
           )}
 
           <View className="flex-1 ml-3">
             <View className="flex-row items-center justify-between">
-              <Text className="text-[13px] font-extrabold text-gray-900">
+              <Text className="text-[13px] font-extrabold" style={{ color: COLORS.text }}>
                 {displayPlantId(item.plantId)}
                 {sim ? (
-                  <Text className="text-[11px] text-gray-400"> (Sim)</Text>
+                  <Text className="text-[11px]" style={{ color: "#9CA3AF" }}>
+                    {" "}
+                    (Sim)
+                  </Text>
                 ) : null}
               </Text>
 
@@ -1016,21 +1021,18 @@ function PredictionRow({
                 className="px-3 py-1 rounded-full"
                 style={{ backgroundColor: badge.bg }}
               >
-                <Text
-                  className="text-[11px] font-extrabold"
-                  style={{ color: badge.text }}
-                >
+                <Text className="text-[11px] font-extrabold" style={{ color: badge.text }}>
                   {badge.label}
                 </Text>
               </View>
             </View>
 
-            <Text className="text-[11px] text-gray-500 mt-1">
-              Shelf Life: {clamp(item.shelfLifeDays, 0, 99)} Days
+            <Text className="text-[11px] mt-1" style={{ color: COLORS.subtext }}>
+              Shelf Life: {clamp(item.shelfLifeDays, 0, 99)} days
             </Text>
 
             {item.actionText ? (
-              <Text className="text-[11px] text-gray-700 mt-1 font-semibold">
+              <Text className="text-[11px] mt-1 font-semibold" style={{ color: "#374151" }}>
                 {item.actionText}
               </Text>
             ) : null}

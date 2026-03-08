@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -18,7 +18,6 @@ import type { SpoilageStackParamList } from "../../navigation/SpoilageNavigator"
 
 import {
   CameraView,
-  type CameraViewRef,
   useCameraPermissions,
 } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
@@ -28,19 +27,6 @@ import { predictAll, getSimSample } from "../../api/SpoilageApi";
 import { SPOILAGE_BASE_URL } from "../../utils/constants";
 
 const PRIMARY = "#0046AD";
-
-const DEMO_DAY_OPTIONS = [
-  { label: "Day 0", daysAhead: 0 },
-  { label: "Day 2", daysAhead: 2 },
-  { label: "Day 4", daysAhead: 4 },
-  { label: "Day 7", daysAhead: 7 },
-] as const;
-
-function buildDemoIso(daysAhead: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + daysAhead);
-  return d.toISOString();
-}
 
 function formatLocalDateTime(iso: string) {
   const d = new Date(iso);
@@ -87,31 +73,43 @@ async function ensureLocalUri(uri: string) {
 
 function getFriendlyPredictionError(detail: any) {
   if (!detail) {
-    return "Invalid image. Please capture a clear top-view lettuce image only.";
+    return "Could not verify the image. Please capture one clear top-view photo of a single lettuce plant.";
   }
 
   if (typeof detail === "string") {
     const msg = detail.toLowerCase();
 
     if (
-      msg.includes("invalid image") ||
-      msg.includes("top-view lettuce") ||
-      msg.includes("not a lettuce") ||
-      msg.includes("low confidence")
+      msg.includes("not recognized as lettuce") ||
+      msg.includes("object not recognized as lettuce") ||
+      msg.includes("one lettuce plant only")
     ) {
-      return "Wrong image detected. Please capture a clear top-view photo of the lettuce only.";
+      return "Wrong object detected. Capture only one lettuce plant from the top view, with less background.";
+    }
+
+    if (msg.includes("prediction is uncertain") || msg.includes("uncertain")) {
+      return "The image is unclear for prediction. Try better lighting, closer framing, and a clear top-view lettuce image.";
+    }
+
+    if (msg.includes("too dark")) {
+      return "The image is too dark. Capture the lettuce in better lighting.";
+    }
+
+    if (msg.includes("too bright")) {
+      return "The image is too bright. Avoid strong glare and capture again.";
+    }
+
+    if (
+      msg.includes("invalid image") ||
+      msg.includes("top-view lettuce")
+    ) {
+      return "Invalid image. Please capture a clear top-view photo of one lettuce plant only.";
     }
 
     return detail;
   }
 
-  return "Wrong image detected. Please capture a clear top-view photo of the lettuce only.";
-}
-
-function clampDemoIndex(index: number | undefined | null) {
-  const safe = Number(index ?? 0);
-  if (Number.isNaN(safe)) return 0;
-  return Math.max(0, Math.min(safe, DEMO_DAY_OPTIONS.length - 1));
+  return "Could not verify the image. Please capture one clear top-view photo of a single lettuce plant.";
 }
 
 export default function SpoilageScanScreen({ navigation, route }: Props) {
@@ -119,7 +117,6 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
 
   const rawLockedPlantId = route.params?.plantId?.trim();
   const initialDemoMode = route.params?.demoMode ?? false;
-  const initialDemoDayIndex = clampDemoIndex(route.params?.initialDemoDayIndex);
 
   const isLockedSimStream =
     !!rawLockedPlantId && rawLockedPlantId.toUpperCase().startsWith("SIM-");
@@ -132,7 +129,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
 
   const isPlantLocked = !!lockedPlantId;
 
-  const cameraRef = useRef<CameraViewRef | null>(null);
+  const cameraRef = useRef<React.ElementRef<typeof CameraView> | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const camGranted = permission?.granted ?? false;
   const camChecked = permission != null;
@@ -150,27 +147,11 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [plantId, setPlantId] = useState<string>(lockedPlantId ?? "P-001");
   const [simLock, setSimLock] = useState<SimLock | null>(null);
 
-  const [demoTimeIndex, setDemoTimeIndex] = useState(initialDemoDayIndex);
   const [scanError, setScanError] = useState<string | null>(null);
 
   useEffect(() => {
     if (lockedPlantId) setPlantId(lockedPlantId);
   }, [lockedPlantId]);
-
-  useEffect(() => {
-    if (effectiveDemoMode) {
-      setDemoTimeIndex(initialDemoDayIndex);
-    }
-  }, [effectiveDemoMode, initialDemoDayIndex, rawLockedPlantId]);
-
-  const selectedDemoOption =
-    DEMO_DAY_OPTIONS[demoTimeIndex] ?? DEMO_DAY_OPTIONS[0];
-  const selectedDemoLabel = selectedDemoOption.label;
-  const selectedDemoDaysAhead = selectedDemoOption.daysAhead;
-
-  const selectedDemoTime = useMemo(() => {
-    return buildDemoIso(selectedDemoDaysAhead);
-  }, [selectedDemoDaysAhead]);
 
   const tempText = `${temperature.toFixed(1)}°C`;
   const rhText = `${humidity.toFixed(0)}% RH`;
@@ -249,12 +230,12 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         return;
       }
 
+      const effectiveNowIso = new Date().toISOString();
+
       const sample = await getSimSample({
         plant_id: pidForSimRequest,
         mode: "time",
-        now_iso: effectiveDemoMode
-          ? selectedDemoTime
-          : new Date().toISOString(),
+        now_iso: effectiveNowIso,
       });
 
       if (!simLock) {
@@ -293,9 +274,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         return;
       }
 
-      const effectiveNowIso = effectiveDemoMode
-        ? selectedDemoTime
-        : new Date().toISOString();
+      const effectiveNowIso = new Date().toISOString();
 
       const sample = await getSimSample({
         plant_id: pidForSimRequest,
@@ -330,24 +309,13 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         sourceImageName: sample.image_name ?? null,
       });
 
-      if (effectiveDemoMode) {
-        Alert.alert(
-          "Simulated Camera",
-          `Plant: ${pidForDisplay}
-Day: ${selectedDemoLabel}
+      Alert.alert(
+        "Simulated Camera",
+        `Plant: ${pidForDisplay}
 Time: ${formatLocalDateTime(simCapturedAt)}
 CSV Label: ${sample.label}
 Image: ${sample.image_name ?? "none"}`
-        );
-      } else {
-        Alert.alert(
-          "Simulated Camera",
-          `Plant: ${pidForDisplay}
-Time: ${formatLocalDateTime(simCapturedAt)}
-CSV Label: ${sample.label}
-Image: ${sample.image_name ?? "none"}`
-        );
-      }
+      );
     } catch (e: any) {
       console.log("Simulate error:", e?.message, e?.response?.data);
       Alert.alert("Error", "Failed to simulate camera from dataset images");
@@ -388,9 +356,7 @@ Image: ${sample.image_name ?? "none"}`
       const usedHumidity = isSim ? simLock!.humidity : humidity;
 
       const usedCapturedAt = isSim
-        ? effectiveDemoMode
-          ? selectedDemoTime
-          : new Date().toISOString()
+        ? new Date().toISOString()
         : capturedAt ?? new Date().toISOString();
 
       const result = await predictAll({
@@ -523,57 +489,6 @@ Image: ${sample.image_name ?? "none"}`
           </View>
         )}
 
-        {effectiveDemoMode ? (
-          <View
-            className="mt-4 bg-white rounded-[18px] px-4 py-4 shadow-sm"
-            style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
-          >
-            <View className="flex-row items-center">
-              <View className="w-9 h-9 rounded-full bg-[#FFF7ED] items-center justify-center mr-3">
-                <Ionicons name="time-outline" size={18} color="#F59E0B" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-[12px] font-extrabold text-gray-700">
-                  Demo Time Progression
-                </Text>
-                <Text className="text-[11px] text-gray-500 mt-0.5">
-                  Use this only for panel/demo validation.
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row mt-4 flex-wrap">
-              {DEMO_DAY_OPTIONS.map((item, index) => {
-                const active = index === demoTimeIndex;
-                return (
-                  <TouchableOpacity
-                    key={item.label}
-                    activeOpacity={0.9}
-                    onPress={() => setDemoTimeIndex(index)}
-                    className="mr-2 mb-2 px-4 py-2 rounded-full"
-                    style={{
-                      backgroundColor: active ? PRIMARY : "#FFFFFF",
-                      borderWidth: 1,
-                      borderColor: active ? PRIMARY : "#E5E7EB",
-                    }}
-                  >
-                    <Text
-                      className="text-[11px] font-extrabold"
-                      style={{ color: active ? "#FFFFFF" : "#374151" }}
-                    >
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text className="text-[11px] text-gray-500 mt-1">
-              Selected: {selectedDemoLabel} • {formatLocalDateTime(selectedDemoTime)}
-            </Text>
-          </View>
-        ) : null}
-
         {scanError ? (
           <View
             className="mt-4 rounded-[18px] px-4 py-4"
@@ -591,6 +506,9 @@ Image: ${sample.image_name ?? "none"}`
                 </Text>
                 <Text className="text-[12px] text-red-600 mt-1 leading-5">
                   {scanError}
+                </Text>
+                <Text className="text-[11px] text-gray-500 mt-2">
+                  Tip: keep one lettuce centered, avoid hands/background objects, and use a clear top-view image.
                 </Text>
               </View>
             </View>
