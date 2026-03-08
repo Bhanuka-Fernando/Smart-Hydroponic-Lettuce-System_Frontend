@@ -172,7 +172,7 @@ export default function ScanScreen() {
             </View>
           </View>
 
-          <View className="bg-white rounded-[18px] p-4 shadow-sm">
+          <View className="bg-white rounded-[18px] p-4">
             <View className="flex-row items-start mb-3">
               <View className="w-11 h-11 rounded-full bg-[#EAF4FF] items-center justify-center mr-3">
                 <Ionicons name="bulb" size={20} color="#0046AD" />
@@ -243,7 +243,7 @@ export default function ScanScreen() {
         </View>
 
         {/* Info Note */}
-        <View className="mt-6 bg-white rounded-[18px] p-4 shadow-sm">
+        <View className="mt-6 bg-white rounded-[18px] p-4">
           <View className="flex-row items-start">
             <Ionicons
               name="information-circle"

@@ -107,7 +107,7 @@ export default function SettingsScreen({ navigation }: any) {
         <View className="mt-4">
           <Text className="text-[20px] font-extrabold text-gray-900 mb-3">Profile</Text>
           
-          <View className="bg-white rounded-[18px] p-4 shadow-sm">
+          <View className="bg-white rounded-[18px] p-4 shadow-slate-50">
             <View className="flex-row items-center">
               <Image
                 source={{ uri: "https://i.pravatar.cc/100?img=12" }}
@@ -324,7 +324,7 @@ export default function SettingsScreen({ navigation }: any) {
         {/* Logout Button */}
         <TouchableOpacity
           onPress={handleLogout}
-          className="mt-6 bg-white rounded-[18px] p-4 shadow-sm"
+          className="mt-6 bg-white rounded-[18px] p-4 shadow-slate-50"
           activeOpacity={0.85}
         >
           <View className="flex-row items-center justify-center">
