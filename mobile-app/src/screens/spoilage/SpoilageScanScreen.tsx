@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -28,19 +28,6 @@ import { predictAll, getSimSample } from "../../api/SpoilageApi";
 import { SPOILAGE_BASE_URL } from "../../utils/constants";
 
 const PRIMARY = "#0046AD";
-
-const DEMO_DAY_OPTIONS = [
-  { label: "Day 0", daysAhead: 0 },
-  { label: "Day 2", daysAhead: 2 },
-  { label: "Day 4", daysAhead: 4 },
-  { label: "Day 7", daysAhead: 7 },
-] as const;
-
-function buildDemoIso(daysAhead: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + daysAhead);
-  return d.toISOString();
-}
 
 function formatLocalDateTime(iso: string) {
   const d = new Date(iso);
@@ -126,18 +113,11 @@ function getFriendlyPredictionError(detail: any) {
   return "Could not verify the image. Please capture one clear top-view photo of a single lettuce plant.";
 }
 
-function clampDemoIndex(index: number | undefined | null) {
-  const safe = Number(index ?? 0);
-  if (Number.isNaN(safe)) return 0;
-  return Math.max(0, Math.min(safe, DEMO_DAY_OPTIONS.length - 1));
-}
-
 export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [mode, setMode] = useState<Mode>("Camera");
 
   const rawLockedPlantId = route.params?.plantId?.trim();
   const initialDemoMode = route.params?.demoMode ?? false;
-  const initialDemoDayIndex = clampDemoIndex(route.params?.initialDemoDayIndex);
 
   const isLockedSimStream =
     !!rawLockedPlantId && rawLockedPlantId.toUpperCase().startsWith("SIM-");
@@ -168,27 +148,11 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
   const [plantId, setPlantId] = useState<string>(lockedPlantId ?? "P-001");
   const [simLock, setSimLock] = useState<SimLock | null>(null);
 
-  const [demoTimeIndex, setDemoTimeIndex] = useState(initialDemoDayIndex);
   const [scanError, setScanError] = useState<string | null>(null);
 
   useEffect(() => {
     if (lockedPlantId) setPlantId(lockedPlantId);
   }, [lockedPlantId]);
-
-  useEffect(() => {
-    if (effectiveDemoMode) {
-      setDemoTimeIndex(initialDemoDayIndex);
-    }
-  }, [effectiveDemoMode, initialDemoDayIndex, rawLockedPlantId]);
-
-  const selectedDemoOption =
-    DEMO_DAY_OPTIONS[demoTimeIndex] ?? DEMO_DAY_OPTIONS[0];
-  const selectedDemoLabel = selectedDemoOption.label;
-  const selectedDemoDaysAhead = selectedDemoOption.daysAhead;
-
-  const selectedDemoTime = useMemo(() => {
-    return buildDemoIso(selectedDemoDaysAhead);
-  }, [selectedDemoDaysAhead]);
 
   const tempText = `${temperature.toFixed(1)}°C`;
   const rhText = `${humidity.toFixed(0)}% RH`;
@@ -267,12 +231,12 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         return;
       }
 
+      const effectiveNowIso = new Date().toISOString();
+
       const sample = await getSimSample({
         plant_id: pidForSimRequest,
         mode: "time",
-        now_iso: effectiveDemoMode
-          ? selectedDemoTime
-          : new Date().toISOString(),
+        now_iso: effectiveNowIso,
       });
 
       if (!simLock) {
@@ -311,9 +275,7 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         return;
       }
 
-      const effectiveNowIso = effectiveDemoMode
-        ? selectedDemoTime
-        : new Date().toISOString();
+      const effectiveNowIso = new Date().toISOString();
 
       const sample = await getSimSample({
         plant_id: pidForSimRequest,
@@ -348,24 +310,13 @@ export default function SpoilageScanScreen({ navigation, route }: Props) {
         sourceImageName: sample.image_name ?? null,
       });
 
-      if (effectiveDemoMode) {
-        Alert.alert(
-          "Simulated Camera",
-          `Plant: ${pidForDisplay}
-Day: ${selectedDemoLabel}
+      Alert.alert(
+        "Simulated Camera",
+        `Plant: ${pidForDisplay}
 Time: ${formatLocalDateTime(simCapturedAt)}
 CSV Label: ${sample.label}
 Image: ${sample.image_name ?? "none"}`
-        );
-      } else {
-        Alert.alert(
-          "Simulated Camera",
-          `Plant: ${pidForDisplay}
-Time: ${formatLocalDateTime(simCapturedAt)}
-CSV Label: ${sample.label}
-Image: ${sample.image_name ?? "none"}`
-        );
-      }
+      );
     } catch (e: any) {
       console.log("Simulate error:", e?.message, e?.response?.data);
       Alert.alert("Error", "Failed to simulate camera from dataset images");
@@ -406,9 +357,7 @@ Image: ${sample.image_name ?? "none"}`
       const usedHumidity = isSim ? simLock!.humidity : humidity;
 
       const usedCapturedAt = isSim
-        ? effectiveDemoMode
-          ? selectedDemoTime
-          : new Date().toISOString()
+        ? new Date().toISOString()
         : capturedAt ?? new Date().toISOString();
 
       const result = await predictAll({
@@ -540,57 +489,6 @@ Image: ${sample.image_name ?? "none"}`
             </Text>
           </View>
         )}
-
-        {effectiveDemoMode ? (
-          <View
-            className="mt-4 bg-white rounded-[18px] px-4 py-4 shadow-sm"
-            style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
-          >
-            <View className="flex-row items-center">
-              <View className="w-9 h-9 rounded-full bg-[#FFF7ED] items-center justify-center mr-3">
-                <Ionicons name="time-outline" size={18} color="#F59E0B" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-[12px] font-extrabold text-gray-700">
-                  Demo Time Progression
-                </Text>
-                <Text className="text-[11px] text-gray-500 mt-0.5">
-              
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row mt-4 flex-wrap">
-              {DEMO_DAY_OPTIONS.map((item, index) => {
-                const active = index === demoTimeIndex;
-                return (
-                  <TouchableOpacity
-                    key={item.label}
-                    activeOpacity={0.9}
-                    onPress={() => setDemoTimeIndex(index)}
-                    className="mr-2 mb-2 px-4 py-2 rounded-full"
-                    style={{
-                      backgroundColor: active ? PRIMARY : "#FFFFFF",
-                      borderWidth: 1,
-                      borderColor: active ? PRIMARY : "#E5E7EB",
-                    }}
-                  >
-                    <Text
-                      className="text-[11px] font-extrabold"
-                      style={{ color: active ? "#FFFFFF" : "#374151" }}
-                    >
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text className="text-[11px] text-gray-500 mt-1">
-              Selected: {selectedDemoLabel} • {formatLocalDateTime(selectedDemoTime)}
-            </Text>
-          </View>
-        ) : null}
 
         {scanError ? (
           <View
