@@ -208,13 +208,6 @@ export default function EstimateWeightResultsScreen() {
         {/* Main result card */}
         <View className="bg-white rounded-[18px] shadow-sm px-5 py-4 mt-4">
           <View className="items-center">
-            <View className="px-3 py-1 rounded-full bg-[#E9FBEF] flex-row items-center">
-              <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
-              <Text className="ml-2 text-[10px] font-extrabold text-[#16A34A]">
-                {computed.accuracy}% Accuracy
-              </Text>
-            </View>
-
             <Text className="text-[12px] font-extrabold text-gray-500 mt-3">
               ESTIMATED BIOMASS
             </Text>
