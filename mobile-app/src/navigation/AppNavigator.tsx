@@ -20,6 +20,8 @@ import HistoryScreen from "../screens/main/HistoryScreen";
 import SettingsScreen from "../screens/main/SettingsScreen";
 import ProfileScreen from "../screens/main/ProfileScreen";
 
+import LeafHealthNavigator from "./LeafHealthNavigator";
+
 export type DashboardStackParamList = {
   DashboardHome: undefined;
   WeightGrowth: undefined;
@@ -50,6 +52,7 @@ export type DashboardStackParamList = {
 
   // pass ONLY plant_id
   PlantDetails: { plant_id: string };
+  LeafHealth: undefined;
 };
 
 const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
@@ -81,6 +84,7 @@ function DashboardStackNavigator() {
         name="EstimateWeightResults"
         component={EstimateWeightResultsScreen}
       />
+      <DashboardStack.Screen name="LeafHealth" component={LeafHealthNavigator} />
     </DashboardStack.Navigator>
   );
 }

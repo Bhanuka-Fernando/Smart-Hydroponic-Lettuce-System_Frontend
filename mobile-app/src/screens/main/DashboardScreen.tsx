@@ -19,6 +19,7 @@ import { getDashboardLatest, DashboardMetricsResponse } from "../../api/dashboar
 import { getDeviceSensors } from "../../api/deviceApi";
 import axios from 'axios';
 import { ML_BASE_URL } from '../../utils/constants';
+import LeafHealthNavigator from "../../navigation/LeafHealthNavigator";
 
 type NotificationItem = {
   id: string;
@@ -502,7 +503,7 @@ const openSpoilageModule = (
                   subtitle="Analyze Plant Health"
                   iconBg="bg-[#FFEAF2]"
                   icon={<Ionicons name="medkit-outline" size={22} color="#DB2777" />}
-                  onPress={() => go("Scan")}
+                  onPress={() => navigation.navigate("LeafHealth")}
                 />
               </View>
 
