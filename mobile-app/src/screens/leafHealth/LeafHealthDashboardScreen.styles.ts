@@ -1,0 +1,251 @@
+import { StyleSheet } from "react-native";
+
+export const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: "#F4F6FA",
+  },
+  container: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 28,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+  topLeft: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  todayLabel: {
+    fontSize: 11,
+    color: "#98A2B3",
+    fontWeight: "800",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  pageTitle: {
+    marginTop: 6,
+    fontSize: 25,
+    lineHeight: 30,
+    color: "#111827",
+    fontWeight: "900",
+  },
+  pageSubtitle: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 21,
+    color: "#667085",
+  },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  primaryBtn: {
+    marginTop: 18,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "#173C96",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  primaryBtnText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+
+  sectionHeaderRow: {
+    marginTop: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sectionTitle: {
+    fontSize: 17,
+    color: "#111827",
+    fontWeight: "900",
+  },
+  historyLink: {
+    fontSize: 13,
+    color: "#173C96",
+    fontWeight: "800",
+  },
+
+  emptyCard: {
+    marginTop: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 20,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    color: "#111827",
+    fontWeight: "800",
+  },
+  emptyDesc: {
+    marginTop: 8,
+    fontSize: 13,
+    color: "#667085",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+
+  card: {
+    marginTop: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  cardTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  cardMain: {
+    flex: 1,
+    paddingRight: 10,
+  },
+
+  chip: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 8,
+  },
+  chipText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+
+  plantId: {
+    fontSize: 15,
+    color: "#111827",
+    fontWeight: "900",
+  },
+  mainIssue: {
+    marginTop: 3,
+    fontSize: 13,
+    color: "#475467",
+    fontWeight: "700",
+  },
+  capturedAt: {
+    marginTop: 5,
+    fontSize: 11,
+    color: "#98A2B3",
+    fontWeight: "600",
+  },
+
+  scoreMiniWrap: {
+    width: 72,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scoreCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scoreText: {
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  scoreLabel: {
+    marginTop: 6,
+    fontSize: 10,
+    color: "#98A2B3",
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+
+  cardFooterRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#EEF2F6",
+  },
+  reportBtnText: {
+    fontSize: 14,
+    color: "#173C96",
+    fontWeight: "900",
+  },
+  arrowBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#EEF2F7",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  infoCard: {
+    marginTop: 24,
+    backgroundColor: "#5F6778",
+    borderRadius: 22,
+    padding: 18,
+  },
+  infoTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 12,
+  },
+  infoTitle: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    marginTop: 10,
+  },
+  infoDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  infoText: {
+    flex: 1,
+    color: "#F8FAFC",
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: "500",
+  },
+});

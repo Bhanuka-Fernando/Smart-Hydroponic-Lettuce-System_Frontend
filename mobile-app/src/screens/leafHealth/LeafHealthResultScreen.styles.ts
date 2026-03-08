@@ -47,15 +47,16 @@ export const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
   },
   plantTag: {
     position: "absolute",
     top: 10,
     left: 10,
-    backgroundColor: "#F1F5F9",
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   plantTagText: {
     fontSize: 11,
@@ -76,8 +77,27 @@ export const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "700",
   },
+
+  annotateBtn: {
+    marginTop: 12,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1.2,
+    borderColor: "#C7D7FE",
+    backgroundColor: "#EEF4FF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  annotateBtnText: {
+    color: "#173C96",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
   scoreCard: {
-    marginTop: 10,
+    marginTop: 12,
     backgroundColor: "#F5F5F5",
     borderRadius: 16,
     padding: 14,
@@ -94,16 +114,20 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  scoreLeft: {
+    flex: 1,
+    paddingRight: 10,
+  },
   scoreText: {
-    fontSize: 52,
-    lineHeight: 56,
+    fontSize: 48,
+    lineHeight: 52,
     fontWeight: "900",
   },
   statusPill: {
-    marginTop: 2,
+    marginTop: 4,
     alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: 999,
   },
   statusPillText: {
@@ -111,23 +135,25 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
   },
   warningIconWrap: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: "#D8E2F2",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#E2E8F0",
     justifyContent: "center",
     alignItems: "center",
   },
-  metaText: {
-    marginTop: 6,
-    color: "#6B7280",
+  metaSummary: {
+    marginTop: 10,
+    color: "#64748B",
     fontSize: 13,
+    lineHeight: 19,
   },
   metaBold: {
     color: "#475569",
     fontSize: 13,
     fontWeight: "700",
   },
+
   statsRow: {
     flexDirection: "row",
     gap: 10,
@@ -138,7 +164,7 @@ export const styles = StyleSheet.create({
     backgroundColor: "#F5F5F5",
     borderRadius: 14,
     padding: 12,
-    minHeight: 110,
+    minHeight: 112,
   },
   cardLabel: {
     fontSize: 12,
@@ -149,6 +175,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     color: "#111827",
     fontWeight: "800",
+    lineHeight: 24,
   },
   progressTrack: {
     marginTop: 10,
@@ -158,7 +185,6 @@ export const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressFill: {
-    width: "76%",
     height: "100%",
     backgroundColor: "#0B3D91",
     borderRadius: 999,
@@ -169,6 +195,7 @@ export const styles = StyleSheet.create({
     color: "#64748B",
     lineHeight: 16,
   },
+
   explainCard: {
     marginTop: 10,
     backgroundColor: "#F5F5F5",
@@ -182,25 +209,30 @@ export const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionSub: {
-    fontSize: 13,
+    fontSize: 14,
     color: "#374151",
-    fontWeight: "700",
     marginTop: 4,
     marginBottom: 6,
   },
+  sectionSubBold: {
+    fontSize: 14,
+    color: "#111827",
+    fontWeight: "800",
+  },
   emptyTop3Text: {
     marginTop: 8,
+    color: "#64748B",
   },
   sectionSubTipburn: {
-    fontSize: 13,
+    fontSize: 14,
     color: "#374151",
-    fontWeight: "700",
     marginTop: 16,
     marginBottom: 6,
   },
   rowBetween: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 8,
   },
   rowLeft: {
@@ -212,6 +244,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
   },
+
   primaryBtn: {
     marginTop: 14,
     height: 48,
@@ -239,5 +272,54 @@ export const styles = StyleSheet.create({
     color: "#374151",
     fontSize: 15,
     fontWeight: "700",
+  },
+
+  annotateModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "center",
+    padding: 18,
+  },
+  annotateModalCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  annotateModalHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  annotateModalTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  annotatedImage: {
+    width: "100%",
+    height: 420,
+    backgroundColor: "#F3F4F6",
+  },
+  annotatedEmpty: {
+    height: 240,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  annotateModalFooter: {
+    padding: 16,
+  },
+  annotateCloseBtn: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#173C96",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  annotateCloseBtnText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
   },
 });
