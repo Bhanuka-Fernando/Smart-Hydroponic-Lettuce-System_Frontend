@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -20,9 +20,7 @@ interface Feature {
   iconLibrary: "ionicons" | "material";
   iconBg: string;
   iconColor: string;
-  gradient: string[];
   status: "active" | "coming-soon";
-  route?: string;
 }
 
 export default function ScanScreen() {
@@ -32,56 +30,51 @@ export default function ScanScreen() {
     {
       id: "weight",
       title: "Weight Estimation",
-      subtitle: "AI-powered lettuce weight measurement",
+      subtitle: "AI-powered measurement",
       icon: "scale-bathroom",
       iconLibrary: "material",
-      iconBg: "bg-blue-50",
-      iconColor: "#2563EB",
-      gradient: ["#3B82F6", "#2563EB"],
+      iconBg: "bg-[#EAF4FF]",
+      iconColor: "#0046AD",
       status: "active",
     },
     {
       id: "growth",
       title: "Growth Monitoring",
-      subtitle: "Track plant growth and development",
+      subtitle: "Track development",
       icon: "trending-up",
       iconLibrary: "ionicons",
-      iconBg: "bg-green-50",
+      iconBg: "bg-[#E9FBEF]",
       iconColor: "#16A34A",
-      gradient: ["#22C55E", "#16A34A"],
       status: "active",
     },
     {
       id: "spoilage",
       title: "Spoilage Detection",
-      subtitle: "Identify crop spoilage and root issues",
+      subtitle: "Identify crop issues",
       icon: "warning-outline",
       iconLibrary: "ionicons",
-      iconBg: "bg-amber-50",
-      iconColor: "#D97706",
-      gradient: ["#F59E0B", "#D97706"],
+      iconBg: "bg-[#FFF6E5]",
+      iconColor: "#F59E0B",
       status: "active",
     },
     {
       id: "algae",
       title: "Algae Detection",
-      subtitle: "Detect and prevent algae growth",
+      subtitle: "Prevent algae growth",
       icon: "water-outline",
       iconLibrary: "ionicons",
-      iconBg: "bg-teal-50",
-      iconColor: "#0D9488",
-      gradient: ["#14B8A6", "#0D9488"],
+      iconBg: "bg-[#E8F7FF]",
+      iconColor: "#0284C7",
       status: "coming-soon",
     },
     {
       id: "disease",
       title: "Disease Detection",
-      subtitle: "Early identification of plant diseases",
+      subtitle: "Early identification",
       icon: "medkit-outline",
       iconLibrary: "ionicons",
-      iconBg: "bg-pink-50",
+      iconBg: "bg-[#FFEAF2]",
       iconColor: "#DB2777",
-      gradient: ["#EC4899", "#DB2777"],
       status: "coming-soon",
     },
   ];
@@ -123,32 +116,16 @@ export default function ScanScreen() {
       case "weight":
         openDashboardScreen("EstimateWeightScan");
         break;
-
       case "growth":
         openDashboardScreen("GrowthForecasting");
         break;
-
       case "spoilage":
         openRootSpoilage();
-        break;
-
-      case "algae":
-        Alert.alert(
-          "Algae Detection",
-          "This feature is under development.\n\nComing soon!"
-        );
-        break;
-
-      case "disease":
-        Alert.alert(
-          "Disease Detection",
-          "This feature is under development by Team Member 2.\n\nComing soon!"
-        );
         break;
     }
   };
 
-  const renderIcon = (feature: Feature, size: number = 26) => {
+  const renderIcon = (feature: Feature, size: number = 22) => {
     if (feature.iconLibrary === "material") {
       return (
         <MaterialCommunityIcons
@@ -168,135 +145,162 @@ export default function ScanScreen() {
   };
 
   return (
-    <SafeAreaView edges={["top"]} className="flex-1 bg-gray-50">
-      {/* Header */}
-      <View className="px-6 pt-3 pb-4">
-        <Text className="text-[32px] font-bold text-gray-900">
+    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
+      {/* Header - Matching DashboardScreen */}
+      <View className="px-4 pt-4 pb-3">
+        <Text className="text-[24px] font-extrabold text-gray-900 leading-[30px]">
           Scan & Analyze
         </Text>
-        <Text className="text-[14px] text-gray-600 mt-1.5 font-medium">
+        <Text className="text-[11px] text-gray-500 mt-1 font-semibold tracking-[0.4px]">
           Choose a feature to get started
         </Text>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 30 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
       >
-        {/* Best Practices Card - Top */}
-        <View className="bg-white rounded-3xl p-5 shadow-sm mb-6 border border-gray-100">
-          <View className="flex-row items-center mb-3">
-            <View className="w-10 h-10 rounded-2xl bg-blue-50 items-center justify-center mr-3">
-              <Ionicons name="bulb" size={20} color="#2563EB" />
-            </View>
-            <Text className="text-[16px] font-bold text-gray-900">
-              Best Scanning Practices
+        {/* Best Practices - Matching environment card style */}
+        <View className="mt-4">
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-[20px] font-extrabold text-gray-900">
+              Best Practices
             </Text>
+            <View className="flex-row items-center">
+              <View className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+              <Text className="text-[11px] font-bold text-gray-500">Tips</Text>
+            </View>
           </View>
 
-          <View className="space-y-2.5">
-            <View className="flex-row items-start">
-              <View className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 mr-2.5" />
-              <Text className="text-[13px] text-gray-700 leading-5 flex-1">
-                Ensure good natural or artificial lighting
-              </Text>
-            </View>
-            <View className="flex-row items-start">
-              <View className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 mr-2.5" />
-              <Text className="text-[13px] text-gray-700 leading-5 flex-1">
-                Hold camera steady for clear, sharp images
-              </Text>
-            </View>
-            <View className="flex-row items-start">
-              <View className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 mr-2.5" />
-              <Text className="text-[13px] text-gray-700 leading-5 flex-1">
-                Capture the entire plant within frame
-              </Text>
-            </View>
-            <View className="flex-row items-start">
-              <View className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 mr-2.5" />
-              <Text className="text-[13px] text-gray-700 leading-5 flex-1">
-                Avoid shadows, glare, and reflections
-              </Text>
+          <View className="bg-white rounded-[18px] p-4 shadow-sm">
+            <View className="flex-row items-start mb-3">
+              <View className="w-11 h-11 rounded-full bg-[#EAF4FF] items-center justify-center mr-3">
+                <Ionicons name="bulb" size={20} color="#0046AD" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[13px] font-extrabold text-gray-900 mb-2">
+                  Scanning Guidelines
+                </Text>
+                <View className="space-y-1.5">
+                  <Text className="text-[12px] text-gray-600 leading-[20px]">
+                    • Ensure good natural or artificial lighting
+                  </Text>
+                  <Text className="text-[12px] text-gray-600 leading-[20px]">
+                    • Hold camera steady for clear images
+                  </Text>
+                  <Text className="text-[12px] text-gray-600 leading-[20px]">
+                    • Capture entire plant within frame
+                  </Text>
+                  <Text className="text-[12px] text-gray-600 leading-[20px]">
+                    • Avoid shadows, glare, and reflections
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
         </View>
 
-        {/* Features Section */}
-        <View className="mb-2">
-          <Text className="text-[13px] font-bold text-gray-500 mb-3 tracking-wider uppercase px-1">
+        {/* Available Features - Matching Features section style */}
+        <View className="mt-6">
+          <Text className="text-[20px] font-extrabold text-gray-900 mb-3">
             Available Features
           </Text>
 
-          <View className="space-y-3">
-            {features.map((feature) => (
-              <TouchableOpacity
-                key={feature.id}
-                onPress={() => handleFeaturePress(feature)}
-                activeOpacity={0.7}
-                className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100"
-              >
-                <View className="flex-row items-center p-4">
-                  {/* Icon Container */}
-                  <View
-                    className={`w-[56px] h-[56px] rounded-2xl ${feature.iconBg} items-center justify-center mr-3.5`}
-                  >
-                    {renderIcon(feature, 28)}
-                  </View>
+          <View className="flex-row justify-between">
+            <FeatureCard
+              feature={features[0]}
+              onPress={() => handleFeaturePress(features[0])}
+              renderIcon={renderIcon}
+            />
+            <FeatureCard
+              feature={features[1]}
+              onPress={() => handleFeaturePress(features[1])}
+              renderIcon={renderIcon}
+            />
+          </View>
 
-                  {/* Content */}
-                  <View className="flex-1 pr-2">
-                    <View className="flex-row items-center mb-1">
-                      <Text className="text-[15px] font-bold text-gray-900 flex-1">
-                        {feature.title}
-                      </Text>
-                      {feature.status === "active" ? (
-                        <View className="bg-green-500 rounded-full px-2.5 py-1">
-                          <Text className="text-white text-[10px] font-bold">
-                            READY
-                          </Text>
-                        </View>
-                      ) : (
-                        <View className="bg-amber-500 rounded-full px-2.5 py-1">
-                          <Text className="text-white text-[10px] font-bold">
-                            SOON
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text className="text-[12px] text-gray-600 leading-[17px]">
-                      {feature.subtitle}
-                    </Text>
-                  </View>
+          <View className="flex-row justify-between mt-3">
+            <FeatureCard
+              feature={features[2]}
+              onPress={() => handleFeaturePress(features[2])}
+              renderIcon={renderIcon}
+            />
+            <FeatureCard
+              feature={features[3]}
+              onPress={() => handleFeaturePress(features[3])}
+              renderIcon={renderIcon}
+            />
+          </View>
 
-                  {/* Arrow */}
-                  <Ionicons
-                    name="chevron-forward"
-                    size={22}
-                    color="#D1D5DB"
-                  />
-                </View>
-              </TouchableOpacity>
-            ))}
+          <View className="flex-row justify-between mt-3">
+            <FeatureCard
+              feature={features[4]}
+              onPress={() => handleFeaturePress(features[4])}
+              renderIcon={renderIcon}
+            />
+            <View className="w-[48%]" />
           </View>
         </View>
 
-        {/* Info Footer */}
-        <View className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4">
-          <View className="flex-row items-center">
+        {/* Info Note */}
+        <View className="mt-6 bg-white rounded-[18px] p-4 shadow-sm">
+          <View className="flex-row items-start">
             <Ionicons
               name="information-circle"
               size={20}
-              color="#6366F1"
-              style={{ marginRight: 10 }}
+              color="#0046AD"
+              style={{ marginTop: 2 }}
             />
-            <Text className="text-[12px] text-gray-700 leading-5 flex-1">
-              Tap on any active feature to start scanning and analyzing your
-              lettuce crop
+            <Text className="text-[12px] text-gray-600 leading-[16px] ml-3 flex-1">
+              Tap on any active feature to start scanning and analyzing your lettuce crop
             </Text>
           </View>
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/* Components */
+
+function FeatureCard({
+  feature,
+  onPress,
+  renderIcon,
+}: {
+  feature: Feature;
+  onPress: () => void;
+  renderIcon: (feature: Feature, size: number) => React.ReactNode;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.85}
+      className="bg-white rounded-[18px] p-4 w-[48%]"
+    >
+      <View className="flex-row items-start justify-between mb-3">
+        <View className={`w-11 h-11 rounded-full ${feature.iconBg} items-center justify-center`}>
+          {renderIcon(feature, 22)}
+        </View>
+        {feature.status === "active" ? (
+          <View className="bg-[#E9FBEF] rounded-full px-2 py-0.5">
+            <Text className="text-[9px] font-extrabold text-[#16A34A]">
+              READY
+            </Text>
+          </View>
+        ) : (
+          <View className="bg-[#FFF6E5] rounded-full px-2 py-0.5">
+            <Text className="text-[9px] font-extrabold text-[#F59E0B]">
+              SOON
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <Text className="text-[15px] font-extrabold text-gray-900 leading-[18px]">
+        {feature.title}
+      </Text>
+      <Text className="text-[12px] text-gray-500 mt-1">{feature.subtitle}</Text>
+    </TouchableOpacity>
   );
 }
