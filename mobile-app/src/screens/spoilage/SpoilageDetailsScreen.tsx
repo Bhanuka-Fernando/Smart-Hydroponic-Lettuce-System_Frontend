@@ -327,7 +327,7 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
                   {/* ✅ Centered Title */}
                   <View className="absolute left-0 right-0 items-center" style={{ pointerEvents: 'none' }}>
                     <Text className="text-[16px] font-extrabold text-gray-900">
-                      Weight & Growth
+                      Spoilage Monitoring
                     </Text>
                   </View>
         
