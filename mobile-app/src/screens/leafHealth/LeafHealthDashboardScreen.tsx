@@ -203,7 +203,7 @@ export default function LeafHealthDashboardScreen({ navigation }: any) {
     <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
       {/* Header */}
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 }}>
-        <View className="flex-row items-center justify-between mb-3">
+        <View className="flex-row items-center justify-between mb-1">
           {/* Back Button */}
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -222,7 +222,7 @@ export default function LeafHealthDashboardScreen({ navigation }: any) {
         </View>
 
         {/* Date */}
-        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px]">
+        <Text className="text-[11px] text-gray-500 font-semibold tracking-[0.4px] text-center">
           {headerDate}
         </Text>
       </View>

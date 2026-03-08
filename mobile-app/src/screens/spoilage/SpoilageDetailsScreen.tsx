@@ -304,42 +304,41 @@ export default function SpoilageDetailsScreen({ navigation }: Props) {
   const ListHeader = (
     <>
       <View className="px-4 pt-3">
-        <View className="flex-row items-center justify-between">
-          <View>
-            <Text className="text-[12px] font-semibold" style={{ color: COLORS.subtext }}>
-              Spoilage Monitoring
-            </Text>
-            <Text className="text-[24px] font-extrabold mt-1" style={{ color: COLORS.text }}>
-              Dashboard
-            </Text>
-          </View>
+        
+        {/* ✅ Centered Header */}
+              <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 }}>
+                <View className="flex-row items-center justify-between mb-[-4]">
+                  {/* Back Button */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (navigation.canGoBack()) {
+                        navigation.goBack();
+                      } else {
+                        navigation.navigate("SpoilageAlerts");
+                      }
+                    }}
+                    activeOpacity={0.8}
+                    className="w-10 h-10 items-center justify-center rounded-full bg-white"
+                    style={{ borderWidth: 1, borderColor: "#E5E7EB" }}
+                  >
+                    <Ionicons name="chevron-back" size={20} color="#111827" />
+                  </TouchableOpacity>
+        
+                  {/* ✅ Centered Title */}
+                  <View className="absolute left-0 right-0 items-center" style={{ pointerEvents: 'none' }}>
+                    <Text className="text-[16px] font-extrabold text-gray-900">
+                      Weight & Growth
+                    </Text>
+                  </View>
+        
+                  {/* Empty spacer for balance */}
+                  <View className="w-10 h-10" />
+                </View>
+        
+              
+              </View>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => setProfileOpen(true)}
-            className="relative"
-          >
-            <Image
-              source={{ uri: "https://i.pravatar.cc/100?img=12" }}
-              style={{ width: 42, height: 42, borderRadius: 21 }}
-            />
-            <View
-              style={{
-                position: "absolute",
-                bottom: -1,
-                right: -1,
-                width: 12,
-                height: 12,
-                borderRadius: 6,
-                backgroundColor: COLORS.green,
-                borderWidth: 2,
-                borderColor: "#FFFFFF",
-              }}
-            />
-          </TouchableOpacity>
-        </View>
-
-        <Text className="text-[12px] mt-1" style={{ color: COLORS.subtext }}>
+        <Text className="text-[12px] mt-1 text-center" style={{ color: COLORS.subtext }}>
           {currentLocation}
         </Text>
 
