@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import {
   View,
+  Text,
   TouchableOpacity,
   Alert,
   Image,
@@ -11,13 +12,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Buffer } from "buffer";
-import { H1, H2, Body, Label } from "../../components/ui/AppText";
 import {
   buildLeafHealthImageUrl,
   predictLeafHealthAnnotated,
   saveLeafHealthLog,
 } from "../../api/LeafHealthApi";
-import { styles } from "./LeafHealthResultScreen.styles";
 
 function formatSeverity(status?: string) {
   if (status === "ACT NOW") return "High";
@@ -107,233 +106,311 @@ export default function LeafHealthResultScreen({ route, navigation }: any) {
       ? "#15803D"
       : result?.health_score >= 60
       ? "#D97706"
-      : "#111827";
+      : "#B91C1C";
 
   const statusBg =
     result?.status === "OK"
-      ? "#E8F7ED"
+      ? "bg-[#E9FBEF]"
       : result?.status === "WATCH"
-      ? "#FDE7D8"
-      : "#FDE8E8";
+      ? "bg-[#FFF6E5]"
+      : "bg-[#FEF2F2]";
 
   const statusText =
     result?.status === "OK"
-      ? "#15803D"
+      ? "text-[#15803D]"
       : result?.status === "WATCH"
-      ? "#C2410C"
-      : "#B91C1C";
+      ? "text-[#C2410C]"
+      : "text-[#B91C1C]";
 
   const canAnnotate = !!imageUri && (result?.tipburn?.num_boxes ?? 0) > 0;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={22} color="#111827" />
-          </TouchableOpacity>
+    <SafeAreaView edges={["top"]} className="flex-1 bg-[#F4F6FA]">
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+      >
+        {/* Header */}
+        <View className="pt-2 pb-3">
+          <View className="flex-row items-center justify-between">
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.85}
+              className="w-10 h-10 items-center justify-center"
+            >
+              <Ionicons name="chevron-back" size={22} color="#111827" />
+            </TouchableOpacity>
 
-          <Label style={styles.topBarTitle}>Health Report</Label>
+            <Text className="text-[13px] font-extrabold text-gray-900">Health Report</Text>
 
-          <View style={styles.topSpacer} />
+            <View className="w-10 h-10" />
+          </View>
         </View>
 
-        <View style={styles.imageCard}>
+        {/* Image Card */}
+        <View className="bg-white rounded-[18px] shadow-sm overflow-hidden">
           {displayImageUri ? (
-            <Image source={{ uri: displayImageUri }} style={styles.image} />
+            <Image
+              source={{ uri: displayImageUri }}
+              style={{ width: "100%", height: 280 }}
+              resizeMode="cover"
+            />
           ) : (
-            <View style={styles.imageFallback}>
-              <Ionicons name="leaf-outline" size={34} color="#173C96" />
-              <Body>No scan image available</Body>
+            <View className="w-full h-[280px] items-center justify-center bg-gray-50">
+              <Ionicons name="leaf-outline" size={34} color="#9CA3AF" />
+              <Text className="text-[12px] text-gray-500 mt-2">No scan image available</Text>
             </View>
           )}
 
-          <View style={styles.plantTag}>
-            <Label style={styles.plantTagText}>{result?.plant_id || "Plant #01"}</Label>
+          <View className="absolute top-3 left-3 bg-black/60 px-3 py-1.5 rounded-full">
+            <Text className="text-[11px] font-extrabold text-white">
+              {result?.plant_id || "Plant #01"}
+            </Text>
           </View>
 
-          <View style={styles.timeTag}>
-            <Label style={styles.timeTagText}>
+          <View className="absolute top-3 right-3 bg-black/60 px-3 py-1.5 rounded-full">
+            <Text className="text-[10px] font-semibold text-white">
               {result?.image_name || result?.captured_at || "Leaf Scan"}
-            </Label>
+            </Text>
           </View>
         </View>
 
+        {/* Annotate Button */}
         {canAnnotate && (
           <TouchableOpacity
             onPress={handleAnnotateTipburn}
             disabled={annotating}
-            style={styles.annotateBtn}
+            activeOpacity={0.85}
+            className="mt-3 bg-white rounded-[14px] py-3 px-4 items-center justify-center flex-row"
           >
             {annotating ? (
-              <ActivityIndicator color="#173C96" />
+              <ActivityIndicator color="#1D4ED8" />
             ) : (
               <>
-                <Ionicons name="scan-outline" size={18} color="#173C96" />
-                <Label style={styles.annotateBtnText}>Annotate Tipburn Areas</Label>
+                <Ionicons name="scan-outline" size={18} color="#1D4ED8" />
+                <Text className="ml-2 text-[12px] font-bold text-blue-700">
+                  Annotate Tipburn Areas
+                </Text>
               </>
             )}
           </TouchableOpacity>
         )}
 
-        <View style={styles.scoreCard}>
-          <Label style={styles.smallMuted}>HEALTH SCORE</Label>
+        {/* Health Score Card */}
+        <View className="mt-4 bg-white rounded-[18px] shadow-sm p-5">
+          <Text className="text-[11px] font-extrabold text-gray-400 tracking-wider">
+            HEALTH SCORE
+          </Text>
 
-          <View style={styles.scoreRow}>
-            <View style={styles.scoreLeft}>
-              <H1 style={[styles.scoreText, { color: scoreColor }]}>
-                {result?.health_score ?? 0}
-              </H1>
+          <View className="flex-row items-center justify-between mt-3">
+            <View className="flex-1">
+              <View className="flex-row items-center">
+                <Text
+                  className="text-[48px] font-extrabold mr-3"
+                  style={{ color: scoreColor }}
+                >
+                  {result?.health_score ?? 0}
+                </Text>
 
-              <View style={[styles.statusPill, { backgroundColor: statusBg }]}>
-                <Label style={[styles.statusPillText, { color: statusText }]}>
-                  {formatStatusLabel(result?.status)}
-                </Label>
+                <View className={`px-3 py-1.5 rounded-full ${statusBg}`}>
+                  <Text className={`text-[11px] font-extrabold ${statusText}`}>
+                    {formatStatusLabel(result?.status)}
+                  </Text>
+                </View>
               </View>
+
+              <Text className="text-[12px] text-gray-600 mt-3 leading-[18px]">
+                Main issue:{" "}
+                <Text className="font-bold text-gray-900">{issue}</Text>
+                {" • "}
+                Severity:{" "}
+                <Text className="font-bold text-gray-900">
+                  {formatSeverity(result?.status)}
+                </Text>
+              </Text>
             </View>
 
-            <View style={styles.warningIconWrap}>
-              <Ionicons name="warning-outline" size={24} color="#0B3D91" />
+            <View className="w-14 h-14 rounded-full bg-blue-50 items-center justify-center">
+              <Ionicons name="warning-outline" size={28} color="#1D4ED8" />
             </View>
           </View>
-
-          <Body style={styles.metaSummary}>
-            Main issue: <Label style={styles.metaBold}>{issue}</Label>
-            {" • "}
-            Severity: <Label style={styles.metaBold}>{formatSeverity(result?.status)}</Label>
-          </Body>
         </View>
 
-        <View style={styles.statsRow}>
-          <View style={styles.halfCard}>
-            <Body style={styles.cardLabel}>Top prediction</Body>
-            <Label style={styles.bigValue}>
-              {topPredictionName} ({topPredictionValue.toFixed(2)})
-            </Label>
+        {/* Stats Row */}
+        <View className="flex-row justify-between mt-3">
+          <View className="bg-white rounded-[18px] shadow-sm p-4 w-[48%]">
+            <Text className="text-[11px] text-gray-500 font-semibold">Top Prediction</Text>
+            <Text className="text-[13px] font-extrabold text-gray-900 mt-2">
+              {topPredictionName}
+            </Text>
+            <Text className="text-[12px] text-gray-600 mt-1">
+              {topPredictionValue.toFixed(2)}
+            </Text>
 
-            <View style={styles.progressTrack}>
+            <View className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
               <View
-                style={[
-                  styles.progressFill,
-                  { width: `${Math.max(8, Math.min(100, topPredictionValue * 100))}%` },
-                ]}
+                className="h-full bg-blue-600 rounded-full"
+                style={{
+                  width: `${Math.max(8, Math.min(100, topPredictionValue * 100))}%`,
+                }}
               />
             </View>
           </View>
 
-          <View style={styles.halfCard}>
-            <Body style={styles.cardLabel}>Tipburn risk</Body>
-            <Label style={styles.bigValue}>{(result?.tipburn?.C ?? 0).toFixed(2)}</Label>
-            <Body style={styles.smallHint}>
-              Boxes: {result?.tipburn?.num_boxes ?? 0} • Area ratio:{" "}
-              {(result?.tipburn?.A ?? 0).toFixed(2)}
-            </Body>
+          <View className="bg-white rounded-[18px] shadow-sm p-4 w-[48%]">
+            <Text className="text-[11px] text-gray-500 font-semibold">Tipburn Risk</Text>
+            <Text className="text-[20px] font-extrabold text-gray-900 mt-2">
+              {(result?.tipburn?.C ?? 0).toFixed(2)}
+            </Text>
+            <Text className="text-[10px] text-gray-400 mt-2 leading-[14px]">
+              Boxes: {result?.tipburn?.num_boxes ?? 0}
+              {"\n"}
+              Area: {(result?.tipburn?.A ?? 0).toFixed(2)}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.explainCard}>
-          <H2 style={styles.explainTitle}>Explanations</H2>
+        {/* Explanations Card */}
+        <View className="mt-4 bg-white rounded-[18px] shadow-sm p-5">
+          <Text className="text-[16px] font-extrabold text-gray-900">Explanations</Text>
 
-          <Body style={styles.sectionSub}>
-            <Label style={styles.sectionSubBold}>Classifier</Label> — Top 3 probabilities
-          </Body>
+          {/* Classifier Section */}
+          <Text className="text-[11px] text-gray-500 mt-4 mb-3">
+            <Text className="font-bold">Classifier</Text> — Top 3 probabilities
+          </Text>
 
           {Object.keys(top3).length === 0 ? (
-            <Body style={styles.emptyTop3Text}>No top probabilities returned</Body>
+            <Text className="text-[12px] text-gray-400 italic">
+              No top probabilities returned
+            </Text>
           ) : (
-            Object.entries(top3).map(([k, v]: any) => (
-              <View key={k} style={styles.rowBetween}>
-                <Body style={styles.rowLeft}>{k}</Body>
-                <Label style={styles.rowRight}>{Number(v).toFixed(2)}</Label>
+            Object.entries(top3).map(([k, v]: any, idx) => (
+              <View
+                key={k}
+                className={`flex-row items-center justify-between py-2 ${
+                  idx < Object.keys(top3).length - 1 ? "border-b border-gray-100" : ""
+                }`}
+              >
+                <Text className="text-[12px] text-gray-700 flex-1">{k}</Text>
+                <Text className="text-[12px] font-bold text-gray-900">
+                  {Number(v).toFixed(2)}
+                </Text>
               </View>
             ))
           )}
 
-          <Body style={styles.sectionSubTipburn}>
-            <Label style={styles.sectionSubBold}>Tipburn</Label> — Detector stats
-          </Body>
+          {/* Tipburn Section */}
+          <Text className="text-[11px] text-gray-500 mt-5 mb-3">
+            <Text className="font-bold">Tipburn</Text> — Detector stats
+          </Text>
 
-          <View style={styles.rowBetween}>
-            <Body style={styles.rowLeft}>Boxes count</Body>
-            <Label style={styles.rowRight}>{result?.tipburn?.num_boxes ?? 0}</Label>
+          <View className="flex-row items-center justify-between py-2 border-b border-gray-100">
+            <Text className="text-[12px] text-gray-700">Boxes count</Text>
+            <Text className="text-[12px] font-bold text-gray-900">
+              {result?.tipburn?.num_boxes ?? 0}
+            </Text>
           </View>
 
-          <View style={styles.rowBetween}>
-            <Body style={styles.rowLeft}>Area ratio</Body>
-            <Label style={styles.rowRight}>
+          <View className="flex-row items-center justify-between py-2 border-b border-gray-100">
+            <Text className="text-[12px] text-gray-700">Area ratio</Text>
+            <Text className="text-[12px] font-bold text-gray-900">
               {Number(result?.tipburn?.A ?? 0).toFixed(2)}
-            </Label>
+            </Text>
           </View>
 
-          <View style={styles.rowBetween}>
-            <Body style={styles.rowLeft}>Average confidence</Body>
-            <Label style={styles.rowRight}>
+          <View className="flex-row items-center justify-between py-2">
+            <Text className="text-[12px] text-gray-700">Average confidence</Text>
+            <Text className="text-[12px] font-bold text-gray-900">
               {Number(result?.tipburn?.C ?? 0).toFixed(2)}
-            </Label>
+            </Text>
           </View>
 
+          {/* Decision Summary Section */}
           {!!result?.classification_label && (
             <>
-              <Body style={styles.sectionSubTipburn}>
-                <Label style={styles.sectionSubBold}>Decision summary</Label>
-              </Body>
+              <Text className="text-[11px] text-gray-500 mt-5 mb-3">
+                <Text className="font-bold">Decision summary</Text>
+              </Text>
 
-              <View style={styles.rowBetween}>
-                <Body style={styles.rowLeft}>Selected class</Body>
-                <Label style={styles.rowRight}>{result.classification_label}</Label>
+              <View className="flex-row items-center justify-between py-2 border-b border-gray-100">
+                <Text className="text-[12px] text-gray-700">Selected class</Text>
+                <Text className="text-[12px] font-bold text-gray-900">
+                  {result.classification_label}
+                </Text>
               </View>
 
-              <View style={styles.rowBetween}>
-                <Body style={styles.rowLeft}>Confidence</Body>
-                <Label style={styles.rowRight}>
+              <View className="flex-row items-center justify-between py-2">
+                <Text className="text-[12px] text-gray-700">Confidence</Text>
+                <Text className="text-[12px] font-bold text-gray-900">
                   {Number(result?.classification_confidence ?? 0).toFixed(2)}
-                </Label>
+                </Text>
               </View>
             </>
           )}
         </View>
 
-        <TouchableOpacity onPress={saveLog} style={styles.primaryBtn}>
-          <Label style={styles.primaryBtnText}>Save to Daily Log</Label>
+        {/* Action Buttons */}
+        <TouchableOpacity
+          onPress={saveLog}
+          activeOpacity={0.85}
+          className="mt-4 bg-[#003B8F] rounded-[16px] py-4 items-center justify-center"
+        >
+          <Text className="text-[12px] font-extrabold text-white">Save to Daily Log</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => navigation.navigate("LeafHealthScan")}
-          style={styles.secondaryBtn}
+          activeOpacity={0.85}
+          className="mt-3 bg-white rounded-[16px] py-4 items-center justify-center"
         >
-          <Label style={styles.secondaryBtnText}>New Scan</Label>
+          <Text className="text-[12px] font-extrabold text-gray-900">New Scan</Text>
         </TouchableOpacity>
       </ScrollView>
 
+      {/* Annotated Image Modal */}
       <Modal visible={annotatedVisible} transparent animationType="slide">
-        <View style={styles.annotateModalBackdrop}>
-          <View style={styles.annotateModalCard}>
-            <View style={styles.annotateModalHeader}>
-              <Label style={styles.annotateModalTitle}>Annotated Tipburn Areas</Label>
+        <View className="flex-1 bg-black/60 justify-end">
+          <View className="bg-white rounded-t-[24px] max-h-[85%]">
+            <View className="flex-row items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100">
+              <Text className="text-[15px] font-extrabold text-gray-900">
+                Annotated Tipburn Areas
+              </Text>
 
-              <TouchableOpacity onPress={() => setAnnotatedVisible(false)}>
-                <Ionicons name="close" size={22} color="#111827" />
+              <TouchableOpacity
+                onPress={() => setAnnotatedVisible(false)}
+                activeOpacity={0.85}
+                className="w-9 h-9 rounded-full items-center justify-center bg-gray-100"
+              >
+                <Ionicons name="close" size={18} color="#111827" />
               </TouchableOpacity>
             </View>
 
-            {annotatedImageUri ? (
-              <Image
-                source={{ uri: annotatedImageUri }}
-                style={styles.annotatedImage}
-                resizeMode="contain"
-              />
-            ) : (
-              <View style={styles.annotatedEmpty}>
-                <Body>No annotated image available</Body>
-              </View>
-            )}
+            <ScrollView
+              contentContainerStyle={{ padding: 20 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {annotatedImageUri ? (
+                <Image
+                  source={{ uri: annotatedImageUri }}
+                  style={{ width: "100%", height: 400, borderRadius: 14 }}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View className="w-full h-[400px] items-center justify-center bg-gray-50 rounded-[14px]">
+                  <Text className="text-[12px] text-gray-500">
+                    No annotated image available
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
 
-            <View style={styles.annotateModalFooter}>
+            <View className="px-5 pb-5 pt-3 border-t border-gray-100">
               <TouchableOpacity
                 onPress={() => setAnnotatedVisible(false)}
-                style={styles.annotateCloseBtn}
+                activeOpacity={0.85}
+                className="bg-[#003B8F] rounded-[16px] py-4 items-center justify-center"
               >
-                <Label style={styles.annotateCloseBtnText}>Close</Label>
+                <Text className="text-[12px] font-extrabold text-white">Close</Text>
               </TouchableOpacity>
             </View>
           </View>
