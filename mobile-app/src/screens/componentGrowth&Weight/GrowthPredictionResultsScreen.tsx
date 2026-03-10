@@ -55,13 +55,11 @@ function StatCard({
   title,
   value,
   unit,
-  changePct,
   icon,
 }: {
   title: string;
   value: string;
   unit?: string;
-  changePct: number;
   icon: keyof typeof Ionicons.glyphMap;
 }) {
   return (
@@ -82,13 +80,6 @@ function StatCard({
             {unit}
           </Text>
         )}
-      </View>
-
-      <View className="self-start px-2.5 py-1 rounded-full bg-green-100 flex-row items-center">
-        <Ionicons name="trending-up" size={12} color="#16A34A" />
-        <Text className="ml-1 text-[10px] font-extrabold text-green-700">
-          +{changePct.toFixed(1)}%
-        </Text>
       </View>
     </View>
   );
@@ -480,7 +471,6 @@ export default function GrowthPredictionResultsScreen() {
                 title="PREDICTED WEIGHT"
                 value={fmt(model.predictedWeight)}
                 unit="g"
-                changePct={model.changePct}
                 icon="leaf-outline"
               />
             </View>
@@ -492,7 +482,6 @@ export default function GrowthPredictionResultsScreen() {
                   title="AREA"
                   value={fmt(model.predictedArea)}
                   unit="cm²"
-                  changePct={model.changePct}
                   icon="expand-outline"
                 />
               </View>
@@ -501,7 +490,6 @@ export default function GrowthPredictionResultsScreen() {
                   title="DIAMETER"
                   value={fmt(model.predictedDiameter)}
                   unit="cm"
-                  changePct={model.changePct}
                   icon="resize-outline"
                 />
               </View>
