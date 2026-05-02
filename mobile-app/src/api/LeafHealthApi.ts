@@ -1,8 +1,8 @@
 import axios from "axios";
-import { LEAF_HEALTH_BASE_URL } from "../utils/constants";
+import { DISEASE_API_URL } from "../utils/constants";
 
 const client = axios.create({
-  baseURL: LEAF_HEALTH_BASE_URL,
+  baseURL: DISEASE_API_URL,
   timeout: 60000,
 });
 
@@ -53,7 +53,41 @@ export type LeafHealthRecentItem = {
 export function buildLeafHealthImageUrl(imagePath?: string) {
   if (!imagePath) return undefined;
   const normalized = imagePath.replace(/^\/+/, "");
-  return `${LEAF_HEALTH_BASE_URL}/${normalized}`;
+  return `${DISEASE_API_URL}/${normalized}`;
+}
+
+function formatBackendDetail(detail: unknown) {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object" && "msg" in item) {
+          return String((item as { msg: unknown }).msg);
+        }
+        return JSON.stringify(item);
+      })
+      .join("\n");
+  }
+  if (detail && typeof detail === "object") return JSON.stringify(detail);
+  return undefined;
+}
+
+export function getLeafHealthApiErrorMessage(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    const detail = formatBackendDetail(error.response?.data?.detail);
+    if (detail) return detail;
+
+    if (error.response?.data?.message) return String(error.response.data.message);
+    if (error.response?.status) {
+      return `Disease service returned ${error.response.status}.`;
+    }
+    if (error.message === "Network Error") {
+      return `Cannot reach disease service at ${DISEASE_API_URL}. Check that Docker is listening on your Mac LAN IP and your phone is on the same network.`;
+    }
+  }
+
+  return error instanceof Error ? error.message : "Unknown error";
 }
 
 export async function predictLeafHealth(imageUri: string): Promise<LeafHealthResponse> {
@@ -65,9 +99,7 @@ export async function predictLeafHealth(imageUri: string): Promise<LeafHealthRes
     type: "image/jpeg",
   } as any);
 
-  const res = await client.post("/predict", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  const res = await client.post("/predict", form);
 
   return res.data;
 }
@@ -81,10 +113,7 @@ export async function predictLeafHealthAnnotated(imageUri: string): Promise<Arra
     type: "image/jpeg",
   } as any);
 
-  const res = await client.post("/predict-annotated", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-    responseType: "arraybuffer",
-  });
+  const res = await client.post("/predict-annotated", form, { responseType: "arraybuffer" });
 
   return res.data;
 }

@@ -14,6 +14,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AuthStackParamList } from "../../navigation/AuthNavigator";
 import { registerUser } from "../../api/authApi";
 import { useAuth } from "../../auth/useAuth";
+import { API_BASE_URL } from "../../utils/constants";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
 
@@ -54,8 +55,12 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
       await signInWithEmailPassword({ email, password });
     } catch (err: any) {
-      console.error("Register error:", err?.response?.data || err?.message);
-      const message = err?.response?.data?.detail || "Registration failed. Please try again.";
+      console.warn("Register error:", err?.response?.data || err?.message);
+      const message =
+        err?.response?.data?.detail ||
+        (err?.message === "Network Error"
+          ? `Cannot reach server at ${API_BASE_URL}. Check that the backend is running and your phone is on the same network.`
+          : "Registration failed. Please try again.");
       Alert.alert("Registration failed", message);
     } finally {
       setSubmitting(false);

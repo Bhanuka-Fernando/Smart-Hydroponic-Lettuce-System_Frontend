@@ -10,7 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import { H1, Body, Label } from "../../components/ui/AppText";
-import { predictLeafHealth } from "../../api/LeafHealthApi";
+import { getLeafHealthApiErrorMessage, predictLeafHealth } from "../../api/LeafHealthApi";
 import { styles } from "./LeafHealthCameraScreen.styles";
 
 export default function LeafHealthCameraScreen({ navigation }: any) {
@@ -62,7 +62,7 @@ export default function LeafHealthCameraScreen({ navigation }: any) {
         imageUri: capturedUri,
       });
     } catch (e: any) {
-      Alert.alert("Prediction failed", e?.message || "Unknown error");
+      Alert.alert("Prediction failed", getLeafHealthApiErrorMessage(e));
     } finally {
       setLoading(false);
     }

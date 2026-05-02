@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Buffer } from "buffer";
 import {
   buildLeafHealthImageUrl,
+  getLeafHealthApiErrorMessage,
   predictLeafHealthAnnotated,
   saveLeafHealthLog,
 } from "../../api/LeafHealthApi";
@@ -76,7 +77,7 @@ export default function LeafHealthResultScreen({ route, navigation }: any) {
       });
       Alert.alert("Saved", "Saved to daily log");
     } catch (e: any) {
-      Alert.alert("Save failed", e?.message || "Unknown error");
+      Alert.alert("Save failed", getLeafHealthApiErrorMessage(e));
     }
   };
 
@@ -97,7 +98,7 @@ export default function LeafHealthResultScreen({ route, navigation }: any) {
       setAnnotatedImageUri(dataUri);
       setAnnotatedVisible(true);
     } catch (e: any) {
-      Alert.alert("Annotation failed", e?.message || "Could not generate annotated image");
+      Alert.alert("Annotation failed", getLeafHealthApiErrorMessage(e));
     } finally {
       setAnnotating(false);
     }

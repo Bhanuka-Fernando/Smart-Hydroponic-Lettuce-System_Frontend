@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import { predictLeafHealth } from "../../api/LeafHealthApi";
+import { getLeafHealthApiErrorMessage, predictLeafHealth } from "../../api/LeafHealthApi";
 
 function TipCard({
   icon,
@@ -63,7 +63,7 @@ export default function LeafHealthScanScreen({ navigation }: any) {
       const data = await predictLeafHealth(imageUri);
       navigation.navigate("LeafHealthResult", { result: data, imageUri });
     } catch (e: any) {
-      Alert.alert("Prediction failed", e?.message || "Unknown error");
+      Alert.alert("Prediction failed", getLeafHealthApiErrorMessage(e));
     } finally {
       setLoading(false);
     }
