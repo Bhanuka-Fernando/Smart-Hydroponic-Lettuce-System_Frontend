@@ -308,7 +308,7 @@ export default function SettingsScreen({ navigation }: any) {
               onPress={() =>
                 Alert.alert(
                   "App Version",
-                  "Version 1.0.0 (Build 1)\n\nSmart Hydroponic Lettuce System\n© 2026"
+                  "Version 1.0.0 (Build 1)\n\nQuadra Leaf\n© 2026"
                 )
               }
               activeOpacity={0.85}
@@ -338,7 +338,7 @@ export default function SettingsScreen({ navigation }: any) {
 
         {/* Footer */}
         <Text className="text-center text-[11px] text-gray-400 mt-6">
-          Smart Hydroponic Lettuce System{"\n"}Version 1.0.0 © 2026
+          Quadra Leaf{"\n"}Version 1.0.0 © 2026
         </Text>
         </ScrollView>
       </View>
