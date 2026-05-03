@@ -31,7 +31,21 @@
     },
     "plugins": [
       "expo-web-browser",
-      "expo-font"
-    ]
+      "expo-font",
+      "./plugins/withAndroidCleartext"
+    ],
+    "extra": {
+      "HOST": "hydroponic-backend-alb-1973402541.us-east-1.elb.amazonaws.com",
+      "API_BASE_URL": "http://hydroponic-backend-alb-1973402541.us-east-1.elb.amazonaws.com",
+      "WATER_BASE_URL": "http://hydroponic-backend-alb-1973402541.us-east-1.elb.amazonaws.com:8003",
+      "ML_BASE_URL": "http://hydroponic-backend-alb-1973402541.us-east-1.elb.amazonaws.com:8004",
+      "SPOILAGE_BASE_URL": "http://hydroponic-backend-alb-1973402541.us-east-1.elb.amazonaws.com:8002",
+      "DEVICE_BASE_URL": "http://hydroponic-backend-alb-1973402541.us-east-1.elb.amazonaws.com:8010",
+      "DISEASE_API_URL": "http://hydroponic-backend-alb-1973402541.us-east-1.elb.amazonaws.com:8001",
+      "LEAF_HEALTH_BASE_URL": "http://hydroponic-backend-alb-1973402541.us-east-1.elb.amazonaws.com:8001",
+      "eas": {
+        "projectId": "afe02c67-3d52-4e3f-a79f-9c3b7a279ecb"
+      }
+    }
   }
 }

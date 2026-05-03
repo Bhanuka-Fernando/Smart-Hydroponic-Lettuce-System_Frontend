@@ -17,5 +17,8 @@ export default ({ config }) => ({
     DISEASE_API_URL: process.env.DISEASE_API_URL || defaultDiseaseUrl,
     LEAF_HEALTH_BASE_URL:
       process.env.LEAF_HEALTH_BASE_URL || process.env.DISEASE_API_URL || defaultDiseaseUrl,
+    eas: {
+      projectId: "afe02c67-3d52-4e3f-a79f-9c3b7a279ecb",
+    },
   },
 });
