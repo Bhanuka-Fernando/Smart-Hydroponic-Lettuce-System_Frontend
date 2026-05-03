@@ -83,7 +83,7 @@ export function getLeafHealthApiErrorMessage(error: unknown) {
       return `Disease service returned ${error.response.status}.`;
     }
     if (error.message === "Network Error") {
-      return `Cannot reach disease service at ${DISEASE_API_URL}. Check that Docker is listening on your Mac LAN IP and your phone is on the same network.`;
+      return `Cannot reach disease service at ${DISEASE_API_URL}. Check that the deployed backend is running and reachable.`;
     }
   }
 
