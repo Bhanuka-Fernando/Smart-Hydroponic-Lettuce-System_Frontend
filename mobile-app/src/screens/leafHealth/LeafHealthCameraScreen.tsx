@@ -33,7 +33,8 @@ export default function LeafHealthCameraScreen({ navigation }: any) {
       }
 
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 1,
+        quality: 0.6,
+        skipProcessing: true,
       });
 
       if (photo?.uri) {

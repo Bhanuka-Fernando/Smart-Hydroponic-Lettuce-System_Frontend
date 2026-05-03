@@ -45,7 +45,7 @@ export default function LeafHealthScanScreen({ navigation }: any) {
   const pickImage = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 1,
+      quality: 0.6,
     });
 
     if (!res.canceled) {

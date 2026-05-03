@@ -1,5 +1,6 @@
 import axios from "axios";
 import { DISEASE_API_URL } from "../utils/constants";
+import { buildImageFormData } from "./http";
 
 const client = axios.create({
   baseURL: DISEASE_API_URL,
@@ -73,6 +74,20 @@ function formatBackendDetail(detail: unknown) {
   return undefined;
 }
 
+async function readErrorResponse(res: Response) {
+  const text = await res.text();
+
+  try {
+    const json = JSON.parse(text);
+    const detail = formatBackendDetail(json?.detail);
+    if (detail) return detail;
+    if (json?.message) return String(json.message);
+    return text || `Disease service returned ${res.status}.`;
+  } catch {
+    return text || `Disease service returned ${res.status}.`;
+  }
+}
+
 export function getLeafHealthApiErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
     const detail = formatBackendDetail(error.response?.data?.detail);
@@ -87,35 +102,37 @@ export function getLeafHealthApiErrorMessage(error: unknown) {
     }
   }
 
+  if (error instanceof TypeError && /network request failed/i.test(error.message)) {
+    return `Cannot upload the image to the disease service at ${DISEASE_API_URL}. The phone can reach the host, so this is likely an Android upload/network-policy issue.`;
+  }
+
   return error instanceof Error ? error.message : "Unknown error";
 }
 
 export async function predictLeafHealth(imageUri: string): Promise<LeafHealthResponse> {
-  const form = new FormData();
+  const res = await fetch(`${DISEASE_API_URL}/predict`, {
+    method: "POST",
+    body: buildImageFormData({ imageUri, fieldName: "image" }) as any,
+  });
 
-  form.append("image", {
-    uri: imageUri,
-    name: "leaf.jpg",
-    type: "image/jpeg",
-  } as any);
+  if (!res.ok) {
+    throw new Error(await readErrorResponse(res));
+  }
 
-  const res = await client.post("/predict", form);
-
-  return res.data;
+  return (await res.json()) as LeafHealthResponse;
 }
 
 export async function predictLeafHealthAnnotated(imageUri: string): Promise<ArrayBuffer> {
-  const form = new FormData();
+  const res = await fetch(`${DISEASE_API_URL}/predict-annotated`, {
+    method: "POST",
+    body: buildImageFormData({ imageUri, fieldName: "image" }) as any,
+  });
 
-  form.append("image", {
-    uri: imageUri,
-    name: "leaf.jpg",
-    type: "image/jpeg",
-  } as any);
+  if (!res.ok) {
+    throw new Error(await readErrorResponse(res));
+  }
 
-  const res = await client.post("/predict-annotated", form, { responseType: "arraybuffer" });
-
-  return res.data;
+  return await res.arrayBuffer();
 }
 
 export async function saveLeafHealthLog(payload: any) {
